@@ -1,17 +1,19 @@
-import os
+from pprint import pprint
 import openai
 from dotenv import load_dotenv
 from os import getenv
+import json
 
 load_dotenv()
 openai.api_key = getenv("OPENAI_API_KEY")
-prompt_topic = "Class 10 CBSE Chemistry"
-prompt_game_mode = "MCQ"
+prompt_topic = "Marvel's MCU"
+prompt_game_mode = "Multiple Choice (4 options)"
 prompt_explanation = "True"
-prompt_level = "Medium"
-complete_prompt = f"""If it is appropriate, generate 10 unique questions about {prompt_topic} in the format {prompt_game_mode}.  
-Return the answer with only the option, like "Answer: B)". Make these questions {prompt_level}.
-If it is inappropriate, return only "no"."""
+prompt_level = "Easy"
+prompt_format = """[{"question":"", "options":["option1","option2","option3","option4"], "answer":"", "ID":""}]"""
+complete_prompt = f"""Generate 10 unique questions about {prompt_topic} in the format of {prompt_game_mode}. Make these questions {prompt_level}.
+Return the response as a JSON object with the following format: {prompt_format}
+"""
 
 response = openai.Completion.create(
     model="text-davinci-003",
@@ -24,4 +26,8 @@ response = openai.Completion.create(
     stop=[" Human:", " AI:"],
 )
 
-print(response)
+data = response["choices"][0]["text"]
+data = data.replace("\n", "").replace("\t", "")
+
+questions = json.loads(data)
+pprint(questions)
