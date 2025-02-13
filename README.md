@@ -1,7 +1,7 @@
-# Repo-Template
+# Quizzatron
 
 <p align="center">
-    <img src="assets/Logo.png" alt="Logo" border="0">
+    <img src="assets/logo.png" alt="Logo" border="0">
     <br>We one-up QuizUp!
 
 ---
@@ -45,22 +45,11 @@
 
 ![Product Screenshot](https://media.giphy.com/media/L1R1tvI9svkIWwpVYr/giphy.gif)
 
-<!--- replace with motivation for your project --->
+We’re building an AI-powered quizzing system that can generate questions on any topic - SATs, movies, national flags, or whatever you choose! The application supports custom inputs like PDFs or images and can also generate quizzes autonomously using DeepSeek. It provides an engaging learning experience with minimal human input.
 
-In order to easily to create a new project, I have created a standard template for the all my projects.
-This template currently contains the following features:
+To maximize accessibility, our model integrates with APIs, allowing it to function as a Discord bot, a web interface, or a CLI tool. But we didn’t stop there, we wanted to make quizzing fun. Inspired by **QuizUp**, we focused on gamification, incorporating features that users love based on insights from [community discussions](https://www.reddit.com/r/QuizUp/comments/1ahl958/what_the_hell_happened_to_quizup/).
 
--   Issue templates.
--   Pull request templates.
--   Contributing guidelines.
--   Code of conduct.
--   Required resources to help people start contributing.
--   README.md file with a basic setup.
-
-Simply search and replace `Repo-Template` with the name of your project.
-
-Or, you can use the `assets\template-script.py` to automate the process.
-Run the file by using the following command, `py template-script.py`.
+We also used some standard open source trivia data, such as the [OpenTriviaQA](https://github.com/uberspot/OpenTriviaQA) and the [opentdb API](https://opentdb.com/).
 
 ## Installation
 
@@ -97,13 +86,13 @@ You can also find the demo video [here](https://www.youtube.com/watch?v=dQw4w9Wg
 
 ## Contributing
 
-To contribute to Repo-Template, fork the repository, create a new branch and send us a pull request. Make sure you read [CONTRIBUTING.md](https://github.com/SVijayB/Quizzatron/blob/master/.github/CONTRIBUTING.md) before sending us Pull requests.
+To contribute to Quizzatron, fork the repository, create a new branch and send us a pull request. Make sure you read [CONTRIBUTING.md](https://github.com/SVijayB/Quizzatron/blob/master/.github/CONTRIBUTING.md) before sending us Pull requests.
 
 Thanks for contributing to Open-source! ❤️
 
 ## License
 
-Repo-Template is under The MIT License. Read the [LICENSE](https://github.com/SVijayB/Quizzatron/blob/master/LICENSE) file for more information.
+Quizzatron is under The MIT License. Read the [LICENSE](https://github.com/SVijayB/Quizzatron/blob/master/LICENSE) file for more information.
 
 ---
 
