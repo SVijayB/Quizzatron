@@ -130,3 +130,6 @@
 -   Retrieved quiz history.
 
 ---
+
+### Interaction diagram
+![component_diagram](../../assets/component_diagram.png)
