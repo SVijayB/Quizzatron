@@ -1,0 +1,10 @@
+ollama
+numpy
+google-generativeai
+ipykernel
+jupyter
+PyPDF2
+python-dotenv
+langchain
+langchain_community
+arxiv
