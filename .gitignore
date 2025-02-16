@@ -1,1 +1,6 @@
 .vscode
+venv/
+.env
+notebooks/
+assets/pdfs
+test_scripts/
