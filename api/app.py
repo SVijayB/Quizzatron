@@ -1,14 +1,13 @@
 from flask.templating import render_template
 from flask_cors import CORS, cross_origin
 from flask import Flask, request, jsonify, send_from_directory
-from src.routes import api_blueprint
+from routes import api_blueprint
 import os
 
 
 def create_app():
     app = Flask(__name__, instance_relative_config=True)
     app.config["SECRET_KEY"] = os.getenv("SECRET_KEY")
-    print(os.getenv("SECRET_KEY"))
     app.url_map.strict_slashes = False
     api_cors_config = {
         "origins": [
@@ -35,4 +34,10 @@ def create_app():
         return "ERROR 404: CANNOT GET {}".format(request.path)
 
     app.register_blueprint(api_blueprint)
+    app.config["JSON_SORT_KEYS"] = False
+
     return app
+
+
+if __name__ == "__main__":
+    create_app().run()
