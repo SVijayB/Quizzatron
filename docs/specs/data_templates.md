@@ -35,3 +35,19 @@ Difficulty
   }
 ]
 ```
+### Data format for Leaderboard
+
+```json
+[
+  {
+    "username": "Aravindh",
+    "correct_answers": 8,
+    "score": 80
+  },
+  {
+    "username": "JaneDoe",
+    "correct_answers": 6,
+    "score": 60
+  }
+]
+```
