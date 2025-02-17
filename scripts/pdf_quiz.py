@@ -2,6 +2,7 @@ import ollama
 import google.generativeai as genai
 import re
 import os
+import PyPDF2
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -12,10 +13,22 @@ GOOGLE_API_KEY = api_key
 genai.configure(api_key=GOOGLE_API_KEY)
 
 
+# Function to extract text from the first PDF found in the folder
+def extract_text_from_pdf(pdf_path):
+
+    with open(pdf_path, "rb") as file:
+        reader = PyPDF2.PdfReader(file)
+        text = "\n".join(
+            [page.extract_text() for page in reader.pages if page.extract_text()]
+        )
+
+    return text if text else None
+
+
 # Function to generate quiz questions
 def generate_questions(topic, num_questions, difficulty, model):
     prompt = f"""
-    Generate {num_questions} multiple-choice quiz questions on the topic: {topic}.
+    Generate {num_questions} multiple-choice quiz questions based on this topic: {topic}
     Difficulty level: {difficulty}.
     Each question should have 4 answer choices labeled A, B, C, and D. 
     **DO NOT BOLD ANY CHARACTERS.**
@@ -152,7 +165,34 @@ def run_quiz(questions):
 def main():
     print("🎓 Welcome to Quizzatron!")
 
-    topic = input("Enter a topic for the quiz: ").strip()
+    while True:
+        try:
+            pdf_topic = (
+                input(
+                    "Would you like to enter a topic or a PDF for the quiz? (topic/pdf): "
+                )
+                .strip()
+                .lower()
+            )
+            if pdf_topic in ["topic", "pdf"]:
+                break
+            else:
+                print("Please enter a valid choice (topic/pdf).")
+        except ValueError:
+            print("Invalid input.")
+
+    if pdf_topic == "pdf":
+
+        pdf_path = input("Enter the path to the PDF file: ").strip()
+        if not os.path.exists(pdf_path) or not pdf_path.endswith(".pdf"):
+            print("⚠️ Invalid PDF file. Please provide a valid file path.")
+            return
+        print("\n⏳ Extracting text from the PDF... Please wait.")
+        topic = extract_text_from_pdf(pdf_path)
+
+    else:
+        topic = input("Enter a topic for the quiz: ").strip()
+
     while True:
         try:
             num_questions = int(input("How many questions? (5, 10, 20): ").strip())
