@@ -3,4 +3,5 @@ venv/
 .env
 notebooks/
 assets/pdfs
+__pycache__/
 test_scripts/
