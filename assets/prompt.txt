@@ -1,3 +1,4 @@
+prompt = f"""
 Generate {num_questions} multiple-choice quiz questions on the topic: "{topic}".
 - Difficulty level: {difficulty}
 - Image-based questions: {image}
@@ -7,55 +8,78 @@ Generate {num_questions} multiple-choice quiz questions on the topic: "{topic}".
 - The correct answer should be randomly placed (not always A).
 - Keep language simple and clear.
 - Do NOT include unnecessary details—just the question, options, answer, and image description.
+- If image-based questions is true, then the "image" field should contain the bing image prompt to obtain said image.
 - STICK TO THE FORMAT GIVEN BELOW AND PROVIDE OUTPUT IN THE SAME ORDER!
+- RETURN OUTPUT AS A VALID JSON OBJECT.
 
-**If image-based questions are enabled, format them like this:**
+**If image-based questions is true, format them like this:**
 
-Example:
+Example JSON:
+{{
+    "questions": [
+        {{
+            "index": 1,
+            "question": "Which country does this national flag belong to?",
+            "options": ["A) India", "B) Japan", "C) Germany", "D) France"],
+            "correct_answer": "B",
+            "difficulty": "{difficulty}",
+            "image": "National flag of Japan"
+        }},
+        {{
+            "index": 2,
+            "question": "Which company does this logo represent?",
+            "options": ["A) Apple", "B) Tesla", "C) Microsoft", "D) Amazon"],
+            "correct_answer": "C",
+            "difficulty": "{difficulty}",
+            "image": "Microsoft logo"
+        }},
+        {{
+            "index": 3,
+            "question": "What is the name of this famous landmark?",
+            "options": ["A) Eiffel Tower", "B) Statue of Liberty", "C) Colosseum", "D) Taj Mahal"],
+            "correct_answer": "A",
+            "difficulty": "{difficulty}",
+            "image": "Eiffel Tower"
+        }},
+        {{
+            "index": 4,
+            "question": "Who is this person?",
+            "options": ["A) Albert Einstein", "B) Isaac Newton", "C) Nikola Tesla", "D) Galileo Galilei"],
+            "correct_answer": "C",
+            "difficulty": "{difficulty}",
+            "image": "Nikola Tesla"
+        }}
+    ]
+}}
 
-**For flags:**  
-1. Which country does this national flag belong to?  
-   A) India  
-   B) Japan  
-   C) Germany  
-   D) France  
-   Answer: B  
-   Image: National flag of Japan  
+**If image-based questions is flase, format them as regular text-based questions:**
 
-**For brand logos:**  
-2. Which company does this logo represent?  
-   A) Apple  
-   B) Tesla  
-   C) Microsoft  
-   D) Amazon  
-   Answer: C  
-   Image: Microsoft logo  
+Example JSON:
+{{
+    "questions": [
+        {{
+            "index": 1,
+            "question": "What is the capital of France?",
+            "options": ["A) Berlin", "B) Madrid", "C) Paris", "D) Rome"],
+            "correct_answer": "C",
+            "difficulty": "{difficulty}",
+            "image": false
+        }},
+        {{
+            "index": 2,
+            "question": "Which planet is known as the Red Planet?",
+            "options": ["A) Venus", "B) Mars", "C) Jupiter", "D) Saturn"],
+            "correct_answer": "B",
+            "difficulty": "{difficulty}",
+            "image": false
+        }}
+    ]
+}}
 
-**For landmarks:**  
-3. What is the name of this famous landmark?  
-   A) Eiffel Tower  
-   B) Statue of Liberty  
-   C) Colosseum  
-   D) Taj Mahal  
-   Answer: A  
-   Image: Eiffel Tower  
-
-**For historical figures:**  
-4. Who is this person?  
-   A) Albert Einstein  
-   B) Isaac Newton  
-   C) Nikola Tesla  
-   D) Galileo Galilei  
-   Answer: C  
-   Image: Nikola Tesla  
-
-**If image-based questions are disabled, format them as regular text-based questions.**
-
-Example:
-1. What is the capital of France?  
-   A) Berlin  
-   B) Madrid  
-   C) Paris  
-   D) Rome  
-   Answer: C  
-   Image: False
+**Rules:**
+1. **DO NOT include any extra text**—only return a valid JSON object.
+2. **Ensure JSON syntax is correct** (use proper commas, brackets, and escape characters if necessary).
+3. If `"image"` is **true**, it should contain a **short label** (e.g., `"National flag of Japan"`).
+4. Image-based questions should **match the image description**.
+5. If `"image": false`, generate **only standard text-based questions**.
+"""

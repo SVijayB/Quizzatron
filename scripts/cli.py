@@ -48,7 +48,7 @@ def main():
     print("\n⏳ Generating quiz questions... Please wait.")
 
     response_text = generate_questions(topic, num_questions, difficulty, model, image)
-    questions = parse_questions(response_text, model, difficulty)
+    questions = parse_questions(response_text)
 
     if not questions:
         print("⚠️ No valid questions generated. Try again with a different topic.")
