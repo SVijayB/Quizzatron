@@ -1,9 +1,10 @@
-import ollama
+from duckduckgo_search import DDGS
 import google.generativeai as genai
-import re
-import os
 from dotenv import load_dotenv
+import ollama
 import json
+import os
+
 
 load_dotenv()
 
@@ -36,11 +37,12 @@ def generate_questions(topic, num_questions, difficulty, model, image=False):
 def parse_questions(response_text):
     try:
         response_json = json.loads(response_text)
-
-        if "questions" in response_json:
-            return response_json["questions"]
-        else:
-            raise ValueError("Invalid JSON format: Missing 'questions' key.")
+        for question in response_json["questions"]:
+            if question["image"]:
+                with DDGS() as ddgs:
+                    results = ddgs.images(question["image"], max_results=1)
+                    question["image"] = [result["image"] for result in results]
+        return response_json["questions"]
     except json.JSONDecodeError:
         print("Parsing JSON failed. Returning raw text.")
         return response_text

@@ -1,5 +1,4 @@
 from quiz_gen import generate_questions, parse_questions
-import re
 
 
 def run_quiz(questions):
@@ -55,6 +54,8 @@ def main():
         return
 
     run_quiz(questions)
+
+    print("\n👋 Thanks for trying Quizzatron!")
 
 
 if __name__ == "__main__":
