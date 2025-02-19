@@ -13,38 +13,11 @@ genai.configure(api_key=GOOGLE_API_KEY)
 
 
 # Function to generate quiz questions
-def generate_questions(topic, num_questions, difficulty, model):
-    prompt = f"""
-    Generate {num_questions} multiple-choice quiz questions on the topic: {topic}.
-    Difficulty level: {difficulty}.
-    Each question should have 4 answer choices labeled A, B, C, and D. 
-    **Do not bold any characters.**
-    Only use english characters
-    Indicate the correct answer clearly. Make sure the correct answer is not always 'A'.
-
-    Occasionally, include **logo-based questions** when relevant.
-    A logo-based question should follow this format:
-
-    Example:
-    3. What car brand does this logo represent?
-       A) Honda
-       B) Toyota
-       C) Suzuki
-       D) Tesla
-       Answer: B
-       Logo: True
-
-    If it's **not** a logo-based question, include: `Logo: False`.
-
-    Example Format for a normal question:
-    1. What is the capital of France?
-       A) Berlin
-       B) Madrid
-       C) Paris
-       D) Rome
-       Answer: C
-       Logo: False
-    """
+def generate_questions(topic, num_questions, difficulty, model, image=False):
+    with open("assets/prompt.txt", "r") as file:
+        prompt = file.read().format(
+            topic=topic, num_questions=num_questions, difficulty=difficulty, image=image
+        )
 
     if model == "deepseek":
         response = ollama.chat(
@@ -74,7 +47,7 @@ def parse_questions(response_text, model, difficulty):
     current_question = None
     options = []
     correct_answer = None
-    logo_based = False
+    image_based = False
     index = 1
 
     for line in lines:
@@ -88,14 +61,14 @@ def parse_questions(response_text, model, difficulty):
                         "options": options,
                         "correct_answer": correct_answer,
                         "difficulty": difficulty,
-                        "logo": logo_based,
+                        "image": image_based,
                     }
                 )
                 index += 1
             current_question = re.sub(r"^\d+\.\s*", "", line)  # Remove number
             options = []
             correct_answer = None
-            logo_based = False
+            image_based = False
         elif re.match(r"^[A-D]\) ", line):  # Detects options
             options.append(line)
         elif re.match(r"^\*?Answer:\s*[A-D]\*?", line):  # Detects correct answer
@@ -103,9 +76,9 @@ def parse_questions(response_text, model, difficulty):
             if match:
                 correct_answer = match.group(1)
         elif re.match(
-            r"^\s*Logo:\s*(True|False)", line, re.IGNORECASE
-        ):  # Detects logo field
-            logo_based = line.split(":")[-1].strip().lower() == "true"
+            r"^\s*Image:\s*(True|False)", line, re.IGNORECASE
+        ):  # Detects image field
+            image_based = line.split(":")[-1].strip().lower() == "true"
 
     # Ensure the last question is added
     if current_question:
@@ -116,7 +89,7 @@ def parse_questions(response_text, model, difficulty):
                 "options": options,
                 "correct_answer": correct_answer,
                 "difficulty": difficulty,
-                "logo": logo_based,
+                "image": image_based,
             }
         )
 
@@ -129,9 +102,9 @@ def run_quiz(questions):
     for i, q in enumerate(questions, 1):
         print(f"\nQ{i}: {q['question']}")
 
-        # Display logo-based questions differently (can add functionality to fetch logos here)
-        if q["logo"]:
-            print("🖼️ (This is a logo-based question)")
+        # Display image-based questions differently (can add functionality to fetch images here)
+        if q["image"]:
+            print("🖼️ (This is a image-based question)")
 
         # Display answer choices
         for option in q["options"]:
@@ -165,11 +138,12 @@ def main():
 
     difficulty = input("Choose difficulty (easy, medium, hard): ").strip().lower()
     model = input("Choose model (deepseek, gemini): ").strip().lower()
+    image = input("Generate image-based questions? (True/False): ").strip().lower()
 
     print("\n⏳ Generating quiz questions... Please wait.")
 
-    response_text = generate_questions(topic, num_questions, difficulty, model)
-
+    response_text = generate_questions(topic, num_questions, difficulty, model, image)
+    print(response_text)
     questions = parse_questions(response_text, model, difficulty)
 
     if not questions:

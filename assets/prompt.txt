@@ -1,0 +1,61 @@
+Generate {num_questions} multiple-choice quiz questions on the topic: "{topic}".
+- Difficulty level: {difficulty}
+- Image-based questions: {image}
+
+**Formatting Guidelines:**
+- Each question must have four answer choices labeled A, B, C, and D.
+- The correct answer should be randomly placed (not always A).
+- Keep language simple and clear.
+- Do NOT include unnecessary details—just the question, options, answer, and image description.
+- STICK TO THE FORMAT GIVEN BELOW AND PROVIDE OUTPUT IN THE SAME ORDER!
+
+**If image-based questions are enabled, format them like this:**
+
+Example:
+
+**For flags:**  
+1. Which country does this national flag belong to?  
+   A) India  
+   B) Japan  
+   C) Germany  
+   D) France  
+   Answer: B  
+   Image: National flag of Japan  
+
+**For brand logos:**  
+2. Which company does this logo represent?  
+   A) Apple  
+   B) Tesla  
+   C) Microsoft  
+   D) Amazon  
+   Answer: C  
+   Image: Microsoft logo  
+
+**For landmarks:**  
+3. What is the name of this famous landmark?  
+   A) Eiffel Tower  
+   B) Statue of Liberty  
+   C) Colosseum  
+   D) Taj Mahal  
+   Answer: A  
+   Image: Eiffel Tower  
+
+**For historical figures:**  
+4. Who is this person?  
+   A) Albert Einstein  
+   B) Isaac Newton  
+   C) Nikola Tesla  
+   D) Galileo Galilei  
+   Answer: C  
+   Image: Nikola Tesla  
+
+**If image-based questions are disabled, format them as regular text-based questions.**
+
+Example:
+1. What is the capital of France?  
+   A) Berlin  
+   B) Madrid  
+   C) Paris  
+   D) Rome  
+   Answer: C  
+   Image: False
