@@ -1,4 +1,4 @@
-from duckduckgo_search import DDGS
+from utils.extract_img import cleanup_temp_folder, download_images
 import google.generativeai as genai
 from dotenv import load_dotenv
 import PyPDF2
@@ -53,11 +53,11 @@ def parse_questions(response_text):
         if response_text.endswith("```"):
             response_text = response_text[:-3]
         response_json = json.loads(response_text)
+        cleanup_temp_folder()
         for question in response_json["questions"]:
             if question["image"]:
-                with DDGS() as ddgs:
-                    results = ddgs.images(question["image"], max_results=1)
-                    question["image"] = [result["image"] for result in results]
+                image_path = download_images(question["image"])
+                question["image"] = image_path
         return response_json["questions"]
     except json.JSONDecodeError:
         print("Parsing JSON failed. Returning raw text.")

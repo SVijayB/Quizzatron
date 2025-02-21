@@ -1,5 +1,5 @@
 from flask import Flask, jsonify, request, Blueprint
-from routes.core.quiz_gen_fn import generate_questions, parse_questions
+from utils.quiz_gen import generate_questions, parse_questions
 
 core_quiz_gen_bp = Blueprint("core_quiz_gen_api", __name__, url_prefix="/quiz")
 
