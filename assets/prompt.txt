@@ -3,18 +3,20 @@ Generate {num_questions} multiple-choice quiz questions on the topic: "{topic}".
 - Difficulty level: {difficulty}
 - Image-based questions: {image}
 
-**Formatting Guidelines:**
+HERE ARE THE FORMATTING GUIDELINES FOR THE JSON OUTPUT that you will create
 - Each question must have four answer choices labeled A, B, C, and D.
 - The correct answer should be randomly placed (not always A).
 - Keep language simple and clear.
 - Do NOT include unnecessary details—just the question, options, answer, and image description.
 - If image-based questions is true, then the "image" field should contain the bing image prompt to obtain said image.
-- STICK TO THE FORMAT GIVEN BELOW AND PROVIDE OUTPUT IN THE SAME ORDER!
+- STICK TO THE FORMAT GIVEN BELOW AND PROVIDE OUTPUT IN THE SAME ORDER! 
 - RETURN OUTPUT AS A VALID JSON OBJECT.
+- THE JSON OUTPUT SHOULD BE THE EXACT SAME as ONE OF THE TWO EXAMPLES BELOW BASED on the VALUE of "Imaged-based questions"
+if it is "True" format it like Example 1, if it is false format is like Example 2
 
-**If image-based questions is true, format them like this:**
+**If "Image-based questions" is "True", format them like this:**
 
-Example JSON:
+Example 1 JSON:
 {{
     "questions": [
         {{
@@ -52,9 +54,10 @@ Example JSON:
     ]
 }}
 
-**If image-based questions is flase, format them as regular text-based questions:**
+**If image-based questions is False, format them as regular text-based questions:**
 
-Example JSON:
+Example 2 JSON: 
+
 {{
     "questions": [
         {{
@@ -83,3 +86,6 @@ Example JSON:
 4. Image-based questions should **match the image description**.
 5. If `"image": false`, generate **only standard text-based questions**.
 """
+
+LASTLY validate the output you generated with the format provided in the prompt,
+just test and ensure if it matches, else fix the JSON so that it is correct

@@ -1,4 +1,5 @@
-from quiz_gen import generate_questions, parse_questions
+from quiz_gen import generate_questions, parse_questions, extract_text_from_pdf
+import os
 
 
 def run_quiz(questions):
@@ -28,8 +29,24 @@ def run_quiz(questions):
 # Main function
 def main():
     print("🎓 Welcome to Quizzatron!")
+    pdf_topic = (
+        input("Would you like to enter a topic or a PDF for the quiz? (topic/pdf): ")
+        .strip()
+        .lower()
+    )
 
-    topic = input("Enter a topic for the quiz: ").strip()
+    if pdf_topic == "pdf":
+
+        pdf_path = input("Enter the path to the PDF file: ").strip()
+        if not os.path.exists(pdf_path) or not pdf_path.endswith(".pdf"):
+            print("⚠️ Invalid PDF file. Please provide a valid file path.")
+            return
+        print("\n⏳ Extracting text from the PDF... Please wait.")
+        topic = extract_text_from_pdf(pdf_path)
+
+    else:
+        topic = input("Enter a topic for the quiz: ").strip()
+
     while True:
         try:
             num_questions = int(input("How many questions? (5, 10, 20): ").strip())
@@ -42,12 +59,19 @@ def main():
 
     difficulty = input("Choose difficulty (easy, medium, hard): ").strip().lower()
     model = input("Choose model (deepseek, gemini): ").strip().lower()
-    image = input("Generate image-based questions? (True/False): ").strip().lower()
+
+    image = input("Do you want image-based questions? (yes/no): ").strip().lower()
+    if image == "yes":
+        image = True
+    else:
+        image = False
 
     print("\n⏳ Generating quiz questions... Please wait.")
 
     response_text = generate_questions(topic, num_questions, difficulty, model, image)
+
     questions = parse_questions(response_text)
+    print(questions)
 
     if not questions:
         print("⚠️ No valid questions generated. Try again with a different topic.")
@@ -55,8 +79,16 @@ def main():
 
     run_quiz(questions)
 
-    print("\n👋 Thanks for trying Quizzatron!")
+
+def test_function():
+    res = generate_questions(
+        topic="cars", num_questions=5, difficulty="medium", model="gemini", image=True
+    )
+    questions = parse_questions(res)
+    print(questions)
+    run_quiz(questions)
 
 
 if __name__ == "__main__":
     main()
+    # test_function()
