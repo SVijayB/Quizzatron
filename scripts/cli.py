@@ -9,7 +9,7 @@ def run_quiz(questions):
 
         # Display image-based questions differently (can add functionality to fetch images here)
         if q["image"]:
-            print("🖼️ (This is a image-based question)")
+            print("🖼️ (This is an image-based question)")
 
         # Display answer choices
         for option in q["options"]:
@@ -60,8 +60,8 @@ def main():
     difficulty = input("Choose difficulty (easy, medium, hard): ").strip().lower()
     model = input("Choose model (deepseek, gemini): ").strip().lower()
 
-    image = input("Do you want image-based questions? (yes/no): ").strip().lower()
-    if image == "yes":
+    image = input("Do you want image-based questions? (true/false): ").strip().lower()
+    if image == "true":
         image = True
     else:
         image = False
@@ -82,7 +82,11 @@ def main():
 
 def test_function():
     res = generate_questions(
-        topic="cars", num_questions=5, difficulty="medium", model="gemini", image=True
+        topic="animals",
+        num_questions=5,
+        difficulty="medium",
+        model="gemini",
+        image="true",
     )
     questions = parse_questions(res)
     print(questions)
@@ -90,5 +94,5 @@ def test_function():
 
 
 if __name__ == "__main__":
-    main()
-    # test_function()
+    # main()
+    test_function()
