@@ -25,7 +25,7 @@ def download_images(query):
     google_crawler = GoogleImageCrawler(storage={"root_dir": "temp"})
     google_crawler.crawl(keyword=query, max_num=1, filters=filters)
 
-    downloaded_images = glob.glob(os.path.join("temp", "000001.*"))
+    downloaded_images = glob.glob(os.path.join("temp", "000001*"))
     if downloaded_images:
         original_image_path = downloaded_images[0]
         query = query.replace(" ", "_")
@@ -34,7 +34,7 @@ def download_images(query):
         if os.path.exists(new_image_path):
             os.remove(new_image_path)
         os.rename(original_image_path, new_image_path)
-        path = os.path.abspath(new_image_path)
+        path = new_image_path
         logging.info(f"📸  {query} downloaded successfully.")
     else:
         logging.warning(f"No image found for query: {query}")

@@ -47,7 +47,7 @@ def create_app():
         return "ERROR 404: CANNOT GET {}".format(request.path)
 
     app.register_blueprint(api_blueprint)
-    app.config["JSON_SORT_KEYS"] = False
+    app.json.sort_keys = False
 
     return app
 

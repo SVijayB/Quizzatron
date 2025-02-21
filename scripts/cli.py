@@ -9,7 +9,7 @@ def run_quiz(questions):
 
         # Display image-based questions differently (can add functionality to fetch images here)
         if q["image"]:
-            print("🖼️ (This is a image-based question)")
+            print("🖼️ (This is an image-based question)")
 
         # Display answer choices
         for option in q["options"]:

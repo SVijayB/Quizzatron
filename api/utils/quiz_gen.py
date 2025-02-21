@@ -27,8 +27,21 @@ def extract_text_from_pdf(pdf_path):
 
 # Function to generate quiz questions
 def generate_questions(
-    topic, num_questions=5, difficulty="medium", model="gemini", image=False
+    topic=None,
+    num_questions=5,
+    difficulty="medium",
+    model="gemini",
+    image=False,
+    pdf=None,
 ):
+    if pdf:
+        pdf_text = extract_text_from_pdf(pdf)
+        if pdf_text:
+            topic = pdf_text
+        else:
+            logging.error("Failed to extract text from the provided PDF.")
+            return {"error": "Failed to extract text from the provided PDF."}
+
     with open("assets/prompt.txt", "r") as file:
         prompt = file.read().format(
             topic=topic, num_questions=num_questions, difficulty=difficulty, image=image
