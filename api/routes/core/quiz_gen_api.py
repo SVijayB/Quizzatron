@@ -1,5 +1,6 @@
 from flask import Flask, jsonify, request, Blueprint
 from utils.quiz_gen import generate_questions, parse_questions
+import logging
 
 core_quiz_gen_bp = Blueprint("core_quiz_gen_api", __name__, url_prefix="/quiz")
 
@@ -28,7 +29,7 @@ def generate_quiz():
             }
         )
 
-    print("⏳ Generating quiz questions... Please wait.")
+    logging.info("⏳ Generating quiz questions... Please wait.")
     response_text = generate_questions(topic, num_questions, difficulty, model, image)
     questions = parse_questions(response_text)
     return jsonify(questions)

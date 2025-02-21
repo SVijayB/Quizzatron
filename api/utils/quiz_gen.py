@@ -1,6 +1,7 @@
 from utils.extract_img import cleanup_temp_folder, download_images
 import google.generativeai as genai
 from dotenv import load_dotenv
+import logging
 import PyPDF2
 import ollama
 import json
@@ -58,7 +59,10 @@ def parse_questions(response_text):
             if question["image"]:
                 image_path = download_images(question["image"])
                 question["image"] = image_path
+        logging.info("✅ Quiz generation completed successfully.")
         return response_json["questions"]
     except json.JSONDecodeError:
-        print("Parsing JSON failed. Returning raw text.")
+        logging.error("Failed to parse JSON response.")
+        logging.error(f"Response text: {response_text}")
+        logging.error("Returning raw text.")
         return response_text

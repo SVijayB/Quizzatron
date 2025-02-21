@@ -14,7 +14,7 @@ def cleanup_temp_folder():
     temp_folder = "temp"
     for image_file in glob.glob(os.path.join(temp_folder, "*")):
         os.remove(image_file)
-    print("🧹 Clean-up activity completed.")
+    logging.info("🧹 Clean-up activity completed.")
 
 
 def download_images(query):
@@ -25,10 +25,19 @@ def download_images(query):
     google_crawler = GoogleImageCrawler(storage={"root_dir": "temp"})
     google_crawler.crawl(keyword=query, max_num=1, filters=filters)
 
-    default_image_path = os.path.join("temp", "000001.jpg")
-    query = query.replace(" ", "_")
-    new_image_path = os.path.join("temp", f"{query}.jpg")
-    os.rename(default_image_path, new_image_path)
-    path = os.path.abspath(new_image_path)
-    print(f"🖼️  {query} downloaded successfully.")
+    downloaded_images = glob.glob(os.path.join("temp", "000001.*"))
+    if downloaded_images:
+        original_image_path = downloaded_images[0]
+        query = query.replace(" ", "_")
+        new_image_path = os.path.join("temp", f"{query}.jpg")
+
+        if os.path.exists(new_image_path):
+            os.remove(new_image_path)
+        os.rename(original_image_path, new_image_path)
+        path = os.path.abspath(new_image_path)
+        logging.info(f"📸  {query} downloaded successfully.")
+    else:
+        logging.warning(f"No image found for query: {query}")
+        path = None
+
     return path
