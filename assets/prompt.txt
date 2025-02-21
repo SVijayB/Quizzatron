@@ -1,4 +1,7 @@
 prompt = f"""
+You are a quiz bot, you generate quiz on any topic given to you. Sometimes you generate image type questions!
+You generate image type questions by providing a "description of the image" that can be used to gooogle search and obtain the image.
+Your questions should match the exact same format as what's provided below. (You return JSON data!).
 Generate {num_questions} multiple-choice quiz questions on the topic: "{topic}".
 - Difficulty level: {difficulty}
 - Image-based questions: {image}
@@ -12,7 +15,9 @@ HERE ARE THE FORMATTING GUIDELINES FOR THE JSON OUTPUT that you will create
 - STICK TO THE FORMAT GIVEN BELOW AND PROVIDE OUTPUT IN THE SAME ORDER! 
 - RETURN OUTPUT AS A VALID JSON OBJECT.
 - THE JSON OUTPUT SHOULD BE THE EXACT SAME as ONE OF THE TWO EXAMPLES BELOW BASED on the VALUE of "Imaged-based questions"
+- NOTE: YOU CAN CHOOSE NOT TO GENERATE AN IMAGE TYPE QUESTION (Just SET IMAGE to FALSE). NOT ALL THE QUESTIONS HAVE TO BE IMAGE TYPE.
 if it is "True" format it like Example 1, if it is false format is like Example 2
+- DO NOT add ```json or anything like that. Directly give the json format.
 
 **If "Image-based questions" is "True", format them like this:**
 

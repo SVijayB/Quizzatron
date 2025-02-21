@@ -19,6 +19,8 @@ def generate_quiz():
     topic = request.args.get("topic")
     difficulty = request.args.get("difficulty")
     num_questions = request.args.get("num_questions")
+    image = request.args.get("image")
+
     if not model or not topic or not difficulty:
         return jsonify(
             {
@@ -26,7 +28,7 @@ def generate_quiz():
             }
         )
 
-    print("Generating quiz questions... Please wait.")
-    response_text = generate_questions(topic, num_questions, difficulty, model)
-    questions = parse_questions(response_text, model, difficulty)
+    print("⏳ Generating quiz questions... Please wait.")
+    response_text = generate_questions(topic, num_questions, difficulty, model, image)
+    questions = parse_questions(response_text)
     return jsonify(questions)
