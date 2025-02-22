@@ -28,6 +28,13 @@
 <a href="https://github.com/SVijayB/Quizzatron/blob/master/.github/CONTRIBUTING.md">
     <img src="https://img.shields.io/static/v1?style=for-the-badge&amp;logo=opensourceinitiative&amp;label=Open&amp;message=Source%20%E2%9D%A4%EF%B8%8F&amp;color=blueviolet" alt="Open Source Love svg1">
     </a>
+    <br>
+<a href="https://codecov.io/gh/SVijayB/Quizzatron" > 
+    <img src="https://img.shields.io/codecov/c/github/SVijayB/quizzatron?style=for-the-badge&logo=codecov" alt="Code Coverage"> 
+    </a>
+<a href="https://github.com/SVijayB/Quizzatron/actions">
+    <img src="https://img.shields.io/github/actions/workflow/status/SVijayB/Quizzatron/CI.yml?style=for-the-badge&logo=github" alt="Build Status">
+    </a>
 </p>
 
 ## Table of Contents
