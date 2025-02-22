@@ -1,12 +1,11 @@
 from flask import Flask, jsonify, request, Blueprint
-from api.utils.quiz_gen import generate_questions, parse_questions
-import logging
+from api.services.quiz_gen_service import generate_quiz
 
 core_quiz_gen_bp = Blueprint("core_quiz_gen_api", __name__, url_prefix="/quiz")
 
 
 @core_quiz_gen_bp.route("/", methods=["GET"])
-def ranking_function():
+def quiz():
     return jsonify(
         {
             "message": "Quiz generating module is ready to go! Hit the /quiz/generate endpoint! 🚀"
@@ -15,7 +14,7 @@ def ranking_function():
 
 
 @core_quiz_gen_bp.route("/generate", methods=["GET"])
-def generate_quiz():
+def generate():
     model = request.args.get("model")
     topic = request.args.get("topic")
     difficulty = request.args.get("difficulty")
@@ -42,44 +41,13 @@ def generate_quiz():
             400,
         )
 
-    logging.info("⏳ Generating quiz questions... Please wait.")
-
-    if difficulty.lower() not in ["easy", "medium", "hard"]:
-        return (
-            jsonify({"error": "Invalid difficulty. Choose one: [easy, medium, hard]"}),
-            400,
-        )
-
-    if model.lower() not in ["deepseek", "gemini"]:
-        return jsonify({"error": "Invalid model. Choose one: [deepseek, gemini]."}), 400
-
-    if num_questions is not None:
-        try:
-            num_questions = int(num_questions)
-            if num_questions <= 0:
-                return (
-                    jsonify({"error": "num_questions must be a positive integer."}),
-                    400,
-                )
-        except ValueError:
-            return jsonify({"error": "num_questions must be an integer."}), 400
-
-    if image is not None:
-        if image.lower() not in ["true", "false"]:
-            return jsonify({"error": "image must be 'true' or 'false'."}), 400
-
-    if pdf is not None:
-        if not pdf.lower().endswith((".pdf")):
-            return (
-                jsonify({"error": "Invalid file format. "}),
-                400,
-            )
-
-    logging.info("⏳ Generating quiz questions... Please wait.")
-
-    response_text = generate_questions(
-        topic, num_questions, difficulty, model, image, pdf
+    result = generate_quiz(
+        model=model,
+        topic=topic,
+        difficulty=difficulty,
+        num_questions=num_questions,
+        image=image,
+        pdf=pdf,
     )
-    questions = parse_questions(response_text)
 
-    return jsonify(questions)
+    return result

@@ -1,6 +1,6 @@
 import pytest
 from flask import Flask
-from api.routes.core.quiz_gen_api import core_quiz_gen_bp
+from api.routes.quiz_gen_api import core_quiz_gen_bp
 
 
 @pytest.fixture

@@ -10,7 +10,7 @@ import os
 
 load_dotenv()
 
-# Set up Google Gemini API key
+
 api_key = os.getenv("GOOGLE_API_KEY")
 GOOGLE_API_KEY = api_key
 genai.configure(api_key=GOOGLE_API_KEY)
@@ -25,15 +25,7 @@ def extract_text_from_pdf(pdf_path):
     return text if text else None
 
 
-# Function to generate quiz questions
-def generate_questions(
-    topic=None,
-    num_questions=5,
-    difficulty="medium",
-    model="gemini",
-    image=False,
-    pdf=None,
-):
+def generate_questions(topic, num_questions, difficulty, model, image, pdf):
     if pdf:
         pdf_text = extract_text_from_pdf(pdf)
         if pdf_text:
@@ -56,8 +48,6 @@ def generate_questions(
         gemini_model = genai.GenerativeModel("gemini-pro")
         response = gemini_model.generate_content(prompt)
         return response.text.strip()
-    else:
-        raise ValueError("Invalid model choice. Use 'deepseek' or 'gemini'.")
 
 
 def parse_questions(response_text):
@@ -69,7 +59,7 @@ def parse_questions(response_text):
         response_json = json.loads(response_text)
         cleanup_temp_folder()
         for question in response_json["questions"]:
-            if question["image"] or question["image"] == "true":
+            if question["image"]:
                 image_path = download_images(question["image"])
                 question["image"] = image_path
         logging.info("✅ Quiz generation completed successfully.")
