@@ -1,7 +1,7 @@
 from flask.templating import render_template
 from flask_cors import CORS, cross_origin
 from flask import Flask, request, jsonify, send_from_directory
-from routes import api_blueprint
+from api.routes import api_blueprint
 import logging.config
 import logging
 import sys
@@ -50,7 +50,3 @@ def create_app():
     app.json.sort_keys = False
 
     return app
-
-
-if __name__ == "__main__":
-    create_app().run()

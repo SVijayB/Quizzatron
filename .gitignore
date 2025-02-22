@@ -6,3 +6,4 @@ assets/pdfs
 __pycache__/
 test_scripts/
 temp/
+.pytest_cache/

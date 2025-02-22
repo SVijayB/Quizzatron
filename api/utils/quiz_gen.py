@@ -1,8 +1,8 @@
-from utils.extract_img import cleanup_temp_folder, download_images
+from api.utils.extract_img import cleanup_temp_folder, download_images
 import google.generativeai as genai
 from dotenv import load_dotenv
 import logging
-import PyPDF2
+import pypdf
 import ollama
 import json
 import os
@@ -18,7 +18,7 @@ genai.configure(api_key=GOOGLE_API_KEY)
 
 def extract_text_from_pdf(pdf_path):
     with open(pdf_path, "rb") as file:
-        reader = PyPDF2.PdfReader(file)
+        reader = pypdf.PdfReader(file)
         text = "\n".join(
             [page.extract_text() for page in reader.pages if page.extract_text()]
         )
@@ -69,7 +69,7 @@ def parse_questions(response_text):
         response_json = json.loads(response_text)
         cleanup_temp_folder()
         for question in response_json["questions"]:
-            if question["image"]:
+            if question["image"] or question["image"] == "true":
                 image_path = download_images(question["image"])
                 question["image"] = image_path
         logging.info("✅ Quiz generation completed successfully.")

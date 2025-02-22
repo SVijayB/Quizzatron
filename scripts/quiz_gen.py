@@ -1,7 +1,6 @@
-from duckduckgo_search import DDGS
 import google.generativeai as genai
 from dotenv import load_dotenv
-import PyPDF2
+import pypdf
 import ollama
 import json
 import os
@@ -17,7 +16,7 @@ genai.configure(api_key=GOOGLE_API_KEY)
 
 def extract_text_from_pdf(pdf_path):
     with open(pdf_path, "rb") as file:
-        reader = PyPDF2.PdfReader(file)
+        reader = pypdf.PdfReader(file)
         text = "\n".join(
             [page.extract_text() for page in reader.pages if page.extract_text()]
         )
@@ -49,11 +48,6 @@ def generate_questions(
 def parse_questions(response_text):
     try:
         response_json = json.loads(response_text)
-        for question in response_json["questions"]:
-            if question["image"]:
-                with DDGS() as ddgs:
-                    results = ddgs.images(question["image"], max_results=1)
-                    question["image"] = [result["image"] for result in results]
         return response_json["questions"]
     except json.JSONDecodeError:
         print("Parsing JSON failed. Returning raw text.")
