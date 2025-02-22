@@ -18,9 +18,9 @@ def test_generate_quiz_missing_parameters(client):
     assert "error" in data
 
 
-def test_generate_quiz_with_topic(client):
+def test_generate_quiz_with_all_parameters(client):
     response = client.get(
-        "/quiz/generate?model=gemini&difficulty=medium&topic=Python%20Programming"
+        "/quiz/generate?model=gemini&difficulty=easy&topic=History&num_questions=3&image=true"
     )
     assert response.status_code == 200
     data = response.get_json()
@@ -30,15 +30,6 @@ def test_generate_quiz_with_topic(client):
 def test_generate_quiz_with_pdf(client):
     response = client.get(
         r"/quiz/generate?model=gemini&difficulty=medium&num_questions=5&pdf=assets/greek_myth.pdf"
-    )
-    assert response.status_code == 200
-    data = response.get_json()
-    assert "error" not in data
-
-
-def test_generate_quiz_with_all_parameters(client):
-    response = client.get(
-        "/quiz/generate?model=gemini&difficulty=easy&topic=History&num_questions=3&image=true"
     )
     assert response.status_code == 200
     data = response.get_json()
