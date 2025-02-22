@@ -35,7 +35,7 @@ def download_images(query):
             os.remove(new_image_path)
         os.rename(original_image_path, new_image_path)
         path = new_image_path
-        logging.info(f"📸  {query} downloaded successfully.")
+        logging.info(f"📸 {query} downloaded successfully.")
     else:
         logging.warning(f"No image found for query: {query}")
         path = None

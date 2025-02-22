@@ -20,7 +20,7 @@ def test_generate_quiz_missing_parameters(client):
 
 def test_generate_quiz_with_all_parameters(client):
     response = client.get(
-        "/quiz/generate?model=gemini&difficulty=easy&topic=History&num_questions=3&image=true"
+        "/quiz/generate?model=gemini&difficulty=easy&topic=animals&num_questions=3&image=true"
     )
     assert response.status_code == 200
     data = response.get_json()

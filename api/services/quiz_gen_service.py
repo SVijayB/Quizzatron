@@ -1,4 +1,5 @@
 from api.utils.quiz_gen import generate_questions, parse_questions
+from api.utils.validate_output import validate_model_output
 from flask import jsonify
 import logging
 
@@ -53,6 +54,11 @@ def generate_quiz(
         response_text = generate_questions(
             topic, num_questions, difficulty, model, image, pdf
         )
+        if validate_model_output(response_text):
+            logging.info("💫 Model output validated successfully.")
+        else:
+            logging.error("❌ Model output validation failed.")
+            return jsonify({"error": "Invalid model output."}), 500
     except Exception as e:
         logging.error(f"❌ Quiz generation failed: {e}")
         return jsonify({"error": "Quiz generation failed."}), 500
