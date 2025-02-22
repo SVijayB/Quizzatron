@@ -59,9 +59,11 @@ def parse_questions(response_text):
         response_json = json.loads(response_text)
         cleanup_temp_folder()
         for question in response_json["questions"]:
-            if question["image"]:
+            if isinstance(question["image"], str) and question["image"]:
                 image_path = download_images(question["image"])
                 question["image"] = image_path
+            else:
+                question["image"] = "False"
         logging.info("✅ Quiz generation completed successfully.")
         return response_json["questions"]
     except json.JSONDecodeError:

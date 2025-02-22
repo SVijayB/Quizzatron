@@ -32,8 +32,16 @@ jobs:
               env:
                   GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
 
-            - name: Run tests
+            - name: Run tests with coverage
               run: |
-                  pytest  # Add any options you want for pytest, like --cov for coverage
+                  pytest --cov=api --cov-report=xml --cov-report=term-missing
               env:
                   GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
+
+            - name: Upload coverage reports to Codecov
+              uses: codecov/codecov-action@v5
+              with:
+                  token: ${{ secrets.CODECOV_TOKEN }}
+                  files: coverage.xml
+                  flags: unittests
+                  fail_ci_if_error: true

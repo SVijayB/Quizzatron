@@ -36,8 +36,8 @@ def validate_model_output(model_output):
 
             if isinstance(q["image"], str) and q["image"].lower() == "false":
                 q["image"] = False
-            elif not isinstance(q["image"], (str, bool)):
-                return False
+            elif isinstance(q["image"], bool):
+                q["image"] = False
 
         return True
     except Exception as e:
