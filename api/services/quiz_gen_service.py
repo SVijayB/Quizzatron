@@ -37,6 +37,8 @@ def generate_quiz(
             return jsonify({"error": "image must be 'true' or 'false'."}), 400
         if image.lower() == "true":
             image = True
+        else:
+            image = False
 
     if pdf is not None:
         if not pdf.lower().endswith((".pdf")):
@@ -47,8 +49,12 @@ def generate_quiz(
 
     logging.info("🔍 Input parameters validated. Payload is ready.")
     logging.info("⏳ Generating quiz questions... Please wait.")
-    response_text = generate_questions(
-        topic, num_questions, difficulty, model, image, pdf
-    )
+    try:
+        response_text = generate_questions(
+            topic, num_questions, difficulty, model, image, pdf
+        )
+    except Exception as e:
+        logging.error(f"❌ Quiz generation failed: {e}")
+        return jsonify({"error": "Quiz generation failed."}), 500
     questions = parse_questions(response_text)
     return jsonify(questions, 200)
