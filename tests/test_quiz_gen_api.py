@@ -29,7 +29,7 @@ def test_generate_quiz_with_topic(client):
 
 def test_generate_quiz_with_pdf(client):
     response = client.get(
-        r"/quiz/generate?model=gemini&difficulty=medium&num_questions=5&pdf=D:/My%20Workspace/Books/39%20clues(Rapid%20Fire)/01%20-%20Legacy.pdf"
+        r"/quiz/generate?model=gemini&difficulty=medium&num_questions=5&pdf=assets/greek_myth.pdf"
     )
     assert response.status_code == 200
     data = response.get_json()
