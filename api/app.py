@@ -43,8 +43,8 @@ def create_app():
 
     @app.errorhandler(404)
     def page_not_found(e):
-        app.logger.error("Page not found: %s", request.path)  # Log the 404 error
-        return "ERROR 404: CANNOT GET {}".format(request.path)
+        app.logger.error("Page not found: %s", request.path)
+        return "ERROR 404: CANNOT GET {}".format(request.path), 404
 
     app.register_blueprint(api_blueprint)
     app.json.sort_keys = False

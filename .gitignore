@@ -8,3 +8,4 @@ test_scripts/
 api/static/temp/
 .pytest_cache/
 frontend/node_modules/
+.coverage
