@@ -21,27 +21,72 @@ const Results = () => {
   const [totalScore, setTotalScore] = useState(0);
 
   useEffect(() => {
-    const data = localStorage.getItem("quizResults");
-    const score = localStorage.getItem("totalScore");
-    if (!data) {
+    const resultsData = localStorage.getItem("quizResults");
+    const scoreData = localStorage.getItem("totalScore");
+    
+    if (!resultsData) {
       navigate("/");
       return;
     }
+
     try {
-      const parsedResults = JSON.parse(data);
+      const parsedResults = JSON.parse(resultsData);
+      if (!Array.isArray(parsedResults)) {
+        throw new Error("Invalid results format");
+      }
+
       const validResults = parsedResults.map((result: any) => ({
         question: result.question || "Unknown Question",
         userAnswer: result.userAnswer || "Unanswered",
         correctAnswer: result.correctAnswer || "Unknown",
         isCorrect: Boolean(result.isCorrect),
-        score: result.score || 0
+        score: Number(result.score) || 0
       }));
+
       setResults(validResults);
-      setTotalScore(score ? parseInt(score) : 0);
+      setTotalScore(scoreData ? parseInt(scoreData) : 0);
+
+      // Show confetti for good scores
+      const correctAnswers = validResults.filter(r => r.isCorrect).length;
+      const percentage = Math.round((correctAnswers / validResults.length) * 100);
+      if (percentage >= 70) {
+        const duration = 5 * 1000;
+        const animationEnd = Date.now() + duration;
+        const defaults = { startVelocity: 30, spread: 360, ticks: 60, zIndex: 0 };
+
+        function randomInRange(min: number, max: number) {
+          return Math.random() * (max - min) + min;
+        }
+
+        const interval = setInterval(function() {
+          const timeLeft = animationEnd - Date.now();
+          if (timeLeft <= 0) {
+            clearInterval(interval);
+            return;
+          }
+          
+          const particleCount = 50 * (timeLeft / duration);
+          confetti({
+            ...defaults,
+            particleCount,
+            origin: { x: randomInRange(0.1, 0.3), y: Math.random() - 0.2 }
+          });
+          confetti({
+            ...defaults,
+            particleCount,
+            origin: { x: randomInRange(0.7, 0.9), y: Math.random() - 0.2 }
+          });
+        }, 250);
+
+        return () => clearInterval(interval);
+      }
     } catch (error) {
+      console.error("Error loading results:", error);
       navigate("/");
     }
   }, [navigate]);
+
+  if (!results.length) return null;
 
   const correctAnswers = results.filter((r) => r.isCorrect).length;
   const totalQuestions = results.length;
@@ -55,41 +100,8 @@ const Results = () => {
     return "Keep Practicing!";
   };
 
-  useEffect(() => {
-    if (percentage >= 70) {
-      const duration = 5 * 1000;
-      const animationEnd = Date.now() + duration;
-      const defaults = { startVelocity: 30, spread: 360, ticks: 60, zIndex: 0 };
-
-      function randomInRange(min: number, max: number) {
-        return Math.random() * (max - min) + min;
-      }
-
-      const interval: NodeJS.Timeout = setInterval(function() {
-        const timeLeft = animationEnd - Date.now();
-        if (timeLeft <= 0) return clearInterval(interval);
-        const particleCount = 50 * (timeLeft / duration);
-        confetti({
-          ...defaults,
-          particleCount,
-          origin: { x: randomInRange(0.1, 0.3), y: Math.random() - 0.2 }
-        });
-        confetti({
-          ...defaults,
-          particleCount,
-          origin: { x: randomInRange(0.7, 0.9), y: Math.random() - 0.2 }
-        });
-      }, 250);
-
-      return () => clearInterval(interval);
-    }
-  }, [percentage]);
-
-  if (!results.length) return null;
-
   return (
     <div className="min-h-screen relative overflow-hidden bg-[#1a1a2e]">
-      {/* Background effects */}
       <div className="absolute inset-0">
         <div className="absolute inset-0 bg-[linear-gradient(to_right,#4f3ed0,#8b5cf6)] opacity-50" />
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_0%,#1a1a2e_100%)]" />

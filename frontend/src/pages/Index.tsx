@@ -41,7 +41,19 @@ const Index = () => {
         description: "Please select a PDF file",
         variant: "destructive",
       });
+      setSelectedFile(null);
+      setFormData(prev => ({ ...prev, topic: "" }));
     }
+  };
+
+  const handleTopicChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (selectedFile) {
+      setSelectedFile(null);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+    }
+    setFormData(prev => ({ ...prev, topic: e.target.value }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -111,12 +123,11 @@ const Index = () => {
               <div className="relative flex items-center">
                 <Input
                   type="text"
-                  placeholder="Type your quiz topic"
+                  placeholder={selectedFile ? selectedFile.name : "Type your quiz topic"}
                   className="relative w-full h-14 px-6 text-lg bg-white/10 text-white placeholder:text-white/60 backdrop-blur-sm border-white/20 rounded-xl shadow-[0_0_15px_rgba(168,85,247,0.15)] transition-all duration-200 focus:ring-2 focus:ring-violet-400/30 focus:bg-white/15 focus:border-violet-400/50"
                   value={formData.topic}
-                  onChange={(e) =>
-                    setFormData((prev) => ({ ...prev, topic: e.target.value }))
-                  }
+                  onChange={handleTopicChange}
+                  disabled={!!selectedFile}
                   required
                 />
                 <button
