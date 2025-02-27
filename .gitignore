@@ -5,5 +5,8 @@ notebooks/
 assets/pdfs
 __pycache__/
 test_scripts/
-temp/
+api/static/temp/
 .pytest_cache/
+frontend/node_modules/
+.coverage
+app.log

@@ -58,8 +58,8 @@ def generate_quiz(
             response_text = generate_questions(
                 topic, num_questions, difficulty, model, image, pdf
             )
-
-            if validate_model_output(response_text):
+            response_text = validate_model_output(response_text)
+            if response_text is not False:
                 logging.info("💫 Model output validated successfully.")
                 break
             else:
