@@ -28,10 +28,9 @@ def create_app():
     app.config["SECRET_KEY"] = os.getenv("SECRET_KEY")
     app.url_map.strict_slashes = False
     api_cors_config = {
-        "origins": [
-            "*",
-            "http://localhost:8080",
-        ]
+        "origins": "*",
+        "supports_credentials": True,
+        "allow_headers": "*"
     }
     CORS(app, resources={"/*": api_cors_config})
 

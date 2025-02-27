@@ -70,7 +70,14 @@ const Index = () => {
       });
 
       const response = await fetch(
-        `http://127.0.0.1:5000/api/quiz/generate?${queryParams}`
+        `https://silver-capybara-vrp6rqj6jxvfwrvp-5000.app.github.dev/api/quiz/generate?${queryParams}`, {
+          method: 'GET',
+          credentials: 'include',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          mode: 'cors'
+        }
       );
 
       if (!response.ok) {
