@@ -70,7 +70,7 @@ const Index = () => {
       });
 
       const response = await fetch(
-        `https://silver-capybara-vrp6rqj6jxvfwrvp-5000.app.github.dev/api/quiz/generate?${queryParams}`, {
+        `https://quizzatron.onrender.com/api/quiz/generate?${queryParams}`, {
           method: 'GET',
           credentials: 'include',
           headers: {

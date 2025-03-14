@@ -22,8 +22,8 @@ Answer: Correct_Option
 
 
 response = client.models.generate_content(
-            model="gemini-2.0-flash-lite", contents=prompt
-        )
+    model="gemini-2.0-flash-lite", contents=prompt
+)
 # Print the generated question
 print("Generated Quiz Question:\n")
 print(response.text.strip())
