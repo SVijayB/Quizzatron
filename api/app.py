@@ -22,15 +22,16 @@ def setup_logging():
     root_logger.addHandler(stream_handler)
 
 
-def create_app():
+def create_app(env):
     setup_logging()
     app = Flask(__name__, instance_relative_config=True)
     app.config["SECRET_KEY"] = os.getenv("SECRET_KEY")
+    app.config["ENV"] = env
     app.url_map.strict_slashes = False
     api_cors_config = {
         "origins": "*",
         "supports_credentials": True,
-        "allow_headers": "*"
+        "allow_headers": "*",
     }
     CORS(app, resources={"/*": api_cors_config})
 
