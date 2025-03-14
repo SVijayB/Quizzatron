@@ -53,7 +53,7 @@ def generate_questions(topic, num_questions, difficulty, model, image, pdf):
 def parse_questions(response_text):
     try:
         response_json = json.loads(response_text)
-        cleanup_temp_folder()
+        # cleanup_temp_folder()
         for question in response_json["questions"]:
             if isinstance(question["image"], str) and question["image"]:
                 image_path = download_images(question["image"])
