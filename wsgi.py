@@ -1,7 +1,9 @@
 import os
 from api.app import create_app
 from waitress import serve
+from dotenv import load_dotenv
 
+load_dotenv()
 ENVIRONMENT = os.getenv("FLASK_ENV", "LOCAL").upper()
 app = create_app(ENVIRONMENT)
 
