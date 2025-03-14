@@ -33,7 +33,7 @@
     <img src="https://img.shields.io/codecov/c/github/SVijayB/quizzatron?style=for-the-badge&logo=codecov" alt="Code Coverage"> 
     </a>
 <a href="https://github.com/SVijayB/Quizzatron/actions">
-    <img src="https://img.shields.io/github/actions/workflow/status/SVijayB/Quizzatron/CI.yml?style=for-the-badge&logo=github" alt="Build Status">
+    <img src="https://img.shields.io/github/actions/workflow/status/SVijayB/Quizzatron/ci-test.yml?style=for-the-badge&logo=github" alt="Build Status">
     </a>
 </p>
 
