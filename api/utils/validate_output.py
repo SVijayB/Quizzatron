@@ -1,8 +1,12 @@
+"""This file contains the function to validate the model output."""
+
 import json
 import logging
 
 
 def validate_model_output(model_output):
+    """
+    Validate the model output and return the output if valid, otherwise return False."""
     try:
         if isinstance(model_output, str):
             model_output = model_output.strip()
@@ -16,7 +20,7 @@ def validate_model_output(model_output):
         try:
             data = json.loads(model_output)
         except json.JSONDecodeError as e:
-            logging.error(f"JSON parsing error: {e}")
+            logging.error("JSON parsing error: %s", e)
             return False
 
         if not isinstance(data, dict) or "questions" not in data:
@@ -43,34 +47,37 @@ def validate_model_output(model_output):
 
             if not required_keys.issubset(q.keys()):
                 missing_keys = required_keys - q.keys()
-                logging.error(f"Invalid question format: Missing keys - {missing_keys}")
+                logging.error(
+                    "Invalid question format: Missing keys - %s", missing_keys
+                )
                 return False
 
             if not isinstance(q["index"], int):
-                logging.error(f"Invalid index: Expected int, got {type(q['index'])}")
+                logging.error("Invalid index: Expected int, got %s", type(q["index"]))
                 return False
 
             if not isinstance(q["question"], str):
                 logging.error(
-                    f"Invalid question: Expected str, got {type(q['question'])}"
+                    "Invalid question: Expected str, got %s", type(q["question"])
                 )
                 return False
 
             if not isinstance(q["options"], list) or len(q["options"]) != 4:
                 logging.error(
-                    f"Invalid options: Expected list of 4, got {q['options']}"
+                    "Invalid options: Expected list of 4, got %s", q["options"]
                 )
                 return False
 
             if q["correct_answer"] not in ["A", "B", "C", "D"]:
                 logging.error(
-                    f"Invalid correct_answer: Expected 'A', 'B', 'C', or 'D', got {q['correct_answer']}"
+                    "Invalid correct_answer: Expected 'A', 'B', 'C', or 'D', got %s",
+                    q["correct_answer"],
                 )
                 return False
 
             if not isinstance(q["difficulty"], str):
                 logging.error(
-                    f"Invalid difficulty: Expected str, got {type(q['difficulty'])}"
+                    "Invalid difficulty: Expected str, got %s", type(q["difficulty"])
                 )
                 return False
 
@@ -78,11 +85,12 @@ def validate_model_output(model_output):
                 q["image"] = False
             elif not isinstance(q["image"], (bool, str)):
                 logging.error(
-                    f"Invalid image field: Expected str or bool, got {type(q['image'])}"
+                    "Invalid image field: Expected str or bool, got %s",
+                    type(q["image"]),
                 )
                 return False
 
         return model_output
     except Exception as e:
-        logging.exception(f"Unexpected validation error: {e}")
+        logging.exception("Unexpected validation error: %s", e)
         return False
