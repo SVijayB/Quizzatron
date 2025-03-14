@@ -1,4 +1,4 @@
-name: CI for Flask API
+name: CI - Test and Coverage
 
 on:
     push:
@@ -45,9 +45,3 @@ jobs:
                   files: coverage.xml
                   flags: unittests
                   fail_ci_if_error: true
-
-            - name: Autolinting with Black
-              run: |
-                  black --check .
-              env:
-                  GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
