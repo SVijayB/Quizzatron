@@ -67,8 +67,9 @@ def main():
 
     print("\n⏳ Generating quiz questions... Please wait.")
 
-    # pylint : disable=no-value-for-parameter
-    response_text = generate_questions(topic, num_questions, difficulty, model, image)
+    response_text = generate_questions(
+        topic, num_questions, difficulty, model, image
+    )  # pylint : disable=no-value-for-parameter
 
     questions = parse_questions(response_text)
 
