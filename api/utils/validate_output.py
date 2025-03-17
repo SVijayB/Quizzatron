@@ -3,6 +3,7 @@
 import json
 import logging
 
+
 # pylint: disable=too-many-return-statements, too-many-branches
 def validate_model_output(model_output):
     """
@@ -54,36 +55,56 @@ def validate_model_output(model_output):
 
             if not required_keys.issubset(question.keys()):
                 missing_keys = required_keys - question.keys()
-                logging.error("Invalid question format: Missing keys - %s", missing_keys)
+                logging.error(
+                    "Invalid question format: Missing keys - %s", missing_keys
+                )
                 return False
 
             if not isinstance(question["index"], int):
-                logging.error("Invalid index: Expected int, got %s", type(question["index"]))
+                logging.error(
+                    "Invalid index: Expected int, got %s", type(question["index"])
+                )
                 return False
 
             if not isinstance(question["question"], str):
-                logging.error("Invalid question: Expected str, got %s", type(question["question"]))
+                logging.error(
+                    "Invalid question: Expected str, got %s", type(question["question"])
+                )
                 return False
 
-            if not isinstance(question["options"], list) or len(question["options"]) != 4:
-                logging.error("Invalid options: Expected list of 4, got %s", question["options"])
+            if (
+                not isinstance(question["options"], list)
+                or len(question["options"]) != 4
+            ):
+                logging.error(
+                    "Invalid options: Expected list of 4, got %s", question["options"]
+                )
                 return False
 
             if question["correct_answer"] not in ["A", "B", "C", "D"]:
                 logging.error(
                     "Invalid correct_answer: Expected 'A', 'B', 'C', or 'D', got %s",
-                    question["correct_answer"]
+                    question["correct_answer"],
                 )
                 return False
 
             if not isinstance(question["difficulty"], str):
-                logging.error("Invalid difficulty: Expected str, got %s", type(question["difficulty"]))
+                logging.error(
+                    "Invalid difficulty: Expected str, got %s",
+                    type(question["difficulty"]),
+                )
                 return False
 
-            if isinstance(question["image"], str) and question["image"].lower() == "false":
+            if (
+                isinstance(question["image"], str)
+                and question["image"].lower() == "false"
+            ):
                 question["image"] = False
             elif not isinstance(question["image"], (bool, str)):
-                logging.error("Invalid image field: Expected str or bool, got %s", type(question["image"]))
+                logging.error(
+                    "Invalid image field: Expected str or bool, got %s",
+                    type(question["image"]),
+                )
                 return False
 
         return model_output

@@ -12,10 +12,10 @@ import ollama
 load_dotenv()
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
 
-client = None  # Initialize client to avoid 'possibly-used-before-assignment' error
+CLIENT = None  # Initialize client to avoid 'possibly-used-before-assignment' error
 if GOOGLE_API_KEY:
     try:
-        client = genai.Client(api_key=GOOGLE_API_KEY)
+        CLIENT = genai.Client(api_key=GOOGLE_API_KEY)
     except Exception as error:  # pylint: disable=broad-except
         print(f"⚠️ Gemini API client initialization failed: {error}")
 
@@ -33,7 +33,7 @@ def extract_text_from_pdf(pdf_path):
         print(f"⚠️ Error extracting text from PDF: {error}")
         return ""
 
-
+# pylint: disable=too-many-return-statements
 def generate_questions(
     topic, num_questions=5, difficulty="medium", model="gemini", image=False
 ):
@@ -61,12 +61,12 @@ def generate_questions(
             return ""
 
     if model == "gemini":
-        if client is None:
+        if CLIENT is None:
             print("⚠️ Gemini API client not initialized. Cannot generate questions.")
             return ""
 
         try:
-            response = client.models.generate_content(
+            response = CLIENT.models.generate_content(
                 model="gemini-2.0-flash-lite", contents=prompt
             )
             return response.text.strip() if response else ""

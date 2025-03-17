@@ -14,6 +14,7 @@ load_dotenv()
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
 client = genai.Client(api_key=GOOGLE_API_KEY)
 
+
 def extract_text_from_pdf(pdf_path):
     """Extract text content from a PDF file."""
     with open(pdf_path, "rb") as file:
@@ -22,6 +23,7 @@ def extract_text_from_pdf(pdf_path):
             [page.extract_text() for page in reader.pages if page.extract_text()]
         )
     return text if text else None
+
 
 # pylint: disable=too-many-arguments,too-many-positional-arguments
 def generate_questions(topic, num_questions, difficulty, model, image, pdf):
@@ -44,14 +46,14 @@ def generate_questions(topic, num_questions, difficulty, model, image, pdf):
             model="deepseek-r1", messages=[{"role": "user", "content": prompt}]
         )
         return response["message"]["content"]
-    
     if model == "gemini":
         response = client.models.generate_content(
             model="gemini-2.0-flash-lite", contents=prompt
         )
         return response.text.strip()
-    
+
     return None
+
 
 def parse_questions(response_text):
     """Parse the generated questions and download images if required."""

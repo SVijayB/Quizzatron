@@ -30,7 +30,11 @@ def run_quiz(questions):
 def main():
     """Main function to run the Quizzatron quiz generator."""
     print("🎓 Welcome to Quizzatron!")
-    pdf_topic = input("Would you like to enter a topic or a PDF for the quiz? (topic/pdf): ").strip().lower()
+    pdf_topic = (
+        input("Would you like to enter a topic or a PDF for the quiz? (topic/pdf): ")
+        .strip()
+        .lower()
+    )
 
     topic = ""
     if pdf_topic == "pdf":
@@ -56,11 +60,14 @@ def main():
     difficulty = input("Choose difficulty (easy, medium, hard): ").strip().lower()
     model = input("Choose model (deepseek, gemini): ").strip().lower()
 
-    image_input = input("Do you want image-based questions? (true/false): ").strip().lower()
+    image_input = (
+        input("Do you want image-based questions? (true/false): ").strip().lower()
+    )
     image = image_input == "true"
 
     print("\n⏳ Generating quiz questions... Please wait.")
 
+    # pylint : disable=no-value-for-parameter
     response_text = generate_questions(topic, num_questions, difficulty, model, image)
 
     questions = parse_questions(response_text)
