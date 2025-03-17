@@ -33,9 +33,14 @@ def extract_text_from_pdf(pdf_path):
         print(f"⚠️ Error extracting text from PDF: {error}")
         return ""
 
+
 # pylint: disable=too-many-return-statements
 def generate_questions(
-    topic, num_questions=5, difficulty="medium", model="gemini", image=False
+    topic: str,
+    num_questions: int = 5,
+    difficulty: str = "medium",
+    model: str = "gemini",
+    image: bool = False,
 ):
     """Generate quiz questions using DeepSeek or Gemini models."""
     try:
