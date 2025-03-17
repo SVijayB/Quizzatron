@@ -1,3 +1,5 @@
+"""Module for demonstrating how the ICrawler package works"""
+
 from icrawler.builtin import GoogleImageCrawler
 
 
