@@ -30,15 +30,15 @@ def run_quiz(questions):
 def main():
     """Main function to run the Quizzatron quiz generator."""
     print("🎓 Welcome to Quizzatron!")
-    pdf_topic = input(
-        "Would you like to enter a topic or a PDF for the quiz? (topic/pdf): "
-    ).strip().lower()
+    pdf_topic = input("Would you like to enter a topic or a PDF for the quiz? (topic/pdf): ").strip().lower()
 
+    topic = ""
     if pdf_topic == "pdf":
         pdf_path = input("Enter the path to the PDF file: ").strip()
         if not os.path.exists(pdf_path) or not pdf_path.endswith(".pdf"):
             print("⚠️ Invalid PDF file. Please provide a valid file path.")
             return
+
         print("\n⏳ Extracting text from the PDF... Please wait.")
         topic = extract_text_from_pdf(pdf_path) or "General Knowledge"
     else:
@@ -67,24 +67,6 @@ def main():
 
     if not questions or not isinstance(questions, list):
         print("⚠️ No valid questions generated. Try again with a different topic.")
-        return
-
-    run_quiz(questions)
-
-
-def test_function():
-    """Test function to generate and run a quiz with predefined parameters."""
-    res = generate_questions(
-        topic="animals",
-        num_questions=5,
-        difficulty="medium",
-        model="gemini",
-        image=True,
-    )
-    questions = parse_questions(res)
-
-    if not questions or not isinstance(questions, list):
-        print("⚠️ No valid questions generated. Try again.")
         return
 
     run_quiz(questions)
