@@ -30,15 +30,15 @@ def generate():
         return (
             jsonify(
                 {
-                    "error": "Please provide all required parameters: model, difficulty, topic or pdf. "
-                    "Optional parameters: num_questions, image.",
+                    "error": "Please provide all required parameters: model, difficulty, "
+                    "topic or pdf. Optional parameters: num_questions, image.",
                     "model": "deepseek or gemini",
                     "difficulty": "easy, medium, or hard",
                     "topic": "Topic for quiz questions",
                     "num_questions": "Number of questions (default is 5)",
                     "image": "Include images in questions (true or false)",
                     "pdf": "Path to PDF file for topic extraction",
-                    "example1": "/quiz/generate?model=deepseek&difficulty=medium&topic=Python%20Programming"
+                    "example1": "/quiz/generate?model=deepseek&difficulty=medium&topic=Coding"
                     "&num_questions=5&image=true",
                     "example2": "/quiz/generate?model=gemini&difficulty=hard&pdf=path/to/your.pdf"
                     "&num_questions=10&image=false",

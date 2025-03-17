@@ -40,7 +40,7 @@ def download_images(query):
     if not downloaded_images:
         logging.warning("No image found for query: %s", query)
         return None
-    
+
     original_image_path = downloaded_images[0]
     sanitized_query = query.replace(" ", "_") + ".jpg"
     new_image_path = os.path.join(TEMP_FOLDER, sanitized_query)
