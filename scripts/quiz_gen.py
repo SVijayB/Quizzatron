@@ -29,8 +29,8 @@ def extract_text_from_pdf(pdf_path):
                 [page.extract_text() for page in reader.pages if page.extract_text()]
             )
         return text if text else ""
-    except Exception as error:  # pylint: disable=broad-except
-        print(f"⚠️ Error extracting text from PDF: {error}")
+    except Exception as another_error:  # pylint: disable=broad-except
+        print(f"⚠️ Error extracting text from PDF: {another_error}")
         return ""
 
 # pylint: disable=too-many-return-statements
@@ -56,8 +56,8 @@ def generate_questions(
                 model="deepseek-r1", messages=[{"role": "user", "content": prompt}]
             )
             return response.get("message", {}).get("content", "")
-        except Exception as error:  # pylint: disable=broad-except
-            print(f"⚠️ DeepSeek API error: {error}")
+        except Exception as ollama_error:  # pylint: disable=broad-except
+            print(f"⚠️ DeepSeek API error: {ollama_error}")
             return ""
 
     if model == "gemini":
@@ -70,8 +70,8 @@ def generate_questions(
                 model="gemini-2.0-flash-lite", contents=prompt
             )
             return response.text.strip() if response else ""
-        except Exception as error:  # pylint: disable=broad-except
-            print(f"⚠️ Gemini API error: {error}")
+        except Exception as gemini_error:  # pylint: disable=broad-except
+            print(f"⚠️ Gemini API error: {gemini_error}")
             return ""
 
     print("⚠️ Invalid model choice. Use 'deepseek' or 'gemini'.")

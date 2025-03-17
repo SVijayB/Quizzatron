@@ -42,20 +42,23 @@ def generate_quiz(
         try:
             num_questions = int(num_questions)
             if num_questions <= 0:
-                return (
+                return (  # not hit
                     jsonify({"error": "num_questions must be a positive integer."}),
                     400,
                 )
-        except ValueError:
-            return jsonify({"error": "num_questions must be an integer."}), 400
+        except ValueError:  # not hit
+            return (
+                jsonify({"error": "num_questions must be an integer."}),
+                400,
+            )  # not hit
 
-    if image is not None:
+    if isinstance(image, str):  # Ensure `image` is a string before calling `.lower()`
         if image.lower() not in ["true", "false"]:
             return jsonify({"error": "image must be 'true' or 'false'."}), 400
         image = image.lower() == "true"
 
     if pdf is not None and not pdf.lower().endswith(".pdf"):
-        return jsonify({"error": "Invalid file format."}), 400
+        return jsonify({"error": "Invalid file format."}), 400  # not hit
 
     logging.info("🔍 Input parameters validated. Payload is ready.")
     logging.info("⏳ Generating quiz questions for topic: %s... Please wait.", topic)
@@ -71,13 +74,16 @@ def generate_quiz(
                 logging.info("💫 Model output validated successfully.")
                 questions = parse_questions(validated_response)
                 return jsonify(questions), 200
-            logging.warning(
+            logging.warning(  # not hit
                 "⚠️ Model output validation failed. Retrying... (%d/%d)",
                 attempt + 1,
                 max_retries,
             )
-        except Exception as error:  # pylint: disable=broad-except
-            logging.error("❌ Quiz generation failed: %s", str(error))
+        except Exception as error:  # pylint: disable=broad-except #not hit
+            logging.error("❌ Quiz generation failed: %s", str(error))  # not hit
 
-    logging.error("❌ Model output validation failed after maximum retries.")
-    return jsonify({"error": "Invalid model output after multiple attempts."}), 500
+    logging.error("❌ Model output validation failed after maximum retries.")  # not hit
+    return (
+        jsonify({"error": "Invalid model output after multiple attempts."}),
+        500,
+    )  # not hit

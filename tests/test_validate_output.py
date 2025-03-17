@@ -82,3 +82,36 @@ def test_image_as_string_true():
     """Test that image as a string ('true') passes validation."""
     model_output = BASE_MODEL_OUTPUT.replace('"image": false', '"image": "true"')
     assert validate_model_output(model_output) == model_output.strip().replace("\n", "")
+
+
+def test_missing_multiple_required_keys():
+    """Test that missing multiple required keys fails validation."""
+    model_output = BASE_MODEL_OUTPUT.replace('"index": 1,', "").replace(
+        '"question": "What is the capital of France?",', ""
+    )
+    assert not validate_model_output(model_output)
+
+
+def test_empty_questions_list():
+    """Test that an empty 'questions' list fails validation."""
+    model_output = '{"questions": []}'
+    assert not validate_model_output(model_output)
+
+
+def test_invalid_question_type():
+    """Test that invalid question type fails validation."""
+    model_output = BASE_MODEL_OUTPUT.replace(
+        '"question": "What is the capital of France?"', '"question": 123'
+    )
+    assert not validate_model_output(model_output)
+
+
+def test_image_string_false():
+    """Test that image as a string 'false' is converted to boolean False."""
+    model_output = BASE_MODEL_OUTPUT.replace('"image": false', '"image": "false"')
+    assert validate_model_output(model_output) == model_output.strip().replace("\n", "")
+
+
+def test_unexpected_exception():
+    """Test that an unexpected exception is handled properly."""
+    assert not validate_model_output(12345)  # Not a string
