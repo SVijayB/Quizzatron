@@ -1,7 +1,6 @@
 """Command-line interface for the Quizzatron quiz generator."""
 
-import os
-from quiz_gen import generate_questions, parse_questions, extract_text_from_pdf
+from quiz_gen import generate_questions, parse_questions
 
 
 def run_quiz(questions):
@@ -30,23 +29,11 @@ def run_quiz(questions):
 def main():
     """Main function to run the Quizzatron quiz generator."""
     print("🎓 Welcome to Quizzatron!")
-    pdf_topic = (
-        input("Would you like to enter a topic or a PDF for the quiz? (topic/pdf): ")
-        .strip()
-        .lower()
-    )
 
-    topic = ""
-    if pdf_topic == "pdf":
-        pdf_path = input("Enter the path to the PDF file: ").strip()
-        if not os.path.exists(pdf_path) or not pdf_path.endswith(".pdf"):
-            print("⚠️ Invalid PDF file. Please provide a valid file path.")
-            return
-
-        print("\n⏳ Extracting text from the PDF... Please wait.")
-        topic = extract_text_from_pdf(pdf_path) or "General Knowledge"
-    else:
-        topic = input("Enter a topic for the quiz: ").strip()
+    topic = input("Enter a topic for the quiz: ").strip()
+    if not topic:
+        print("⚠️ Topic cannot be empty. Please enter a valid topic.")
+        return
 
     while True:
         try:
@@ -60,9 +47,7 @@ def main():
     difficulty = input("Choose difficulty (easy, medium, hard): ").strip().lower()
     model = input("Choose model (deepseek, gemini): ").strip().lower()
 
-    image_input = (
-        input("Do you want image-based questions? (true/false): ").strip().lower()
-    )
+    image_input = input("Do you want image-based questions? (true/false): ").strip().lower()
     image = image_input == "true"
 
     print("\n⏳ Generating quiz questions... Please wait.")
@@ -72,7 +57,7 @@ def main():
         num_questions=num_questions,
         difficulty=difficulty,
         model=model,
-        image=image
+        image=image,
     )
 
     questions = parse_questions(response_text)

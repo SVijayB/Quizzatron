@@ -5,7 +5,6 @@ import os
 import re
 from google import genai
 from dotenv import load_dotenv
-import pypdf
 import ollama
 
 # Load API key from .env file
@@ -18,20 +17,6 @@ if GOOGLE_API_KEY:
         CLIENT = genai.Client(api_key=GOOGLE_API_KEY)
     except Exception as error:  # pylint: disable=broad-except
         print(f"⚠️ Gemini API client initialization failed: {error}")
-
-
-def extract_text_from_pdf(pdf_path):
-    """Extract text from a PDF file."""
-    try:
-        with open(pdf_path, "rb") as file:
-            reader = pypdf.PdfReader(file)
-            text = "\n".join(
-                [page.extract_text() for page in reader.pages if page.extract_text()]
-            )
-        return text if text else ""
-    except Exception as error:  # pylint: disable=broad-except
-        print(f"⚠️ Error extracting text from PDF: {error}")
-        return ""
 
 
 # pylint: disable=too-many-return-statements
