@@ -1,14 +1,18 @@
-from flask.templating import render_template
-from flask_cors import CORS, cross_origin
-from flask import Flask, request, jsonify, send_from_directory
-from api.routes import api_blueprint
-import logging.config
-import logging
-import sys
+"""Flask application factory for creating and configuring the API."""
+
 import os
+import sys
+import logging
+import logging.config
+
+from flask import Flask, request, render_template, send_from_directory
+from flask_cors import CORS
+
+from api.routes import api_blueprint
 
 
 def setup_logging():
+    """Configure logging handlers and formatters."""
     file_handler = logging.FileHandler("app.log", mode="a", encoding="utf-8")
     stream_handler = logging.StreamHandler(sys.stdout)
 
@@ -23,11 +27,21 @@ def setup_logging():
 
 
 def create_app(env):
+    """Factory function to create and configure the Flask application.
+
+    Args:
+        env (str): Application environment (e.g., DEVELOPMENT, PRODUCTION)
+
+    Returns:
+        Flask: Configured Flask application instance
+    """
     setup_logging()
     app = Flask(__name__, instance_relative_config=True)
     app.config["SECRET_KEY"] = os.getenv("SECRET_KEY")
     app.config["ENV"] = env
     app.url_map.strict_slashes = False
+
+    # Configure CORS
     api_cors_config = {
         "origins": "*",
         "supports_credentials": True,
@@ -37,10 +51,12 @@ def create_app(env):
 
     @app.route("/", methods=["GET"])
     def index():
+        """Serve the main index page."""
         return render_template("index.html")
 
     @app.route("/favicon.ico")
     def favicon():
+        """Serve the favicon."""
         return send_from_directory(
             os.path.join(app.root_path, "../assets"),
             "favicon.ico",
@@ -48,9 +64,14 @@ def create_app(env):
         )
 
     @app.errorhandler(404)
-    def page_not_found(e):
+    def page_not_found(_error):
+        """Handle 404 errors by logging and returning an error response.
+
+        Args:
+            _error: Unused error object (required by Flask errorhandler)
+        """
         app.logger.error("Page not found: %s", request.path)
-        return "ERROR 404: CANNOT GET {}".format(request.path), 404
+        return f"ERROR 404: CANNOT GET {request.path}", 404
 
     app.register_blueprint(api_blueprint)
     app.json.sort_keys = False

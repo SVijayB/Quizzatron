@@ -49,7 +49,7 @@ def generate_quiz(
             )
 
     logging.info("🔍 Input parameters validated. Payload is ready.")
-    logging.info("⏳ Generating quiz questions... Please wait.")
+    logging.info("⏳ Generating quiz questions for topic: {topic}... Please wait.")
 
     MAX_RETRIES = 3
     try:
