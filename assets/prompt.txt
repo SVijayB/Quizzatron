@@ -7,6 +7,8 @@ Generate {num_questions} multiple-choice quiz questions on the topic: "{topic}".
 - Image-based questions: {image}
 
 HERE ARE THE FORMATTING GUIDELINES FOR THE JSON OUTPUT that you will create
+- Return it as raw string, do not add \n, \t or any formating tags. I need clear proper JSON.
+- Give direct json string, no additional data should be present. Look at the format below.
 - Each question must have four answer choices labeled A, B, C, and D.
 - The correct answer should be randomly placed (not always A).
 - Keep language simple and clear.

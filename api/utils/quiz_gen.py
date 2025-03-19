@@ -1,22 +1,22 @@
-from api.utils.extract_img import cleanup_temp_folder, download_images
-import google.generativeai as genai
-from dotenv import load_dotenv
+"""Module for generating quiz questions using various AI models and parsing the results."""
+
+import json
 import logging
+import os
+from dotenv import load_dotenv
 import pypdf
 import ollama
-import json
-import os
-
+from google import genai
+from api.utils.extract_img import download_images
 
 load_dotenv()
 
-
-api_key = os.getenv("GOOGLE_API_KEY")
-GOOGLE_API_KEY = api_key
-genai.configure(api_key=GOOGLE_API_KEY)
+GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
+client = genai.Client(api_key=GOOGLE_API_KEY)
 
 
 def extract_text_from_pdf(pdf_path):
+    """Extract text content from a PDF file."""
     with open(pdf_path, "rb") as file:
         reader = pypdf.PdfReader(file)
         text = "\n".join(
@@ -25,7 +25,9 @@ def extract_text_from_pdf(pdf_path):
     return text if text else None
 
 
+# pylint: disable=too-many-arguments,too-many-positional-arguments
 def generate_questions(topic, num_questions, difficulty, model, image, pdf):
+    """Generate quiz questions based on the given parameters."""
     if pdf:
         pdf_text = extract_text_from_pdf(pdf)
         if pdf_text:
@@ -34,7 +36,7 @@ def generate_questions(topic, num_questions, difficulty, model, image, pdf):
             logging.error("Failed to extract text from the provided PDF.")
             return {"error": "Failed to extract text from the provided PDF."}
 
-    with open("assets/prompt.txt", "r") as file:
+    with open("assets/prompt.txt", "r", encoding="utf-8") as file:
         prompt = file.read().format(
             topic=topic, num_questions=num_questions, difficulty=difficulty, image=image
         )
@@ -44,20 +46,19 @@ def generate_questions(topic, num_questions, difficulty, model, image, pdf):
             model="deepseek-r1", messages=[{"role": "user", "content": prompt}]
         )
         return response["message"]["content"]
-    elif model == "gemini":
-        gemini_model = genai.GenerativeModel("gemini-pro")
-        response = gemini_model.generate_content(prompt)
+    if model == "gemini":
+        response = client.models.generate_content(
+            model="gemini-2.0-flash-lite", contents=prompt
+        )
         return response.text.strip()
+
+    return None
 
 
 def parse_questions(response_text):
+    """Parse the generated questions and download images if required."""
     try:
-        if response_text.startswith("```json"):
-            response_text = response_text[6:]
-        if response_text.endswith("```"):
-            response_text = response_text[:-3]
         response_json = json.loads(response_text)
-        cleanup_temp_folder()
         for question in response_json["questions"]:
             if isinstance(question["image"], str) and question["image"]:
                 image_path = download_images(question["image"])
@@ -68,6 +69,6 @@ def parse_questions(response_text):
         return response_json["questions"]
     except json.JSONDecodeError:
         logging.error("Failed to parse JSON response.")
-        logging.error(f"Response text: {response_text}")
+        logging.error("Response text: %s", response_text)
         logging.error("Returning raw text.")
         return response_text
