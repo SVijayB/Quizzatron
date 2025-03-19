@@ -61,7 +61,7 @@ def generate_quiz(
         return jsonify({"error": "Invalid file format."}), 400  # not hit
 
     logging.info("🔍 Input parameters validated. Payload is ready.")
-    logging.info("⏳ Generating quiz questions for topic: %s... Please wait.", topic)
+    logging.info("⏳ Generating quiz questions on %s.", topic)
 
     max_retries = 3
     for attempt in range(max_retries):
@@ -73,7 +73,7 @@ def generate_quiz(
             if validated_response:
                 logging.info("💫 Model output validated successfully.")
                 questions = parse_questions(validated_response)
-                return jsonify(questions), 200
+                return jsonify(questions, 200)
             logging.warning(  # not hit
                 "⚠️ Model output validation failed. Retrying... (%d/%d)",
                 attempt + 1,
