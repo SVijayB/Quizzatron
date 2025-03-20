@@ -3,12 +3,13 @@ This script interacts with the Open Trivia Database API and MongoDB to fetch,
 store, and format trivia questions and categories for the Quizzatron application.
 """
 
-import pymongo as pm
-import urllib
-import requests
 import json
 import random
+import urllib
 from typing import Optional, Dict, Any
+
+import pymongo as pm
+import requests
 
 # URL to fetch categories from Open Trivia Database API
 CATEGORIES_URL = "https://opentdb.com/api_category.php"
@@ -27,7 +28,7 @@ def create_session_token() -> None:
     This function can be implemented to interact with the Open Trivia Database API
     to generate a session token for managing user sessions.
     """
-    pass
+    print("Session token creation is not yet implemented.")
 
 
 def cat_list_from_db() -> Optional[str]:
@@ -42,7 +43,7 @@ def cat_list_from_db() -> Optional[str]:
         client = pm.MongoClient(MONGO_URL)
         client.admin.command("ping")  # Check if the server is reachable
         print("✅ Successfully connected to MongoDB!")
-    except Exception as e:
+    except pm.errors.PyMongoError as e:
         print("❌ Connection failed:", e)
         return None
 
@@ -64,14 +65,14 @@ def cat_list_from_db() -> Optional[str]:
         json_string = json.dumps(q_names)
         print(json_string)
         return json_string
-    except Exception as e:
+    except (KeyError, TypeError) as e:
         print("❌ Cannot find JSON categories in the database:", e)
         return None
 
 
 def get_questions_from_api(
     category: str = "9", difficulty: str = "easy", num_questions: str = "5"
-):
+) -> Optional[Dict[str, Any]]:
     """
     Fetch trivia questions from the Open Trivia Database API.
 
@@ -82,16 +83,9 @@ def get_questions_from_api(
 
     Returns:
         Optional[Dict[str, Any]]: A dictionary containing the API response with trivia questions, or None if an error occurs.
-
-    Raises:
-        TypeError: If the input arguments are not of the expected types.
     """
-    if not isinstance(category, str):
-        raise TypeError("category must be a string")
-    if not isinstance(difficulty, str):
-        raise TypeError("difficulty must be a string")
-    if not isinstance(num_questions, str):
-        raise TypeError("num_questions must be a string")
+    if not isinstance(category, str) or not isinstance(difficulty, str) or not isinstance(num_questions, str):
+        raise TypeError("All arguments must be strings.")
 
     question_type = "multiple"  # Hardcoded to "multiple" for this use case
     question_url = (
@@ -100,11 +94,8 @@ def get_questions_from_api(
     )
 
     try:
-        # Send a GET request to the API
         response = requests.get(question_url, timeout=5)
         response.raise_for_status()  # Raise an error for bad responses (4xx, 5xx)
-
-        # Parse the JSON response
         q_data = response.json()
         print("✅ Data received:", q_data)
         return q_data
@@ -113,7 +104,7 @@ def get_questions_from_api(
         return None
 
 
-def format_question_api_output(api_question_json: Dict[str, Any]):
+def format_question_api_output(api_question_json: Dict[str, Any]) -> Optional[str]:
     """
     Format the output of trivia questions fetched from the API.
 
@@ -122,67 +113,45 @@ def format_question_api_output(api_question_json: Dict[str, Any]):
 
     Returns:
         Optional[str]: A formatted JSON string with questions and their options, or None if an error occurs.
-
-    Raises:
-        TypeError: If the input is not a dictionary.
     """
     if not isinstance(api_question_json, dict):
         raise TypeError("api_question_json must be a dictionary")
 
     try:
-        # Mapping letters to options
         option_letters = ["A", "B", "C", "D"]
-
-        # Initialize the output structure
         output_json = {"questions": []}
 
-        # Process each question in the API response
         for index, item in enumerate(api_question_json["results"], start=1):
-            # Combine correct and incorrect answers
             all_answers = item["incorrect_answers"] + [item["correct_answer"]]
-            random.shuffle(all_answers)  # Shuffle answers to randomize order
+            random.shuffle(all_answers)
 
-            # Create options with letter labels
             options_dict = {option_letters[i]: all_answers[i] for i in range(4)}
-
-            # Find the correct answer's letter
             correct_letter = next(
-                letter
-                for letter, answer in options_dict.items()
-                if answer == item["correct_answer"]
+                letter for letter, answer in options_dict.items() if answer == item["correct_answer"]
             )
 
-            # Format the question entry
             question_entry = {
                 "index": index,
                 "question": item["question"],
                 "options": [f"{key}) {value}" for key, value in options_dict.items()],
                 "correct_answer": correct_letter,
                 "difficulty": item["difficulty"],
-                "image": False,  # Placeholder for image support
+                "image": False,
             }
 
-            # Append the formatted question to the output
             output_json["questions"].append(question_entry)
 
-        # Convert the output to a JSON string
         formatted_json = json.dumps(output_json, indent=4)
-
-        # Replace single curly braces with double curly braces for compatibility
-        formatted_json = formatted_json.replace("{", "{{").replace("}", "}}")
         print("✅ Question formatted for Quizzatron:", formatted_json)
         return formatted_json
-    except Exception as e:
+    except KeyError as e:
         print("❌ Error formatting question data from API:", e)
         return None
 
 
-# Example usage of the functions
 if __name__ == "__main__":
-    # List categories from the database
     cat_list_from_db()
-
-    # Fetch and format questions from the API
+    
     api_response = get_questions_from_api()
     if api_response:
         format_question_api_output(api_response)

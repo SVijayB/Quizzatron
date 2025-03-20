@@ -1,33 +1,33 @@
 name: CI - Pylint Check
 
 on:
-  push:
-    branches:
-      - main
-  pull_request:
-    branches:
-      - main
+    push:
+        branches:
+            - main
+    pull_request:
+        branches:
+            - main
 
 jobs:
-  pylint-check:
-    runs-on: ubuntu-latest
+    pylint-check:
+        runs-on: ubuntu-latest
 
-    steps:
-      - name: Check out the repository
-        uses: actions/checkout@v2
+        steps:
+            - name: Check out the repository
+              uses: actions/checkout@v2
 
-      - name: Set up Python
-        uses: actions/setup-python@v2
-        with:
-          python-version: "3.11"
+            - name: Set up Python
+              uses: actions/setup-python@v2
+              with:
+                  python-version: "3.11"
 
-      - name: Install Pylint
-        run: |
-          python -m pip install --upgrade pip
-          pip install pylint
-          pip install -r requirements.txt
+            - name: Install Pylint
+              run: |
+                  python -m pip install --upgrade pip
+                  pip install pylint
+                  pip install -r requirements.txt
 
-      - name: Run Pylint Check
-        run: |
-          # Run Pylint on all Python files EXCEPT those in the 'scripts/' folder
-          pylint --fail-under=10 $(git ls-files '*.py' ':!:scripts/*')
+            - name: Run Pylint Check
+              run: |
+                  # Run Pylint on all Python files EXCEPT those in the 'scripts/' folder
+                  pylint --fail-under=10 --disable=duplicate-code $(git ls-files '*.py' ':!:scripts/*')

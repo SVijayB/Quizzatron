@@ -31,12 +31,14 @@ jobs:
                   pip install -r requirements.txt
               env:
                   GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
+                  MONGO_CONNECTION_STRING: ${{ secrets.MONGO_CONNECTION_STRING }}
 
             - name: Run tests with coverage
               run: |
                   pytest --cov=api --cov-report=xml --cov-report=term-missing
               env:
                   GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
+                  MONGO_CONNECTION_STRING: ${{ secrets.MONGO_CONNECTION_STRING }}
 
             - name: Upload coverage reports to Codecov
               uses: codecov/codecov-action@v5
