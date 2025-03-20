@@ -83,23 +83,96 @@ Download and extract the source code.
 
 As an alternative, you could also clone the repository using,
 
-<pre>
-git clone https://github.com/SVijayB/Quizzatron
-</pre>
+`git clone https://github.com/SVijayB/Quizzatron.git`
 
-Once you have the source code, create a virtual environment using the following command,
-`python3 -m venv venv`
+ `cd Quizzatron`
 
-Enter the virtual environment and install dependancies using `pip install -r requirements.txt`.
+Method 1: Using the run.py script
+
+The easiest way to get started is to use our setup script, which handles everything automatically:
+`python run.py`
+
+The script will:
+
+1. Check for Node.js and npm (providing installation instructions if needed)  
+2. Install all required backend and frontend dependencies  
+3. Start the Flask API server  
+4. Start the frontend development server (if Node.js is available)  
+5. Automatically open the frontend application in your browser
+
+Method 2: Manual setup
+
+Alternatively, you can set up manually:
+
+1. Create a virtual environment:
+
+ ```
+  python -m venv venv
+ ```
+   
+2. Activate the virtual environment:
+
+   On Windows: `venv\Scripts\activate`
+
+   On macOS/Linux: `source venv/bin/activate`
+
+3. Install dependencies:
+
+ ```
+  pip install -r requirements.txt
+ ```
+
+4. If you want to run the frontend:
+
+ ```
+ cd frontend
+ npm install
+ npm run dev 
+ ```
+5. In a separate terminal, run the backend:
+    
+ ```
+  python -m api.app
+ ```
 
 ## Usage
 
 <!--- Provide instructions on how to use the application after installing it --->
+Running with the script
 
-To launch the file, use the following command, `python3 app.py`.
+Simply run:
+```
+python run.py
+```
+Development Mode
+
+To run in development mode with hot reloading:
+```
+QUIZZATRON_DEV=true python run.py
+```
+On Windows:
+
+```
+set QUIZZATRON_DEV=true
+python run.py
+```
+Environment Variables
+
+You can customize the application behavior with these environment variables:
+```
+QUIZZATRON_HOST: Host address for backend (default: 127.0.0.1)
+QUIZZATRON_PORT: Port number for backend (default: 5000)
+QUIZZATRON_DEV: Set to "true" for development mode (default: false)
+QUIZZATRON_FRONTEND_PORT: Port number for frontend (default: 8080)
+```
+Example:
+```
+QUIZZATRON_PORT=8000 QUIZZATRON_FRONTEND_PORT=8080 python run.py
+```
 
 <!--- You can also add in screenshots, app demo (Gif format) or even provide link to other resources --->
 ## Directory Summary 
+```
 ├───api
 │   ├───routes
 │   ├───services
@@ -125,7 +198,7 @@ To launch the file, use the following command, `python3 app.py`.
     ├───routes
     ├───services
     └───utils
-
+```
 ### Project demo
 
 ![Project demo](https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExMTJlODMxMDg0ZWJjOGFmNTdjYzczZTMwZTIyNzM3YTExZWMxMzM2OCZjdD1n/wwg1suUiTbCY8H8vIA/giphy-downsized-large.gif)
