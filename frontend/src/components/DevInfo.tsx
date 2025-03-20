@@ -42,48 +42,47 @@ const DevInfo = () => {
           <Heart className="h-5 w-5" />
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-[750px] md:max-w-[850px] bg-gradient-to-b from-gray-900 to-gray-950 border-gray-800 rounded-xl shadow-2xl">
+      <DialogContent className="sm:max-w-[750px] md:max-w-[850px] bg-gradient-to-b from-[#252046] to-[#1B1735] border-[#3A2F6D] rounded-xl shadow-[0px_0px_20px_rgba(72,57,185,0.3)] transition-all duration-300">
         <DialogHeader>
-          <DialogTitle className="text-2xl font-bold text-center mb-4 text-white">
-            Meet the Team 
-            <span className="text-violet-400">.</span>
+          <DialogTitle className="text-2xl font-bold text-center mb-4 text-white tracking-wide">
+            Meet the Team<span className="text-[#7A6EEB]">.</span>
           </DialogTitle>
         </DialogHeader>
-        
+
         {isLoading ? (
           <div className="grid place-items-center py-8">
-            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-violet-400"></div>
+            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#7A6EEB]"></div>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-4">
             {developers.map((dev, index) => (
-              <Card key={index} className="overflow-hidden bg-gray-800/30 backdrop-blur-md border-none rounded-xl hover:bg-gray-800/50 hover:shadow-[0_0_15px_rgba(139,92,246,0.15)] transition-all duration-300">
+              <Card key={index} className="overflow-hidden bg-[#2C2754]/50 backdrop-blur-lg border border-[#45397D] rounded-xl hover:shadow-[0_0_15px_rgba(122,110,235,0.3)] transition-all duration-300 transform hover:-translate-y-1">
                 <CardContent className="p-5">
                   <div className="flex gap-5 items-start">
-                    <Avatar className="h-16 w-16 border-2 border-violet-600/50 shadow-lg ring-2 ring-violet-500/20">
+                    <Avatar className="h-16 w-16 border-2 border-[#7A6EEB]/40 shadow-md ring-2 ring-[#7A6EEB]/20">
                       <AvatarImage src={dev.image} alt={dev.name} />
-                      <AvatarFallback className="bg-violet-900 text-violet-200">
+                      <AvatarFallback className="bg-[#7A6EEB]/30 text-white">
                         {dev.name.split(' ').map(n => n[0]).join('')}
                       </AvatarFallback>
                     </Avatar>
                     <div className="flex-1">
                       <h3 className="text-lg font-semibold text-white">{dev.name}</h3>
-                      <p className="text-sm text-gray-400 mt-1">{dev.desc}</p>
-                      
+                      <p className="text-sm text-gray-300 mt-1">{dev.desc}</p>
+
                       <div className="flex gap-2 mt-4">
-                        <Button 
-                          size="sm" 
+                        <Button
+                          size="sm"
                           variant="outline"
-                          className="h-8 px-3 rounded-full bg-gray-800/80 border-violet-500/30 text-violet-300 hover:bg-violet-900/50 hover:text-white hover:border-violet-400 transition-all duration-300"
+                          className="h-8 px-3 rounded-full bg-[#3A2F6D]/80 border-[#7A6EEB]/50 text-[#D1C8FF] hover:bg-[#7A6EEB]/70 hover:text-white transition-all duration-300"
                           onClick={() => window.open(dev.linkedin, '_blank')}
                         >
                           <Linkedin className="h-4 w-4 mr-1" />
                           LinkedIn
                         </Button>
-                        <Button 
-                          size="sm" 
+                        <Button
+                          size="sm"
                           variant="outline"
-                          className="h-8 px-3 rounded-full bg-gray-800/80 border-violet-500/30 text-violet-300 hover:bg-violet-900/50 hover:text-white hover:border-violet-400 transition-all duration-300"
+                          className="h-8 px-3 rounded-full bg-[#3A2F6D]/80 border-[#7A6EEB]/50 text-[#D1C8FF] hover:bg-[#7A6EEB]/70 hover:text-white transition-all duration-300"
                           onClick={() => window.open(`mailto:${dev.email}`, '_blank')}
                         >
                           <Mail className="h-4 w-4 mr-1" />
@@ -98,6 +97,7 @@ const DevInfo = () => {
           </div>
         )}
       </DialogContent>
+
     </Dialog>
   );
 };
