@@ -83,6 +83,9 @@ def upload_trivia_data(connection_string, json_dir, db_name="trivia-qa"):
         for json_file in json_files:
             file_path = os.path.join(json_dir, json_file)
             collection_name = os.path.splitext(json_file)[0]  # Remove .json extension
+            collection_name = " ".join(
+                word.capitalize() for word in collection_name.split("-")
+            )
             print(f"Processing {file_path} into collection '{collection_name}'...")
 
             try:
@@ -121,6 +124,6 @@ if __name__ == "__main__":
     print(f"Initialized database '{db}'.")
     upload_trivia_data(
         connection_string,
-        r"PATH_TO_JSON_FILES(CONVERTED_FROM_https://github.com/uberspot/OpenTriviaQA)",
+        r"D:\UW\Courses\Data515 - SoftwareDesign\OpenTriviaQA\json_files",
         db_name="trivia-qa",
     )

@@ -43,9 +43,6 @@ const CategorySuggestions = ({
     
     const value = categoryData[category];
     
-    // Log for debugging
-    console.log(`Category source for ${category}:`, value);
-    
     // Based on the value type, determine the source
     if (typeof value === 'number') {
       return { icon: <Database className="w-3 h-3" />, name: "OpenTDB" };

@@ -241,13 +241,13 @@ const Index = () => {
                   onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
                 />
                 <button
-                  type="button"
-                  onClick={() => fileInputRef.current?.click()}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center justify-center h-9 w-auto px-3 py-2 bg-violet-600/90 hover:bg-violet-700 text-white rounded-lg shadow-lg transition-all duration-200 border border-violet-500"
-                  title="Upload PDF"
-                >
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center justify-center h-9 w-auto px-3 py-2 bg-[#503FCF] hover:bg-[#3C2E9F] text-white rounded-lg shadow-lg transition-all duration-200 border border-[#3C2E9F]"
+                    title="Upload PDF"
+                  >
                   <FileText className="w-4 h-4 mr-1.5" />
-                  <span className="font-medium">PDF</span>
+                  <span className="font-medium">Upload PDF</span>
                 </button>
                 <input
                   type="file"
