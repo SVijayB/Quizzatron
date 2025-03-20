@@ -1,33 +1,16 @@
-"""
-This script converts quiz files in a directory to JSON format.
-Each quiz file contains multiple questions with the following format:
-#Q What is the capital of France?
-A Paris
-B London
-C Berlin
-D Madrid
-^ A
-
-The script reads each file, extracts questions, options, and correct answers,
-and writes the data to a JSON file in the output directory.
-
-Obtained all of the quiz questions from: https://github.com/uberspot/OpenTriviaQA.
-"""
-
 import os
 import string
 import json
-import re  # For cleaning up unwanted characters
+import re
+import html
 
 ALPHABET = list(string.ascii_uppercase)
 
 
-def clean_text(text):
-    """
-    Clean up text by removing unwanted characters or random strings.
-    """
-    # Remove Unicode escape sequences and extra whitespace
-    return re.sub(r"\\u[0-9a-fA-F]{4}", "", text).strip()
+def contains_unicode_nonsense(text):
+    """Check if a string contains unwanted encoded characters or HTML entities."""
+    decoded_text = html.unescape(text)  # Decode HTML entities like &quot;
+    return text != decoded_text or bool(re.search(r"\\u[0-9a-fA-F]{4}", text))
 
 
 def convert_quiz_files_to_json(directory):
@@ -73,19 +56,28 @@ def convert_quiz_files_to_json(directory):
 
             for line in lines:
                 if line.startswith("#Q "):
-                    question["question"] = clean_text(line[3:].strip())
+                    question_text = line[3:].strip()
+                    if contains_unicode_nonsense(question_text):
+                        question = {}  # Reset question if it's invalid
+                        continue
+                    question["question"] = html.unescape(question_text)
                     question["category"] = os.path.basename(file)
                     question["index"] = question_index
-
                 elif line[0] in ALPHABET:
+                    option_text = line[2:].strip()
+                    if contains_unicode_nonsense(option_text):
+                        question = {}  # Reset question if it's invalid
+                        continue
                     if not question.get("options"):
                         question["options"] = []
-                    question["options"].append(clean_text(line[2:].strip()))
-
+                    question["options"].append(html.unescape(option_text))
                 elif line.startswith("^ "):
-                    question["correct_answer"] = clean_text(line[2:].strip())
-
-                elif line.strip() == "" and question != {}:
+                    correct_answer = line[2:].strip()
+                    if contains_unicode_nonsense(correct_answer):
+                        question = {}  # Reset question if it's invalid
+                        continue
+                    question["correct_answer"] = html.unescape(correct_answer)
+                elif line.strip() == "" and question:
                     if len(question.get("options", [])) == 4:
                         questions.append(question)
                         question_index += 1
@@ -93,12 +85,10 @@ def convert_quiz_files_to_json(directory):
                         print(
                             f"Skipping question {question_index} due to insufficient options."
                         )
-
-                    # Reset for the next question
                     question = {}
 
             # Add the last question if it exists and has 4 options
-            if question != {} and len(question.get("options", [])) == 4:
+            if question and len(question.get("options", [])) == 4:
                 questions.append(question)
 
             # Create output filename in the json_files directory
