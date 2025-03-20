@@ -37,20 +37,6 @@
     </a>
 </p>
 
-## Project Type
-
-Application
-
-## Team Members
-
-#### Akshay Ravi
-
-#### Aravindh Manavalan
-
-#### Hariharan Sureshkumar
-
-#### Vijay Balaji
-
 ## Table of Contents
 
 -   [Our Goal](#our-goal)
@@ -70,7 +56,7 @@ Create an AI-powered quizzing platform that generates engaging, customizable qui
 
 <!--- Insert product screenshot below --->
 
-![Product Screenshot](https://media.giphy.com/media/L1R1tvI9svkIWwpVYr/giphy.gif)
+![alt text](assets/ss-1.png)
 
 We’re building an AI-powered quizzing system that can generate questions on any topic - SATs, movies, national flags, or whatever you choose! The application supports custom inputs like PDFs or images and can also generate quizzes autonomously using DeepSeek. It provides an engaging learning experience with minimal human input.
 
@@ -88,24 +74,32 @@ Download and extract the source code.
 
 As an alternative, you could also clone the repository using,
 
-`git clone https://github.com/SVijayB/Quizzatron.git`
+```
+git clone https://github.com/SVijayB/Quizzatron.git
+```
 
-`cd Quizzatron`
+Once the repository is cloned, run `cd Quizzatron`
 
-Method 1: Using the run.py script
+### Method 1: Using the setup.py script
 
 The easiest way to get started is to use our setup script, which handles everything automatically:
-`python run.py`
+
+You can run the setup script in the root directory using
+
+```
+python setup.py
+```
 
 The script will:
 
-1. Check for Node.js and npm (providing installation instructions if needed)
-2. Install all required backend and frontend dependencies
-3. Start the Flask API server
-4. Start the frontend development server (if Node.js is available)
-5. Automatically open the frontend application in your browser
+1. Check for Python, Node.js and NPM (providing installation instructions if needed).
+2. Create a virtual environment for the backend (Python).
+3. Install all required backend and frontend dependencies.
+4. Start the Flask API server.
+5. Start the frontend development server (if Node.js is available).
+6. Automatically open the frontend application in your browser.
 
-Method 2: Manual setup
+### Method 2: Manual setup
 
 Alternatively, you can set up manually:
 
@@ -127,94 +121,71 @@ Alternatively, you can set up manually:
  pip install -r requirements.txt
 ```
 
-4. If you want to run the frontend:
+4. Install frontend dependencies:
 
 ```
 cd frontend
 npm install
-npm run dev
 ```
 
-5. In a separate terminal, run the backend:
+### Environment variables
+
+Once the dependencies are installed, you need to set up the environment variables.
+Create a `.env` file in the root directory and add the following variables:
 
 ```
- python -m api.app
+GOOGLE_API_KEY=ENTER_GEMINI_API_KEY_HERE
+MONGO_CONNECTION_STRING=ENTER_MONGO_CONNECTION_STRING_HERE
+FLASK_ENV=PRODUCTION/DEVELOPMENT
+PORT=PORT_NUMBER_HERE
 ```
 
 ## Usage
 
-<!--- Provide instructions on how to use the application after installing it --->
+<!--- Provide instructions and examples for use. Include screenshots as needed. --->
 
-Running with the script
-
-Simply run:
+1. To start the backend server, run the following command in the root directory:
 
 ```
-python run.py
+flask run
 ```
 
-Development Mode
-
-To run in development mode with hot reloading:
+2. To start the frontend development server, run the following command in the `frontend` directory:
 
 ```
-QUIZZATRON_DEV=true python run.py
+npm run dev
 ```
 
-On Windows:
+## Project Structure
 
 ```
-set QUIZZATRON_DEV=true
-python run.py
-```
+├── .github
+├── api
+│   ├── routes
+│   ├── services
+│   ├── static
+│   ├── templates
+│   ├── utils
+├── assets
+├── docs
+│   ├── specs
+│   ├── technology_review
+│   ├── demo_output
+│   └── demo_scripts
+├── frontend
+│   ├── node_modules
+│   ├── public
+│   ├── src
+│   │   ├── components
+│   │   ├── hooks
+│   │   ├── lib
+│   │   ├── pages
+├── scripts
+└── tests
+│   ├── routes
+│   ├── services
+│   └── utils
 
-Environment Variables
-
-You can customize the application behavior with these environment variables:
-
-```
-QUIZZATRON_HOST: Host address for backend (default: 127.0.0.1)
-QUIZZATRON_PORT: Port number for backend (default: 5000)
-QUIZZATRON_DEV: Set to "true" for development mode (default: false)
-QUIZZATRON_FRONTEND_PORT: Port number for frontend (default: 8080)
-```
-
-Example:
-
-```
-QUIZZATRON_PORT=8000 QUIZZATRON_FRONTEND_PORT=8080 python run.py
-```
-
-<!--- You can also add in screenshots, app demo (Gif format) or even provide link to other resources --->
-
-## Directory Summary
-
-```
-├───api
-│   ├───routes
-│   ├───services
-│   ├───templates
-│   └───utils
-├───assets
-├───docs
-│   ├───specs
-│   └───technology_review
-│       ├───demo_output
-│       └───demo_scripts
-├───frontend
-│   ├───public
-│   └───src
-│       ├───components
-│       │   ├───quiz
-│       │   └───ui
-│       ├───hooks
-│       ├───lib
-│       └───pages
-├───scripts
-└───tests
-    ├───routes
-    ├───services
-    └───utils
 ```
 
 ### Project demo
