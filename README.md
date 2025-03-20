@@ -39,18 +39,16 @@
 
 ## Table of Contents
 
--   [Our Goal](#our-goal)
--   [Motivation](#Motivation)
--   [Installation](#Installation)
--   [Usage](#Usage)
--   [Directory Summary](#directory-summary)
-    -   [Project Demo](#Demo)
--   [Contributing](#Contributing)
--   [License](#License)
-
-## Our Goal
-
-Create an AI-powered quizzing platform that generates engaging, customizable quizzes on any topic, enhancing learning through gamification.
+-   [Motivation](#motivation)
+-   [Installation](#installation)
+    -   [Using the setup.py script](#method-1-using-the-setuppy-script)
+    -   [Manual setup](#method-2-manual-setup)
+    -   [Environment variables](#environment-variables)
+-   [Usage](#usage)
+-   [Project Structure](#project-structure)
+    -   [Project demo](#project-demo)
+-   [Contributing](#contributing)
+-   [License](#license)
 
 ## Motivation
 
