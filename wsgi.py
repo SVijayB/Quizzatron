@@ -1,3 +1,5 @@
+# pylint: disable=R0801
+# Disable duplicate code check for this file (Need to re-import load_dotenv and os)
 """Module for running the WSGI server."""
 
 import os

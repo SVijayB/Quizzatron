@@ -6,6 +6,9 @@ import requests
 from pymongo import MongoClient
 from dotenv import load_dotenv
 
+load_dotenv()
+CONNECTION_STRING = os.getenv("MONGO_CONNECTION_STRING")
+
 
 def get_categories():
     """
@@ -22,9 +25,7 @@ def get_categories():
         api_data = response.json()
 
         # Connect to MongoDB and fetch collection names
-        load_dotenv()
-        connection_string = os.getenv("MONGO_CONNECTION_STRING")
-        client = MongoClient(connection_string)
+        client = MongoClient(CONNECTION_STRING)
         db = client["trivia-qa"]
         collection_names = db.list_collection_names()
 
