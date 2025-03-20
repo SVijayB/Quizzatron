@@ -37,14 +37,29 @@
     </a>
 </p>
 
-## Table of Contents
 
+## Project Type  
+Application
+
+## Team Members  
+#### Akshay Ravi
+#### Aravindh Manavalan
+#### Hariharan Sureshkumar
+#### Vijay Balaji
+
+
+## Table of Contents
+-   [Our Goal](#our-goal)
 -   [Motivation](#Motivation)
 -   [Installation](#Installation)
 -   [Usage](#Usage)
+-   [Directory Summary](#directory-summary)
     -   [Project Demo](#Demo)
 -   [Contributing](#Contributing)
 -   [License](#License)
+
+## Our Goal
+Create an AI-powered quizzing platform that generates engaging, customizable quizzes on any topic, enhancing learning through gamification.
 
 ## Motivation
 
@@ -84,6 +99,32 @@ Enter the virtual environment and install dependancies using `pip install -r req
 To launch the file, use the following command, `python3 app.py`.
 
 <!--- You can also add in screenshots, app demo (Gif format) or even provide link to other resources --->
+## Directory Summary 
+├───api
+│   ├───routes
+│   ├───services
+│   ├───templates
+│   └───utils
+├───assets
+├───docs
+│   ├───specs
+│   └───technology_review
+│       ├───demo_output
+│       └───demo_scripts
+├───frontend
+│   ├───public
+│   └───src
+│       ├───components
+│       │   ├───quiz
+│       │   └───ui
+│       ├───hooks
+│       ├───lib
+│       └───pages
+├───scripts
+└───tests
+    ├───routes
+    ├───services
+    └───utils
 
 ### Project demo
 
