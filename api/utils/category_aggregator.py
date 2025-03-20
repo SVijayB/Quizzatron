@@ -29,6 +29,3 @@ def get_categories():
     except requests.exceptions.RequestException as error:
         logging.warning("❌ API Request Failed:", error)
         raise
-
-
-print(get_categories())
