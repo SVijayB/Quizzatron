@@ -1,0 +1,7 @@
+include requirements.txt
+include README.md
+include LICENSE
+include run.py
+
+recursive-include api/templates *
+recursive-include api/static *
