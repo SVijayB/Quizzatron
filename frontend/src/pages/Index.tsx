@@ -41,7 +41,7 @@ const Index = () => {
   useEffect(() => {
     const loadCategories = async () => {
       try {
-        const response = await fetch('http://127.0.0.1:5000/api/categories/get');
+        const response = await fetch('https://quizzatron.onrender.com/api/categories/get');
         if (!response.ok) {
           throw new Error('Failed to fetch categories');
         }
@@ -142,7 +142,7 @@ const Index = () => {
         });
 
         // Use the local API endpoint until the deployed one is fixed
-        const apiUrl = "http://127.0.0.1:5000/api/quiz/generate";
+        const apiUrl = "https://quizzatron.onrender.com/api/quiz/generate";
         console.log("Using API endpoint:", apiUrl);
 
         const response = await fetch(apiUrl, {
