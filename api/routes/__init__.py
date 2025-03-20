@@ -2,9 +2,11 @@
 
 from flask import Blueprint, jsonify
 from api.routes.quiz_gen_api import core_quiz_gen_bp
+from api.routes.categories_api import categories_bp
 
 api_blueprint = Blueprint("API", __name__, url_prefix="/api/")
 api_blueprint.register_blueprint(core_quiz_gen_bp)
+api_blueprint.register_blueprint(categories_bp)
 
 
 @api_blueprint.route("/", methods=["GET"])
