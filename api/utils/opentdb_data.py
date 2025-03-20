@@ -2,6 +2,7 @@ import logging
 import requests
 from typing import Dict, Any
 import random
+import html
 
 
 def get_questions_from_api(
@@ -24,7 +25,17 @@ def get_questions_from_api(
         response = requests.get(question_url, timeout=5)
         response.raise_for_status()
 
+        # Convert response to JSON
         q_data = response.json()
+
+        # Decode HTML entities in questions and options
+        for question in q_data.get("results", []):
+            question["question"] = html.unescape(question["question"])
+            question["correct_answer"] = html.unescape(question["correct_answer"])
+            question["incorrect_answers"] = [
+                html.unescape(ans) for ans in question["incorrect_answers"]
+            ]
+
         logging.info("✅ Data received from the API")
         return q_data
     except requests.exceptions.RequestException as e:
