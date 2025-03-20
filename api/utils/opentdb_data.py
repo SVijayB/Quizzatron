@@ -1,19 +1,34 @@
+"""Utility module for fetching and formatting trivia questions from the Open Trivia Database API."""
+
 import logging
-import requests
-from typing import Dict, Any
 import random
 import html
+from typing import Dict, Any, Optional
+import requests
 
 
 def get_questions_from_api(
     category: str = "9", difficulty: str = "easy", num_questions: str = "5"
-):
-    if not isinstance(category, str):
-        raise TypeError("category must be a string")
-    if not isinstance(difficulty, str):
-        raise TypeError("difficulty must be a string")
-    if not isinstance(num_questions, str):
-        raise TypeError("num_questions must be a string")
+) -> Optional[Dict[str, Any]]:
+    """
+    Fetch trivia questions from the Open Trivia Database API.
+
+    Args:
+        category (str): The category ID for the questions. Defaults to "9".
+        difficulty (str): The difficulty level of the questions. Defaults to "easy".
+        num_questions (str): The number of questions to fetch. Defaults to "5".
+
+    Returns:
+        Optional[Dict[str, Any]]: A dictionary containing the fetched questions, or 
+        None if an error occurs.
+
+    Raises:
+        TypeError: If any of the input parameters are not strings.
+    """
+    if not all(
+        isinstance(param, str) for param in [category, difficulty, num_questions]
+    ):
+        raise TypeError("All parameters must be strings")
 
     question_type = "multiple"  # Hardcoded to "multiple" for this use case
     question_url = (
@@ -36,22 +51,26 @@ def get_questions_from_api(
                 html.unescape(ans) for ans in question["incorrect_answers"]
             ]
 
-        logging.info("✅ Data received from the API")
+        logging.info("Data received from the API")
         return q_data
     except requests.exceptions.RequestException as e:
-        logging.warning("❌ API Request Failed:", e)
+        logging.warning("API Request Failed: %s", str(e))
         return None
 
 
-def format_question_api_output(api_question_json: Dict[str, Any]):
+def format_question_api_output(
+    api_question_json: Dict[str, Any],
+) -> Optional[Dict[str, Any]]:
     """
     Format the output of trivia questions fetched from the API.
 
     Args:
-        api_question_json (Dict[str, Any]): The JSON response from the API containing trivia questions.
+        api_question_json (Dict[str, Any]): The JSON response from the API containing trivia
+        questions.
 
     Returns:
-        Optional[str]: A formatted JSON string with questions and their options, or None if an error occurs.
+        Optional[Dict[str, Any]]: A formatted dictionary with questions and their options, or
+        None if an error occurs.
 
     Raises:
         TypeError: If the input is not a dictionary.
@@ -60,29 +79,22 @@ def format_question_api_output(api_question_json: Dict[str, Any]):
         raise TypeError("api_question_json must be a dictionary")
 
     try:
-        # Mapping letters to options
         option_letters = ["A", "B", "C", "D"]
-
-        # Initialize the output structure
         output_json = {"questions": []}
 
-        # Process each question in the API response
         for index, item in enumerate(api_question_json["results"], start=1):
-            # Combine correct and incorrect answers
             all_answers = item["incorrect_answers"] + [item["correct_answer"]]
-            random.shuffle(all_answers)  # Shuffle answers to randomize order
+            random.shuffle(all_answers)
 
-            # Create options with letter labels
-            options_dict = {option_letters[i]: all_answers[i] for i in range(4)}
-
-            # Find the correct answer's letter
+            options_dict = {
+                option_letters[i]: all_answers[i] for i in range(len(all_answers))
+            }
             correct_letter = next(
                 letter
                 for letter, answer in options_dict.items()
                 if answer == item["correct_answer"]
             )
 
-            # Format the question entry
             question_entry = {
                 "index": index,
                 "question": item["question"],
@@ -92,9 +104,8 @@ def format_question_api_output(api_question_json: Dict[str, Any]):
                 "image": False,  # Placeholder for image support
             }
 
-            # Append the formatted question to the output
             output_json["questions"].append(question_entry)
         return output_json
-    except Exception as e:
-        print("❌ Error formatting question data from API:", e)
+    except KeyError as e:
+        logging.error("Missing key in API response: %s", str(e))
         return None

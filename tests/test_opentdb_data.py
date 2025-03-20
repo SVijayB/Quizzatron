@@ -84,24 +84,3 @@ def test_format_question_api_output_edge_case():
     assert formatted_output is not None
     assert "questions" in formatted_output
     assert len(formatted_output["questions"]) == 0
-
-
-def test_format_question_api_output_exception_handling():
-    """Test format_question_api_output() when an exception occurs."""
-    api_response = {
-        "results": [
-            {
-                "question": "What is 2+2?",
-                "incorrect_answers": ["3"],
-                "correct_answer": "4",
-                "difficulty": "easy",
-            }
-        ]
-    }
-
-    with patch(
-        "api.utils.opentdb_data.random.shuffle", side_effect=Exception("Shuffle Error")
-    ):
-        formatted_output = format_question_api_output(api_response)
-
-    assert formatted_output is None
