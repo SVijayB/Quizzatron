@@ -13,21 +13,21 @@ CONNECTION_STRING = os.getenv("MONGO_CONNECTION_STRING")
 
 
 def check_connection():
-    try:
+    try: #not hit
         api_url = "https://opentdb.com/api_category.php"
-        response = requests.get(api_url, timeout=5)  # Set timeout to 5 seconds
-        response.raise_for_status()
+        response = requests.get(api_url, timeout=5)  #not hit
+        response.raise_for_status() #not hit
 
-        client = MongoClient(CONNECTION_STRING)
-        client.admin.command("ping")
+        client = MongoClient(CONNECTION_STRING) #not hit
+        client.admin.command("ping") #not hit
         return True
-    except:
+    except:# not hit
         logging.error("Failed to connect to the triviaqa API or MongoDB.")
         return False
 
 
 def get_triviaqa(topic, num_questions, difficulty):
-    categories = get_categories()
+    categories = get_categories() #not hit
     category = categories.get(topic)
     if isinstance(category, int):
         # If the category is a number (ID), use the get_questions_from_api function
@@ -38,7 +38,7 @@ def get_triviaqa(topic, num_questions, difficulty):
         )
         return format_question_api_output(api_question_json)
 
-    elif isinstance(category, str):
+    elif isinstance(category, str): #not hit
         client = MongoClient(CONNECTION_STRING)
         result = get_mongodb_data(client, topic, num_questions, difficulty)
         if result:

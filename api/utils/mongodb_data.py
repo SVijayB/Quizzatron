@@ -3,7 +3,7 @@ def get_mongodb_data(client, topic, num_questions=5, difficulty="hard"):
     db = client["trivia-qa"]
 
     # Access the collection dynamically using 'topic'
-    if topic in db.list_collection_names():  # Check if the collection exists
+    if topic in db.list_collection_names():  # Check if the collection exists #not hit
         collection = db[topic]
 
         # Use $sample to fetch `num_questions` random documents

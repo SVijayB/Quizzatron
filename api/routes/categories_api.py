@@ -1,3 +1,5 @@
+"""Module for Categories API route"""
+
 from flask import jsonify, Blueprint
 from api.utils.category_aggregator import get_categories
 

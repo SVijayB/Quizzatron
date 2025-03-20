@@ -1,3 +1,5 @@
+"""Module for API route to team members information"""
+
 from flask import jsonify, Blueprint, request
 
 info_bp = Blueprint("info_api", __name__, url_prefix="/dev-info")

@@ -7,7 +7,7 @@ from pymongo import MongoClient
 
 def get_categories():
     # Get categories from the Open Trivia Database API
-    try:
+    try: 
         api_url = "https://opentdb.com/api_category.php"
         response = requests.get(api_url, timeout=5)  # Set timeout to 5 seconds
         response.raise_for_status()  # Raise an error for bad responses (4xx, 5xx)

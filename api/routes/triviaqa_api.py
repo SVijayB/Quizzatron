@@ -1,3 +1,5 @@
+"""Module for handling TriviaQA API routes."""
+
 from flask import jsonify, Blueprint, request
 from api.services.triviaqa_api import check_connection, get_triviaqa
 
@@ -13,15 +15,15 @@ def questions_route():
                 "message": "Categories module is ready to go! Hit the /questions endpoint! 🚀"
             }
         )
-    else:
-        return (
-            jsonify({"message": "Failed to connect to the triviaqa API or MongoDB."}),
-            500,
-        )
+    return (
+        jsonify({"message": "Failed to connect to the triviaqa API or MongoDB."}),
+        500,
+    )
 
 
 @triviaqa_bp.route("/get", methods=["GET"])
 def get_questions_route():
+    """Retrieve TriviaQA questions based on specified parameters."""
     topic = request.args.get("topic")
     num_questions = request.args.get("num_questions")
     difficulty = request.args.get("difficulty")
