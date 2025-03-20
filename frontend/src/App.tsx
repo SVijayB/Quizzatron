@@ -8,6 +8,7 @@ import Index from "./pages/Index";
 import Quiz from "./pages/Quiz";
 import Results from "./pages/Results";
 import NotFound from "./pages/NotFound";
+import DevInfo from "./components/DevInfo";
 
 const queryClient = new QueryClient();
 
@@ -23,6 +24,7 @@ const App = () => (
           <Route path="/results" element={<Results />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
+        <DevInfo />
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>
