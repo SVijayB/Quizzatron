@@ -2,8 +2,11 @@
 Run script for Quizzatron application.
 
 This script provides a direct way to run both the backend and frontend components.
-It will install all requirements, start the Flask API server, and launch the npm frontend.
-Only the frontend will be opened in the browser.
+It will:
+1. Create and activate a virtual environment
+2. Install all requirements
+3. Start the Flask API server and the npm frontend
+4. Open the frontend in the browser
 """
 
 import os
@@ -12,6 +15,74 @@ import sys
 import threading
 import time
 import webbrowser
+
+
+def setup_virtual_environment():
+    """
+    Create and activate a virtual environment if one doesn't exist.
+
+    Returns:
+        bool: True if venv is set up and activated successfully, False otherwise
+    """
+    venv_dir = "venv"
+
+    # Check if virtual environment already exists
+    if os.path.exists(venv_dir):
+        print(f"Virtual environment already exists at {venv_dir}")
+    else:
+        print("Creating virtual environment...")
+        try:
+            subprocess.check_call([sys.executable, "-m", "venv", venv_dir])
+            print(f"Virtual environment created at {venv_dir}")
+        except subprocess.CalledProcessError:
+            print("Failed to create virtual environment. Please create it manually:")
+            print(f"  {sys.executable} -m venv {venv_dir}")
+            return False
+
+    # Activate virtual environment
+    # On Windows, activation is different
+    if sys.platform == "win32":
+        activate_script = os.path.join(venv_dir, "Scripts", "activate")
+        activate_cmd = f"{activate_script} && python -c \"import sys; print('Activated virtualenv')\""
+        # We need to set a flag for child processes to know they should run in the venv
+        os.environ["QUIZZATRON_IN_VENV"] = "true"
+    else:
+        activate_script = os.path.join(venv_dir, "bin", "activate")
+        # Use source to activate in bash/zsh
+        activate_cmd = f"source {activate_script} && python -c \"import sys; print('Activated virtualenv')\""
+        # We need to set a flag for child processes to know they should run in the venv
+        os.environ["QUIZZATRON_IN_VENV"] = "true"
+
+    print(f"Activating virtual environment using {activate_script}")
+
+    # If this script was called without the venv
+    if not os.environ.get("QUIZZATRON_IN_VENV"):
+        print("Restarting script within virtual environment...")
+
+        if sys.platform == "win32":
+            # Windows needs a different approach
+            venv_python = os.path.join(
+                os.path.abspath(venv_dir), "Scripts", "python.exe"
+            )
+            current_script = os.path.abspath(__file__)
+
+            # Launch a new process with the venv Python
+            os.environ["QUIZZATRON_IN_VENV"] = "true"
+            process = subprocess.Popen([venv_python, current_script], env=os.environ)
+            process.wait()
+            sys.exit(0)
+        else:
+            # On Unix-based systems
+            venv_python = os.path.join(os.path.abspath(venv_dir), "bin", "python")
+            current_script = os.path.abspath(__file__)
+
+            # Launch a new process with the venv Python
+            os.environ["QUIZZATRON_IN_VENV"] = "true"
+            process = subprocess.Popen([venv_python, current_script], env=os.environ)
+            process.wait()
+            sys.exit(0)
+
+    return True
 
 
 def check_node_npm():
@@ -235,5 +306,9 @@ def run_app():
 
 
 if __name__ == "__main__":
+    # Set up virtual environment first
+    setup_virtual_environment()
+
+    # Then proceed with normal flow
     install_requirements()
     run_app()
