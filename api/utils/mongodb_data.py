@@ -1,4 +1,4 @@
-def get_mongodb_data(client, topic, num_questions, difficulty):
+def get_mongodb_data(client, topic, num_questions=5, difficulty="hard"):
     # Access the database (the database name is 'trivia-qa' as per the screenshot)
     db = client["trivia-qa"]
 

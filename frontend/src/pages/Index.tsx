@@ -1,4 +1,5 @@
-import { useState, useRef } from "react";
+
+import { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Select,
@@ -12,9 +13,11 @@ import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Slider } from "@/components/ui/slider";
 import { useToast } from "@/components/ui/use-toast";
-import { Sparkles, Brain, Zap, PlusCircle } from "lucide-react";
+import { Sparkles, Brain, Zap, FileText } from "lucide-react";
 import CursorEffect from "@/components/CursorEffect";
 import LoadingSpinner from "@/components/LoadingSpinner";
+import CategorySuggestions from "@/components/CategorySuggestions";
+import { fetchCategories, fetchQuizByCategory } from "@/services/categoryService";
 
 const Index = () => {
   const navigate = useNavigate();
@@ -22,6 +25,10 @@ const Index = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [loading, setLoading] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [categories, setCategories] = useState<string[]>([]);
+  const [categoryData, setCategoryData] = useState<{[key: string]: number | string}>({});
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [isCategorySelected, setIsCategorySelected] = useState(false);
   const [formData, setFormData] = useState({
     topic: "",
     model: "gemini",
@@ -30,11 +37,42 @@ const Index = () => {
     image: false,
   });
 
+  useEffect(() => {
+    const loadCategories = async () => {
+      try {
+        const response = await fetch('http://127.0.0.1:5000/api/categories/get');
+        if (!response.ok) {
+          throw new Error('Failed to fetch categories');
+        }
+        
+        const data: {[key: string]: number | string} = await response.json();
+        setCategoryData(data);
+        
+        // Include ALL categories now, not filtering out trivia-qa ones
+        const categoryList = Object.keys(data);
+        setCategories(categoryList);
+        
+        console.log("Loaded categories data:", data);
+        console.log("Complete category list:", categoryList);
+      } catch (error) {
+        console.error('Error fetching categories:', error);
+        toast({
+          title: "Error",
+          description: "Failed to fetch categories. Please try again.",
+          variant: "destructive",
+        });
+      }
+    };
+    
+    loadCategories();
+  }, [toast]);
+
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file && file.type === "application/pdf") {
       setSelectedFile(file);
       setFormData(prev => ({ ...prev, topic: file.name }));
+      setIsCategorySelected(false);
     } else {
       toast({
         title: "Invalid file type",
@@ -54,6 +92,14 @@ const Index = () => {
       }
     }
     setFormData(prev => ({ ...prev, topic: e.target.value }));
+    setShowSuggestions(true);
+    setIsCategorySelected(false);
+  };
+
+  const handleCategorySelect = (category: string) => {
+    setFormData(prev => ({ ...prev, topic: category }));
+    setShowSuggestions(false);
+    setIsCategorySelected(true);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -61,33 +107,80 @@ const Index = () => {
     setLoading(true);
 
     try {
-      const queryParams = new URLSearchParams({
-        model: formData.model,
-        difficulty: formData.difficulty,
-        num_questions: formData.numQuestions.toString(),
-        image: formData.image.toString(),
-        topic: selectedFile ? selectedFile.name : formData.topic,
-      });
-
-      const response = await fetch(
-        `https://quizzatron.onrender.com/api/quiz/generate?${queryParams}`, {
-          method: 'GET',
-          credentials: 'include',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          mode: 'cors'
+      let data;
+      
+      if (isCategorySelected) {
+        data = await fetchQuizByCategory(
+          formData.topic,
+          formData.difficulty,
+          formData.numQuestions,
+          formData.image
+        );
+      } else {
+        const requestFormData = new FormData();
+        
+        // Match backend's expected form fields
+        requestFormData.append('model', formData.model);
+        requestFormData.append('difficulty', formData.difficulty);
+        requestFormData.append('num_questions', formData.numQuestions.toString());
+        requestFormData.append('image', formData.image.toString());
+        
+        // Handle either PDF upload or text topic
+        if (selectedFile) {
+          requestFormData.append('pdf', selectedFile);
+        } else {
+          requestFormData.append('topic', formData.topic);
         }
-      );
 
-      if (!response.ok) {
-        throw new Error("Failed to generate quiz");
+        console.log("Sending form data:", {
+          model: formData.model,
+          difficulty: formData.difficulty,
+          numQuestions: formData.numQuestions,
+          image: formData.image,
+          topic: selectedFile ? "PDF file" : formData.topic
+        });
+
+        // Use the local API endpoint until the deployed one is fixed
+        const apiUrl = "http://127.0.0.1:5000/api/quiz/generate";
+        console.log("Using API endpoint:", apiUrl);
+
+        const response = await fetch(apiUrl, {
+          method: "POST",
+          body: requestFormData,
+        });
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error("Server error response:", errorText);
+          throw new Error(`Failed to generate quiz: ${response.status} ${response.statusText}`);
+        }
+
+        const responseText = await response.text();
+        console.log("Server response:", responseText);
+        
+        try {
+          const parsedData = JSON.parse(responseText);
+          
+          // Handle array response with status code [data, statusCode]
+          if (Array.isArray(parsedData) && parsedData.length === 2 && typeof parsedData[1] === 'number') {
+            data = parsedData[0]; // Extract just the quiz data part
+          } else {
+            data = parsedData;
+          }
+        } catch (parseError) {
+          console.error("Error parsing JSON response:", parseError);
+          throw new Error("Invalid response format from server");
+        }
       }
 
-      const data = await response.json();
-      localStorage.setItem("quizData", JSON.stringify(data[0]));
+      if (!data || typeof data !== 'object') {
+        throw new Error("Invalid quiz data received");
+      }
+
+      localStorage.setItem("quizData", JSON.stringify(data));
       navigate("/quiz");
     } catch (error) {
+      console.error("Error generating quiz:", error);
       toast({
         title: "Error",
         description: "Failed to generate quiz. Please try again.",
@@ -127,7 +220,7 @@ const Index = () => {
           <form onSubmit={handleSubmit} className="space-y-8 animate-fade-up">
             <div className="relative group">
               <div className="absolute -inset-1 bg-gradient-to-r from-violet-400 to-indigo-400 rounded-lg blur opacity-25 group-hover:opacity-40 transition duration-1000 group-hover:duration-200" />
-              <div className="relative flex items-center">
+              <div className="relative">
                 <Input
                   type="text"
                   placeholder={selectedFile ? selectedFile.name : "Type your quiz topic"}
@@ -136,13 +229,17 @@ const Index = () => {
                   onChange={handleTopicChange}
                   disabled={!!selectedFile}
                   required
+                  onFocus={() => setShowSuggestions(true)}
+                  onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
                 />
                 <button
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
-                  className="absolute right-4 text-white/70 hover:text-white transition-colors"
+                  className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center justify-center h-9 w-auto px-3 py-2 bg-violet-600/90 hover:bg-violet-700 text-white rounded-lg shadow-lg transition-all duration-200 border border-violet-500"
+                  title="Upload PDF"
                 >
-                  <PlusCircle className="w-6 h-6" />
+                  <FileText className="w-4 h-4 mr-1.5" />
+                  <span className="font-medium">PDF</span>
                 </button>
                 <input
                   type="file"
@@ -150,6 +247,14 @@ const Index = () => {
                   onChange={handleFileSelect}
                   accept=".pdf"
                   className="hidden"
+                />
+                
+                <CategorySuggestions 
+                  categories={categories}
+                  searchQuery={formData.topic}
+                  visible={showSuggestions && !selectedFile}
+                  onSelectCategory={handleCategorySelect}
+                  categoryData={categoryData}
                 />
               </div>
             </div>
@@ -165,8 +270,11 @@ const Index = () => {
                   onValueChange={(value) =>
                     setFormData((prev) => ({ ...prev, model: value }))
                   }
+                  disabled={isCategorySelected}
                 >
-                  <SelectTrigger className="w-full bg-gray-800 border-gray-700 text-gray-200">
+                  <SelectTrigger className={`w-full bg-gray-800 border-gray-700 text-gray-200 ${
+                    isCategorySelected ? "opacity-50 cursor-not-allowed" : ""
+                  }`}>
                     <SelectValue placeholder="Select model" />
                   </SelectTrigger>
                   <SelectContent>
@@ -218,7 +326,7 @@ const Index = () => {
               </div>
 
               <div className="space-y-2 flex items-center justify-between">
-                <label className="text-sm font-medium text-gray-300">
+                <label className={`text-sm font-medium ${isCategorySelected ? "text-gray-500" : "text-gray-300"}`}>
                   Include Images
                 </label>
                 <Switch
@@ -226,6 +334,8 @@ const Index = () => {
                   onCheckedChange={(checked) =>
                     setFormData((prev) => ({ ...prev, image: checked }))
                   }
+                  disabled={isCategorySelected}
+                  className={isCategorySelected ? "opacity-50 cursor-not-allowed" : ""}
                 />
               </div>
             </div>
