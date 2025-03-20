@@ -17,14 +17,14 @@ def dev_info_route():
         },
         {
             "name": "Aravindh Manavalan",
-            "desc": "LORUM IPSUM",
+            "desc": "Meow! 😼",
             "email": "aravindh1628@gmail.com",
             "linkedin": "https://www.linkedin.com/in/aravindh-manavalan/",
             "image": f"{base_url}/aravindh.jpeg",
         },
         {
             "name": "Akshay Ravi",
-            "desc": "LORUM IPSUM",
+            "desc": "UwU 👉🏻👈🏻",
             "email": "akshayravi13@gmail.com",
             "linkedin": "https://www.linkedin.com/in/akshayravi13/",
             "image": f"{base_url}/akshay.jpeg",
