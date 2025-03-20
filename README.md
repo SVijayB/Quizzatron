@@ -198,16 +198,7 @@ To contribute to Quizzatron, fork the repository, create a new branch and send u
 
 Thanks for contributing to Open-source! ❤️
 
-Project contributors ([emoji key](https://allcontributors.org/docs/en/emoji-key)):
-
-<!-- ALL-CONTRIBUTORS-LIST:START - Do not remove or modify this section -->
-<!-- prettier-ignore-start -->
-<!-- markdownlint-disable -->
-
-<!-- markdownlint-restore -->
-<!-- prettier-ignore-end -->
-
-<!-- ALL-CONTRIBUTORS-LIST:END -->
+[![Contributors](https://contrib.rocks/image?repo=SVijayB/Quizzatron)](https://github.com/SVijayB/Quizzatron/graphs/contributors)
 
 ## License
 
