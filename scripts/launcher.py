@@ -3,6 +3,7 @@ Launcher module for the Quizzatron application.
 This module handles starting the Flask server and opening a browser window.
 """
 
+'''
 import os
 import threading
 import time
@@ -70,3 +71,4 @@ def launch_application():
 
 if __name__ == "__main__":
     launch_application()
+'''
