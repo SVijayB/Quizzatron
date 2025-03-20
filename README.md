@@ -39,18 +39,22 @@
 
 ## Table of Contents
 
--   [Motivation](#Motivation)
--   [Installation](#Installation)
--   [Usage](#Usage)
-    -   [Project Demo](#Demo)
--   [Contributing](#Contributing)
--   [License](#License)
+-   [Motivation](#motivation)
+-   [Installation](#installation)
+    -   [Using the setup.py script](#method-1-using-the-setuppy-script)
+    -   [Manual setup](#method-2-manual-setup)
+    -   [Environment variables](#environment-variables)
+-   [Usage](#usage)
+-   [Project Structure](#project-structure)
+    -   [Project demo](#project-demo)
+-   [Contributing](#contributing)
+-   [License](#license)
 
 ## Motivation
 
 <!--- Insert product screenshot below --->
 
-![Product Screenshot](https://media.giphy.com/media/L1R1tvI9svkIWwpVYr/giphy.gif)
+![alt text](assets/ss-1.png)
 
 We’re building an AI-powered quizzing system that can generate questions on any topic - SATs, movies, national flags, or whatever you choose! The application supports custom inputs like PDFs or images and can also generate quizzes autonomously using DeepSeek. It provides an engaging learning experience with minimal human input.
 
@@ -68,22 +72,119 @@ Download and extract the source code.
 
 As an alternative, you could also clone the repository using,
 
-<pre>
-git clone https://github.com/SVijayB/Quizzatron
-</pre>
+```
+git clone https://github.com/SVijayB/Quizzatron.git
+```
 
-Once you have the source code, create a virtual environment using the following command,
-`python3 -m venv venv`
+Once the repository is cloned, run `cd Quizzatron`
 
-Enter the virtual environment and install dependancies using `pip install -r requirements.txt`.
+### Method 1: Using the setup.py script
+
+The easiest way to get started is to use our setup script, which handles everything automatically:
+
+You can run the setup script in the root directory using
+
+```
+python setup.py
+```
+
+The script will:
+
+1. Check for Python, Node.js and NPM (providing installation instructions if needed).
+2. Create a virtual environment for the backend (Python).
+3. Install all required backend and frontend dependencies.
+4. Start the Flask API server.
+5. Start the frontend development server (if Node.js is available).
+6. Automatically open the frontend application in your browser.
+
+### Method 2: Manual setup
+
+Alternatively, you can set up manually:
+
+1. Create a virtual environment:
+
+```
+ python -m venv venv
+```
+
+2. Activate the virtual environment:
+
+    On Windows: `venv\Scripts\activate`
+
+    On macOS/Linux: `source venv/bin/activate`
+
+3. Install dependencies:
+
+```
+ pip install -r requirements.txt
+```
+
+4. Install frontend dependencies:
+
+```
+cd frontend
+npm install
+```
+
+### Environment variables
+
+Once the dependencies are installed, you need to set up the environment variables.
+Create a `.env` file in the root directory and add the following variables:
+
+```
+GOOGLE_API_KEY=ENTER_GEMINI_API_KEY_HERE
+MONGO_CONNECTION_STRING=ENTER_MONGO_CONNECTION_STRING_HERE
+FLASK_ENV=PRODUCTION/DEVELOPMENT
+PORT=PORT_NUMBER_HERE
+```
 
 ## Usage
 
-<!--- Provide instructions on how to use the application after installing it --->
+<!--- Provide instructions and examples for use. Include screenshots as needed. --->
 
-To launch the file, use the following command, `python3 app.py`.
+1. To start the backend server, run the following command in the root directory:
 
-<!--- You can also add in screenshots, app demo (Gif format) or even provide link to other resources --->
+```
+flask run
+```
+
+2. To start the frontend development server, run the following command in the `frontend` directory:
+
+```
+npm run dev
+```
+
+## Project Structure
+
+```
+├── .github
+├── api
+│   ├── routes
+│   ├── services
+│   ├── static
+│   ├── templates
+│   ├── utils
+├── assets
+├── docs
+│   ├── specs
+│   ├── technology_review
+│   ├── demo_output
+│   └── demo_scripts
+├── frontend
+│   ├── node_modules
+│   ├── public
+│   ├── src
+│   │   ├── components
+│   │   ├── hooks
+│   │   ├── lib
+│   │   ├── pages
+├── scripts
+└── tests
+│   ├── routes
+│   ├── services
+│   └── utils
+
+```
 
 ### Project demo
 
@@ -96,6 +197,17 @@ You can also find the demo video [here](https://www.youtube.com/watch?v=dQw4w9Wg
 To contribute to Quizzatron, fork the repository, create a new branch and send us a pull request. Make sure you read [CONTRIBUTING.md](https://github.com/SVijayB/Quizzatron/blob/master/.github/CONTRIBUTING.md) before sending us Pull requests.
 
 Thanks for contributing to Open-source! ❤️
+
+Project contributors ([emoji key](https://allcontributors.org/docs/en/emoji-key)):
+
+<!-- ALL-CONTRIBUTORS-LIST:START - Do not remove or modify this section -->
+<!-- prettier-ignore-start -->
+<!-- markdownlint-disable -->
+
+<!-- markdownlint-restore -->
+<!-- prettier-ignore-end -->
+
+<!-- ALL-CONTRIBUTORS-LIST:END -->
 
 ## License
 
