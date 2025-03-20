@@ -55,7 +55,7 @@ This is the JSON formatted quiz structure for a quiz - either retrieved from the
                 "question": "Which country does this national flag belong to?",
                 "options": ["A) India", "B) Japan", "C) Germany", "D) France"],
                 "correct_answer": "B",
-                "difficulty": "{difficulty}",
+                "difficulty": "medium",
                 "image": "National flag of Japan"
             },
             {
@@ -63,7 +63,7 @@ This is the JSON formatted quiz structure for a quiz - either retrieved from the
                 "question": "Which company does this logo represent?",
                 "options": ["A) Apple", "B) Tesla", "C) Microsoft", "D) Amazon"],
                 "correct_answer": "C",
-                "difficulty": "{difficulty}",
+                "difficulty": "medium",
                 "image": "Microsoft logo"
             }
         ]
