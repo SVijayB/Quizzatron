@@ -1,9 +1,15 @@
 import logging
+from dotenv import load_dotenv
 from flask import jsonify
 import requests
 from pymongo import MongoClient
+import os
 from api.utils.category_aggregator import get_categories
 from api.utils.opentdb_data import get_questions_from_api, format_question_api_output
+from api.utils.mongodb_data import get_mongodb_data
+
+load_dotenv()
+CONNECTION_STRING = os.getenv("MONGO_CONNECTION_STRING")
 
 
 def check_connection():
@@ -12,8 +18,7 @@ def check_connection():
         response = requests.get(api_url, timeout=5)  # Set timeout to 5 seconds
         response.raise_for_status()
 
-        connection_string = os.getenv("MONGO_CONNECTION_STRING")
-        client = MongoClient(connection_string)
+        client = MongoClient(CONNECTION_STRING)
         client.admin.command("ping")
         return True
     except:
@@ -34,10 +39,12 @@ def get_triviaqa(topic, num_questions, difficulty):
         return format_question_api_output(api_question_json)
 
     elif isinstance(category, str):
-        # If the category is a string (like "trivia-qa"), we need to handle it differently
-        # This part would depend on how you want to handle these categories
-        print(f"Category '{topic}' needs to be handled separately")
-        return None
+        client = MongoClient(CONNECTION_STRING)
+        result = get_mongodb_data(client, topic, num_questions, difficulty)
+        if result:
+            return result
+        else:
+            return f"Collection '{topic}' does not exist in database 'trivia-qa'."
     else:
         print(f"Category '{topic}' not found")
         return None
