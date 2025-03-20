@@ -1,5 +1,5 @@
 """
-Setup script for Quizzatron application.
+Run script for Quizzatron application.
 
 This script provides a direct way to run both the backend and frontend components.
 It will:
@@ -31,13 +31,13 @@ def check_python_version():
     if (major == 3 and minor >= 10) or major > 3:
         print(f"Python version {python_version} is compatible")
         return True
-    else:
-        print("=" * 60)
-        print(f"ERROR: Incompatible Python version: {python_version}")
-        print("Quizzatron requires Python 3.10 or higher")
-        print("Please upgrade your Python installation")
-        print("=" * 60)
-        return False
+
+    print("=" * 60)
+    print(f"ERROR: Incompatible Python version: {python_version}")
+    print("Quizzatron requires Python 3.10 or higher")
+    print("Please upgrade your Python installation")
+    print("=" * 60)
+    return False
 
 
 def setup_virtual_environment():
@@ -250,7 +250,8 @@ def run_frontend():
     except KeyboardInterrupt:
         print("Frontend server stopped.")
 
-    except Exception as error:
+    except (OSError, IOError, subprocess.SubprocessError) as error:
+        # Catching specific exceptions instead of broad Exception
         print(f"Error starting frontend: {error}")
 
 
@@ -289,12 +290,14 @@ def run_backend():
     if env == "DEVELOPMENT":
         print("Running backend in development mode")
         app.run(host=host, port=port, debug=True)
-    else:
-        # pylint: disable=import-outside-toplevel
-        from waitress import serve
+        return
 
-        print("Running backend in production mode")
-        serve(app, host=host, port=port, url_scheme="http")
+    # Production mode using waitress
+    # pylint: disable=import-outside-toplevel
+    from waitress import serve
+
+    print("Running backend in production mode")
+    serve(app, host=host, port=port, url_scheme="http")
 
 
 def run_app():
