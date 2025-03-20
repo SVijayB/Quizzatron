@@ -17,6 +17,7 @@ import { Sparkles, Brain, Zap, FileText } from "lucide-react";
 import CursorEffect from "@/components/CursorEffect";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import CategorySuggestions from "@/components/CategorySuggestions";
+import QuizLogo from "@/components/QuizLogo";
 import { fetchCategories, fetchQuizByCategory } from "@/services/categoryService";
 
 const Index = () => {
@@ -207,10 +208,17 @@ const Index = () => {
       <div className="relative min-h-screen flex flex-col items-center justify-center p-4 z-10">
         <div className="w-full max-w-3xl space-y-8 text-center">
           <div className="space-y-4">
-            <h1 className="text-7xl font-bold tracking-tight text-white animate-fade-down bg-clip-text text-transparent bg-gradient-to-b from-white to-white/70">
-              Quizzatron
-              <span className="text-violet-400">.</span>
-            </h1>
+            <div className="flex items-center justify-center">
+              <QuizLogo 
+                size={80} 
+                color="white" 
+                className="mr-1 animate-pulse" 
+              />
+              <h1 className="text-7xl font-bold tracking-tight text-white animate-fade-down bg-clip-text text-transparent bg-gradient-to-b from-white to-white/70">
+                Quizzatron
+                <span className="text-violet-400">.</span>
+              </h1>
+            </div>
             <p className="text-xl text-white/80 animate-fade-up flex items-center justify-center gap-2">
               <Sparkles className="w-5 h-5 text-violet-400" />
               let's quiz!
