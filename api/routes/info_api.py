@@ -19,7 +19,7 @@ def dev_info_route():
         },
         {
             "name": "Aravindh Manavalan",
-            "desc": "Meow! 😼",
+            "desc": "meow",
             "email": "aravindh1628@gmail.com",
             "linkedin": "https://www.linkedin.com/in/aravindh-manavalan/",
             "image": f"{base_url}/aravindh.jpeg",
@@ -33,7 +33,7 @@ def dev_info_route():
         },
         {
             "name": "Hariharan sureshkumar",
-            "desc": "LORUM IPSUM",
+            "desc": "slay 💅",
             "email": "harisureshkumar1910@gmail.com",
             "linkedin": "https://www.linkedin.com/in/hariharan-sureshkumar-4994a2254/",
             "image": f"{base_url}/hari.jpeg",
