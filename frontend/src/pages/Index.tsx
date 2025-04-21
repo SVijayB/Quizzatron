@@ -230,10 +230,10 @@ const Index = () => {
 
           {/* Multiplayer button - positioned above the regular quiz form */}
           <div className="relative group animate-fade-up">
-            <div className="absolute -inset-1 bg-gradient-to-r from-amber-400 to-pink-500 rounded-lg blur opacity-25 group-hover:opacity-75 transition duration-1000 group-hover:duration-200" />
+            <div className="absolute -inset-1 bg-gradient-to-r from-indigo-400 to-violet-500 rounded-lg blur opacity-25 group-hover:opacity-75 transition duration-1000 group-hover:duration-200" />
             <Button
               onClick={handleMultiplayerClick}
-              className="relative w-full h-14 text-lg font-medium bg-gradient-to-r from-pink-500 to-amber-500 hover:from-pink-600 hover:to-amber-600 text-white transition-all duration-200 hover:scale-[1.02] border-0"
+              className="relative w-full h-14 text-lg font-medium bg-gradient-to-r from-indigo-500 to-violet-500 hover:from-indigo-600 hover:to-violet-600 text-white transition-all duration-200 hover:scale-[1.02] border-0"
               disabled={loading}
             >
               <Users className="w-5 h-5 mr-2" />

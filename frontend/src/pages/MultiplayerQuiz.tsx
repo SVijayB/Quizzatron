@@ -2,15 +2,15 @@ import { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
-import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { useToast } from "@/components/ui/use-toast";
-import { Timer } from "lucide-react";
+import { Timer, Users } from "lucide-react";
 import CursorEffect from "@/components/CursorEffect";
 import { QuizQuestion } from "@/components/quiz/QuizQuestion";
 import { QuizOptions } from "@/components/quiz/QuizOptions";
 import { QuizBackground } from "@/components/quiz/QuizBackground";
 import { getGameState, submitAnswer } from "@/services/multiplayerService";
 import { MultiplayerQuizQuestion, MultiplayerPlayer } from "@/services/multiplayerService";
+import EmojiAvatar from "@/components/EmojiAvatar";
 
 const QUESTION_TIMEOUT = 10;
 const INITIAL_DELAY = 2;
@@ -288,37 +288,40 @@ const MultiplayerQuiz = () => {
       <CursorEffect />
       <QuizBackground />
       
-      {/* Timer */}
-      <div className="absolute top-4 right-4 z-20 flex items-center bg-black/30 backdrop-blur-sm px-3 py-2 rounded-full shadow-lg">
-        <Timer className="w-5 h-5 mr-2 text-amber-400" />
-        <span className={`text-lg font-bold ${timeLeft <= 3 ? 'text-red-400' : 'text-white'}`}>
+      {/* Enhanced Timer */}
+      <div className="absolute top-6 right-6 z-20 flex items-center bg-black/40 backdrop-blur-md px-5 py-3 rounded-xl shadow-[0_0_20px_rgba(255,200,0,0.2)] border border-amber-500/30 transition-all duration-300">
+        <Timer className="w-7 h-7 mr-3 text-amber-400" />
+        <span className={`text-3xl font-bold ${timeLeft <= 3 ? 'text-red-400 animate-pulse' : 'text-white'}`}>
           {timeLeft}s
         </span>
       </div>
       
-      {/* Player scores sidebar */}
-      <div className="absolute top-4 left-4 z-20 w-48 bg-black/30 backdrop-blur-sm p-3 rounded-lg shadow-lg">
-        <h3 className="text-sm font-semibold text-white/80 mb-2">Players</h3>
-        <div className="space-y-2 max-h-[60vh] overflow-y-auto">
+      {/* Enhanced Player scores sidebar */}
+      <div className="absolute top-6 left-6 z-20 w-64 bg-black/40 backdrop-blur-md p-4 rounded-xl shadow-[0_0_20px_rgba(139,92,246,0.2)] border border-violet-500/30">
+        <h3 className="text-base font-semibold text-white mb-3 flex items-center">
+          <Users className="w-5 h-5 mr-2 text-violet-400" />
+          Player Scores
+        </h3>
+        <div className="space-y-3 max-h-[60vh] overflow-y-auto pr-1">
           {players.map((player) => (
             <div 
               key={player.id} 
-              className={`flex items-center gap-2 p-2 rounded-md ${player.name === playerName ? 'bg-white/10' : ''}`}
+              className={`flex items-center gap-3 p-3 rounded-lg transition-all duration-200 ${player.name === playerName ? 'bg-gradient-to-r from-violet-500/20 to-transparent border border-violet-500/30' : 'bg-white/5 hover:bg-white/10'}`}
             >
-              <Avatar className="h-8 w-8">
-                <AvatarImage src={player.avatar} alt={player.name} />
-                <AvatarFallback className={`${getAvatarColor(player.name)} text-white text-xs`}>
-                  {player.name.slice(0, 2).toUpperCase()}
-                </AvatarFallback>
-              </Avatar>
+              <EmojiAvatar 
+                initialEmoji={player.avatar}
+                size={40}
+                isInteractive={false}
+                className="min-w-[40px]"
+              />
               <div className="flex-1 min-w-0">
-                <div className="flex justify-between items-center">
+                <div className="flex justify-between items-center mb-1">
                   <p className="text-sm font-medium truncate">{player.name}</p>
-                  <p className="text-xs font-bold text-amber-400">{player.score}</p>
+                  <p className="text-lg font-bold text-amber-400">{player.score}</p>
                 </div>
-                <div className="w-full bg-white/10 h-1 mt-1 rounded-full overflow-hidden">
+                <div className="w-full bg-white/10 h-2 rounded-full overflow-hidden">
                   <div 
-                    className="bg-green-500 h-full"
+                    className="bg-gradient-to-r from-green-500 to-emerald-400 h-full"
                     style={{
                       width: `${player.answers && player.answers.length > 0 ? Math.min(100, (player.answers.length / quizData.length) * 100) : 0}%`
                     }}

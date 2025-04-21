@@ -9,38 +9,10 @@ import { useToast } from "@/components/ui/use-toast";
 import { ArrowLeft, ArrowRight, Users, Plus, ExternalLink } from "lucide-react";
 import CursorEffect from "@/components/CursorEffect";
 import QuizLogo from "@/components/QuizLogo";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import EmojiAvatar from "@/components/EmojiAvatar";
 
-function generateRandomAvatar(): string {
-  // Dicebear API for avatars
-  const styles = [
-    "adventurer",
-    "adventurer-neutral",
-    "avataaars",
-    "big-ears",
-    "big-ears-neutral",
-    "bottts",
-    "croodles",
-    "croodles-neutral",
-    "fun-emoji",
-    "icons",
-    "identicon",
-    "initials",
-    "lorelei",
-    "lorelei-neutral",
-    "micah",
-    "miniavs",
-    "notionists",
-    "open-peeps",
-    "personas",
-    "pixel-art",
-    "rings",
-    "shapes"
-  ];
-  const style = styles[Math.floor(Math.random() * styles.length)];
-  const seed = Math.random().toString(36).substring(2, 15);
-  return `https://api.dicebear.com/7.x/${style}/svg?seed=${seed}`;
-}
+// Remove the old avatar generation function
+const emojis = ['😀', '😎', '🚀', '💡', '🎉', '🧠', '🎮', '🌟', '🤖', '🥳', '🤔', '🔥', '💯', '🎯', '🏆', '🍕'];
 
 const Multiplayer = () => {
   const navigate = useNavigate();
@@ -50,11 +22,12 @@ const Multiplayer = () => {
   const [lobbyCode, setLobbyCode] = useState("");
   const [isCreatingLobby, setIsCreatingLobby] = useState(false);
   const [isJoiningLobby, setIsJoiningLobby] = useState(false);
-  const [avatarUrl, setAvatarUrl] = useState<string>("");
+  const [avatarEmoji, setAvatarEmoji] = useState<string>(emojis[0]);
 
-  // Generate a random avatar when component mounts
+  // Initialize with a random emoji when component mounts
   useEffect(() => {
-    setAvatarUrl(generateRandomAvatar());
+    const randomEmoji = emojis[Math.floor(Math.random() * emojis.length)];
+    setAvatarEmoji(randomEmoji);
     
     // Try to restore player name from localStorage
     const storedPlayerName = localStorage.getItem("playerName");
@@ -67,11 +40,6 @@ const Multiplayer = () => {
     localStorage.removeItem("isHost");
     localStorage.removeItem("multiplayerResults");
   }, []);
-  
-  // Generate a new random avatar
-  const refreshAvatar = () => {
-    setAvatarUrl(generateRandomAvatar());
-  };
 
   const createLobby = async () => {
     if (!playerName.trim()) {
@@ -93,7 +61,7 @@ const Multiplayer = () => {
         },
         body: JSON.stringify({
           host_name: playerName,
-          avatar: avatarUrl,
+          avatar: avatarEmoji, // Use emoji as avatar
         }),
       });
 
@@ -151,7 +119,7 @@ const Multiplayer = () => {
         body: JSON.stringify({
           player_name: playerName,
           lobby_code: lobbyCode,
-          avatar: avatarUrl,
+          avatar: avatarEmoji, // Use emoji as avatar
         }),
       });
 
@@ -273,15 +241,13 @@ const Multiplayer = () => {
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="flex items-center gap-4">
-                  <Avatar 
-                    className="h-20 w-20 rounded-xl border-2 border-white/20 cursor-pointer hover:border-violet-400 transition-colors" 
-                    onClick={refreshAvatar}
-                  >
-                    <AvatarImage src={avatarUrl} alt="Avatar" />
-                    <AvatarFallback className="bg-violet-400 text-white text-xl">
-                      {playerName ? playerName.charAt(0).toUpperCase() : "?"}
-                    </AvatarFallback>
-                  </Avatar>
+                  <EmojiAvatar 
+                    initialEmoji={avatarEmoji}
+                    onEmojiChange={setAvatarEmoji}
+                    size={80}
+                    isInteractive={true}
+                    className="min-w-[80px]"
+                  />
                   <div className="flex-1">
                     <Label htmlFor="playerName" className="text-white mb-1 block">
                       Your Name
@@ -294,7 +260,7 @@ const Multiplayer = () => {
                       className="bg-white/10 border-white/20 text-white placeholder:text-white/50"
                     />
                     <p className="text-xs text-white/50 mt-1">
-                      Click the avatar to change it
+                      Click the emoji to change your avatar
                     </p>
                   </div>
                 </div>
