@@ -1,4 +1,3 @@
-
 import { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import {
@@ -13,7 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Slider } from "@/components/ui/slider";
 import { useToast } from "@/components/ui/use-toast";
-import { Sparkles, Brain, Zap, FileText } from "lucide-react";
+import { Sparkles, Brain, Zap, FileText, Users } from "lucide-react";
 import CursorEffect from "@/components/CursorEffect";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import CategorySuggestions from "@/components/CategorySuggestions";
@@ -41,7 +40,7 @@ const Index = () => {
   useEffect(() => {
     const loadCategories = async () => {
       try {
-        const response = await fetch('https://quizzatron.onrender.com/api/categories/get');
+        const response = await fetch('http://127.0.0.1:5000/api/categories/get');
         if (!response.ok) {
           throw new Error('Failed to fetch categories');
         }
@@ -142,7 +141,7 @@ const Index = () => {
         });
 
         // Use the local API endpoint until the deployed one is fixed
-        const apiUrl = "https://quizzatron.onrender.com/api/quiz/generate";
+        const apiUrl = "http://127.0.0.1:5000/api/quiz/generate";
         console.log("Using API endpoint:", apiUrl);
 
         const response = await fetch(apiUrl, {
@@ -192,6 +191,10 @@ const Index = () => {
     }
   };
 
+  const handleMultiplayerClick = () => {
+    navigate("/multiplayer");
+  };
+
   return (
     <div className="min-h-screen relative overflow-hidden bg-[#1a1a2e]">
       {loading && <LoadingSpinner />}
@@ -223,6 +226,20 @@ const Index = () => {
               <Sparkles className="w-5 h-5 text-violet-400" />
               let's quiz!
             </p>
+          </div>
+
+          {/* Multiplayer button - positioned above the regular quiz form */}
+          <div className="relative group animate-fade-up">
+            <div className="absolute -inset-1 bg-gradient-to-r from-amber-400 to-pink-500 rounded-lg blur opacity-25 group-hover:opacity-75 transition duration-1000 group-hover:duration-200" />
+            <Button
+              onClick={handleMultiplayerClick}
+              className="relative w-full h-14 text-lg font-medium bg-gradient-to-r from-pink-500 to-amber-500 hover:from-pink-600 hover:to-amber-600 text-white transition-all duration-200 hover:scale-[1.02] border-0"
+              disabled={loading}
+            >
+              <Users className="w-5 h-5 mr-2" />
+              Play Multiplayer Quiz
+              <Sparkles className="w-5 h-5 ml-2" />
+            </Button>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-8 animate-fade-up">
