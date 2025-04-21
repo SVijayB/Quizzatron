@@ -84,6 +84,35 @@ const MultiplayerQuiz = () => {
     }
   }, [timerStarted, isRevealed, quizData.length]);
 
+  // Enhanced game over detection
+  useEffect(() => {
+    if (isGameOver) {
+      console.log("Game is over, navigating to results...");
+      
+      // Fetch the final state once more before navigating to ensure latest scores
+      const getFinalResults = async () => {
+        try {
+          const data = await getGameState(lobbyCode || '');
+          // Store the final results to ensure we have the most up-to-date scores
+          localStorage.setItem("multiplayerResults", JSON.stringify(data.players));
+          console.log("Final results saved, navigating to results page");
+          
+          // Navigate to results with a short delay to ensure data is saved
+          setTimeout(() => {
+            navigate(`/multiplayer/results/${lobbyCode}`);
+          }, 800);
+        } catch (error) {
+          console.error("Error fetching final results:", error);
+          // Still navigate even if there's an error
+          navigate(`/multiplayer/results/${lobbyCode}`);
+        }
+      };
+      
+      getFinalResults();
+    }
+  }, [isGameOver, lobbyCode, navigate]);
+
+  // Modified to ensure we check for game end even if the polling fails
   const fetchGameState = async () => {
     if (!isPolling) return;
 
@@ -101,10 +130,11 @@ const MultiplayerQuiz = () => {
       
       // Check if the game is over
       if (data.game_over) {
+        console.log("Server reports game is over, saving results and preparing to navigate");
         setIsGameOver(true);
         setIsPolling(false);
+        // Save results in localStorage for access in the results page
         localStorage.setItem("multiplayerResults", JSON.stringify(data.players));
-        navigate(`/multiplayer/results/${lobbyCode}`);
       }
     } catch (error) {
       console.error("Error fetching game state:", error);
@@ -290,7 +320,7 @@ const MultiplayerQuiz = () => {
                   <div 
                     className="bg-green-500 h-full"
                     style={{
-                      width: `${Math.min(100, (player.currentQuestion / quizData.length) * 100)}%`
+                      width: `${player.answers && player.answers.length > 0 ? Math.min(100, (player.answers.length / quizData.length) * 100) : 0}%`
                     }}
                   />
                 </div>

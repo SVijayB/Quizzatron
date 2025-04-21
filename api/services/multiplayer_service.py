@@ -497,7 +497,14 @@ def submit_player_answer(
 
                     # Update player stats
                     player["currentQuestion"] = question_index + 1
+                    # Ensure the score is added to the player's total score
                     player["score"] += score
+
+                    # Log the updated score for debugging
+                    logging.info(
+                        f"Player {player_name} answered Q{question_index+1}, correct: {is_correct}, score: +{score}, total: {player['score']}"
+                    )
+
                     if is_correct:
                         player["correctAnswers"] += 1
 
@@ -505,6 +512,10 @@ def submit_player_answer(
 
                     # Check if game is over for this player
                     if player["currentQuestion"] >= len(questions_list):
+                        logging.info(
+                            f"Player {player_name} has completed all questions"
+                        )
+
                         # Check if all players have finished
                         all_finished = True
                         for p in lobby["players"]:
@@ -513,7 +524,29 @@ def submit_player_answer(
                                 break
 
                         if all_finished:
+                            logging.info(
+                                "All players have completed the game. Setting game_over to True."
+                            )
                             lobby["game_over"] = True
+
+                            # Create a snapshot of final results in a structured format for easier access
+                            final_results = []
+                            for p in lobby["players"]:
+                                final_results.append(
+                                    {
+                                        "id": p["id"],
+                                        "name": p["name"],
+                                        "isHost": p["isHost"],
+                                        "avatar": p["avatar"],
+                                        "score": p["score"],
+                                        "correctAnswers": p["correctAnswers"],
+                                        "totalQuestions": p["totalQuestions"],
+                                        "answers": p["answers"],
+                                    }
+                                )
+
+                            # Store the final results in the lobby
+                            lobby["final_results"] = final_results
 
                 except Exception as e:
                     # Log the error and return a helpful error message
