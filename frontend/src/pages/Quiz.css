@@ -1,0 +1,48 @@
+
+/* Quiz Background and Overlays */
+.quiz-background {
+  min-height: 100vh;
+  width: 100%;
+  position: relative;
+  background-color: #4A2F93;
+  background-image: linear-gradient(135deg, #4A2F93 0%, #7B5BE6 100%);
+  overflow: hidden;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 1rem;
+}
+
+/* Quiz Container */
+.quiz-container {
+  max-width: 800px;
+  width: 100%;
+  z-index: 1;
+  background-color: rgba(255, 255, 255, 0.1);
+  padding: 2rem;
+  border-radius: 1rem;
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 25px 50px -12px rgb(0 0 0 / 25%);
+  margin: 2rem auto;
+}
+
+/* Timer Bar */
+.quiz-timer {
+  margin-bottom: 1.5rem;
+}
+
+.quiz-timer-bar {
+  height: 8px;
+  background-color: rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+  overflow: hidden;
+  margin-top: 0.5rem;
+}
+
+.quiz-timer-progress {
+  height: 100%;
+  background: linear-gradient(90deg, #8b5cf6, #6d28d9);
+  border-radius: 4px;
+  transition: width 0.1s linear;
+}

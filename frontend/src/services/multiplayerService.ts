@@ -392,6 +392,8 @@ const eventCallbacks: Record<string, CallbackFunction[]> = {
   connection_response: [],
   room_joined: [],
   error: [],
+  connect: [],
+  disconnect: [],
 };
 
 /**
@@ -415,7 +417,13 @@ export const initializeSocket = () => {
       
       // Broadcast the connect event
       if (eventCallbacks["connect"] && eventCallbacks["connect"].length > 0) {
-        eventCallbacks["connect"].forEach(callback => callback());
+        eventCallbacks["connect"].forEach(callback => {
+          try {
+            callback();
+          } catch (error) {
+            console.error("Error processing connect event:", error);
+          }
+        });
       }
     });
     
@@ -424,7 +432,13 @@ export const initializeSocket = () => {
       
       // Broadcast the disconnect event
       if (eventCallbacks["disconnect"] && eventCallbacks["disconnect"].length > 0) {
-        eventCallbacks["disconnect"].forEach(callback => callback());
+        eventCallbacks["disconnect"].forEach(callback => {
+          try {
+            callback();
+          } catch (error) {
+            console.error("Error processing disconnect event:", error);
+          }
+        });
       }
     });
     
@@ -444,27 +458,47 @@ export const initializeSocket = () => {
       }
     });
     
-    // Register handlers for other event types
+    // Enhanced direct event handling - make all events trigger immediately
     ["player_joined", "player_left", "game_started", "connection_response", 
      "room_joined", "error", "new_question", "player_answered", 
      "all_answers_in", "scoreboard", "game_over"].forEach(eventType => {
       socket.on(eventType, (data) => {
         console.log(`Received ${eventType} event:`, data);
         
+        // Immediately dispatch to all registered callbacks
         if (eventCallbacks[eventType] && eventCallbacks[eventType].length > 0) {
+          // Track if any callback succeeded to reduce error noise
+          let atLeastOneCallbackSucceeded = false;
+          
           eventCallbacks[eventType].forEach(callback => {
             try {
               callback(data);
+              atLeastOneCallbackSucceeded = true;
             } catch (error) {
               console.error(`Error processing ${eventType}:`, error);
             }
           });
+          
+          // If all callbacks failed, log a more prominent error
+          if (!atLeastOneCallbackSucceeded) {
+            console.error(`⚠️ All callbacks for ${eventType} failed to process`);
+          }
+        } else {
+          console.log(`No callbacks registered for ${eventType} event`);
         }
       });
     });
     
     socket.on("connect_error", (error) => {
       console.error("⚠️ Socket connection error:", error);
+    });
+    
+    socket.on("connect_timeout", () => {
+      console.error("⚠️ Socket connection timeout");
+    });
+    
+    socket.on("reconnect", (attemptNumber) => {
+      console.log(`🔄 Socket reconnected after ${attemptNumber} attempts`);
     });
   }
   

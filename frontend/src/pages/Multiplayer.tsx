@@ -10,13 +10,14 @@ import { ArrowLeft, ArrowRight, Users, Plus, ExternalLink } from "lucide-react";
 import CursorEffect from "@/components/CursorEffect";
 import QuizLogo from "@/components/QuizLogo";
 import EmojiAvatar from "@/components/EmojiAvatar";
+import { useMultiplayer } from "@/contexts/MultiplayerContext";
 
-// Remove the old avatar generation function
 const emojis = ['😀', '😎', '🚀', '💡', '🎉', '🧠', '🎮', '🌟', '🤖', '🥳', '🤔', '🔥', '💯', '🎯', '🏆', '🍕'];
 
 const Multiplayer = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { storePlayerInfo } = useMultiplayer();
   const [activeView, setActiveView] = useState<"menu" | "create" | "join">("menu");
   const [playerName, setPlayerName] = useState("");
   const [lobbyCode, setLobbyCode] = useState("");
@@ -24,22 +25,17 @@ const Multiplayer = () => {
   const [isJoiningLobby, setIsJoiningLobby] = useState(false);
   const [avatarEmoji, setAvatarEmoji] = useState<string>(emojis[0]);
 
-  // Initialize with a random emoji when component mounts
   useEffect(() => {
     const randomEmoji = emojis[Math.floor(Math.random() * emojis.length)];
     setAvatarEmoji(randomEmoji);
     
-    // Save the random emoji to localStorage immediately so it's available
-    // even if the user doesn't change it manually
     localStorage.setItem("playerEmoji", randomEmoji);
     
-    // Try to restore player name from localStorage
     const storedPlayerName = localStorage.getItem("playerName");
     if (storedPlayerName) {
       setPlayerName(storedPlayerName);
     }
 
-    // Clear any previous lobby data
     localStorage.removeItem("lobbyCode");
     localStorage.removeItem("isHost");
     localStorage.removeItem("multiplayerResults");
@@ -65,7 +61,7 @@ const Multiplayer = () => {
         },
         body: JSON.stringify({
           host_name: playerName,
-          avatar: avatarEmoji, // Use emoji as avatar
+          avatar: avatarEmoji,
         }),
       });
 
@@ -74,14 +70,11 @@ const Multiplayer = () => {
       }
 
       const data = await response.json();
+      console.log("Lobby created successfully:", data);
       
-      // Save player info to localStorage
-      localStorage.setItem("playerName", playerName);
-      localStorage.setItem("lobbyCode", data.lobby_code);
-      localStorage.setItem("isHost", "true");
-      localStorage.setItem("playerEmoji", avatarEmoji); // Save emoji to localStorage
+      storePlayerInfo(playerName, data.host_id, data.lobby_code, true, avatarEmoji);
       
-      // Navigate to the lobby
+      console.log("Navigating to:", `/multiplayer/lobby/${data.lobby_code}`);
       navigate(`/multiplayer/lobby/${data.lobby_code}`);
     } catch (error) {
       console.error("Error creating lobby:", error);
@@ -124,7 +117,7 @@ const Multiplayer = () => {
         body: JSON.stringify({
           player_name: playerName,
           lobby_code: lobbyCode,
-          avatar: avatarEmoji, // Use emoji as avatar
+          avatar: avatarEmoji,
         }),
       });
 
@@ -143,14 +136,11 @@ const Multiplayer = () => {
       }
 
       const data = await response.json();
+      console.log("Successfully joined lobby:", data);
       
-      // Save player info to localStorage
-      localStorage.setItem("playerName", playerName);
-      localStorage.setItem("lobbyCode", lobbyCode);
-      localStorage.setItem("isHost", "false");
-      localStorage.setItem("playerEmoji", avatarEmoji); // Save emoji to localStorage
+      storePlayerInfo(playerName, data.player_id, lobbyCode, false, avatarEmoji);
       
-      // Navigate to the lobby
+      console.log("Navigating to:", `/multiplayer/lobby/${lobbyCode}`);
       navigate(`/multiplayer/lobby/${lobbyCode}`);
     } catch (error) {
       console.error("Error joining lobby:", error);
@@ -249,7 +239,7 @@ const Multiplayer = () => {
                 <div className="flex items-center gap-4">
                   <EmojiAvatar 
                     initialEmoji={avatarEmoji}
-                    onEmojiChange={setAvatarEmoji}
+                    onChange={setAvatarEmoji}
                     size={80}
                     isInteractive={true}
                     className="min-w-[80px]"

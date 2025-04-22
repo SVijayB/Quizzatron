@@ -1,43 +1,30 @@
+
 import { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { useToast } from "@/components/ui/use-toast";
 import { Trophy, Medal, Home, Users, Star } from "lucide-react";
 import CursorEffect from "@/components/CursorEffect";
 import QuizLogo from "@/components/QuizLogo";
+import EmojiAvatar from "@/components/EmojiAvatar";
 import confetti from "canvas-confetti";
-
-interface PlayerResult {
-  id: string;
-  name: string;
-  isHost: boolean;
-  avatar: string;
-  score: number;
-  correctAnswers: number;
-  totalQuestions: number;
-  answers: {
-    question: string;
-    userAnswer: string;
-    correctAnswer: string;
-    isCorrect: boolean;
-    score: number;
-  }[];
-}
+import { useMultiplayer } from "@/contexts/MultiplayerContext";
+import { apiService, MultiplayerPlayer } from "@/services/apiService";
 
 const MultiplayerResults = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { lobbyCode } = useParams<{ lobbyCode: string }>();
-  const [results, setResults] = useState<PlayerResult[]>([]);
-  const [playerName, setPlayerName] = useState("");
-  const [isHost, setIsHost] = useState(false);
+  const [results, setResults] = useState<MultiplayerPlayer[]>([]);
   const [isLoadingResults, setIsLoadingResults] = useState(true);
+  
+  // Get multiplayer context
+  const { playerName, isHost } = useMultiplayer();
 
+  // Show confetti celebration effect on load
   useEffect(() => {
-    // Show confetti celebration effect
     const duration = 3 * 1000;
     const end = Date.now() + duration;
     
@@ -51,7 +38,7 @@ const MultiplayerResults = () => {
       colors: ['#ff0000', '#00ff00', '#0000ff', '#ffff00', '#ff00ff', '#00ffff']
     };
     
-    function randomInRange(min, max) {
+    function randomInRange(min: number, max: number) {
       return Math.random() * (max - min) + min;
     }
     
@@ -79,18 +66,15 @@ const MultiplayerResults = () => {
     return () => clearInterval(interval);
   }, []);
 
+  // Load results
   useEffect(() => {
     const storedPlayerName = localStorage.getItem("playerName");
     const storedLobbyCode = localStorage.getItem("lobbyCode");
-    const storedIsHost = localStorage.getItem("isHost") === "true";
 
     if (!storedPlayerName || !storedLobbyCode || storedLobbyCode !== lobbyCode) {
       navigate("/multiplayer");
       return;
     }
-
-    setPlayerName(storedPlayerName);
-    setIsHost(storedIsHost);
 
     // Try to load results from localStorage first (client-side)
     const localResults = localStorage.getItem("multiplayerResults");
@@ -113,15 +97,12 @@ const MultiplayerResults = () => {
     fetchResults();
   }, [lobbyCode, navigate]);
 
+  // Fetch results from server
   const fetchResults = async () => {
     try {
-      const response = await fetch(`http://127.0.0.1:5000/api/multiplayer/results/${lobbyCode}`);
+      if (!lobbyCode) return;
       
-      if (!response.ok) {
-        throw new Error("Failed to fetch results");
-      }
-
-      const data = await response.json();
+      const data = await apiService.getGameResults(lobbyCode);
       
       if (data.players && Array.isArray(data.players)) {
         // Sort results by score in descending order
@@ -248,12 +229,12 @@ const MultiplayerResults = () => {
                       <div className="absolute -top-3 -right-3 p-1.5 rounded-full bg-gray-300 shadow-lg">
                         <Medal className="h-4 w-4 text-gray-700" />
                       </div>
-                      <Avatar className="h-20 w-20 border-4 border-gray-300 shadow-xl">
-                        <AvatarImage src={results[1].avatar} alt={results[1].name} />
-                        <AvatarFallback className={`${getAvatarColor(results[1].name)} text-white text-2xl`}>
-                          {getPlayerEmoji(results[1].name)}
-                        </AvatarFallback>
-                      </Avatar>
+                      <EmojiAvatar 
+                        initialEmoji={results[1].avatar}
+                        size={80}
+                        isInteractive={false}
+                        className="border-4 border-gray-300 shadow-xl"
+                      />
                     </div>
                     <h3 className="text-base font-semibold text-white text-center mt-2">
                       {results[1].name}
@@ -277,12 +258,12 @@ const MultiplayerResults = () => {
                     <div className="absolute -top-3 -right-3 p-1.5 rounded-full bg-yellow-400 shadow-lg">
                       <Trophy className="h-5 w-5 text-yellow-700" />
                     </div>
-                    <Avatar className="h-28 w-28 border-4 border-yellow-400 shadow-xl">
-                      <AvatarImage src={results[0].avatar} alt={results[0].name} />
-                      <AvatarFallback className={`${getAvatarColor(results[0].name)} text-white text-3xl`}>
-                        {getPlayerEmoji(results[0].name)}
-                      </AvatarFallback>
-                    </Avatar>
+                    <EmojiAvatar 
+                      initialEmoji={results[0].avatar}
+                      size={112}
+                      isInteractive={false}
+                      className="border-4 border-yellow-400 shadow-xl"
+                    />
                   </div>
                   <h3 className="text-xl font-bold text-white text-center mt-2">
                     {results[0].name}
@@ -306,12 +287,12 @@ const MultiplayerResults = () => {
                       <div className="absolute -top-3 -right-3 p-1.5 rounded-full bg-amber-600 shadow-lg">
                         <Medal className="h-4 w-4 text-amber-900" />
                       </div>
-                      <Avatar className="h-16 w-16 border-4 border-amber-600 shadow-xl">
-                        <AvatarImage src={results[2].avatar} alt={results[2].name} />
-                        <AvatarFallback className={`${getAvatarColor(results[2].name)} text-white text-xl`}>
-                          {getPlayerEmoji(results[2].name)}
-                        </AvatarFallback>
-                      </Avatar>
+                      <EmojiAvatar 
+                        initialEmoji={results[2].avatar}
+                        size={64}
+                        isInteractive={false}
+                        className="border-4 border-amber-600 shadow-xl"
+                      />
                     </div>
                     <h3 className="text-base font-semibold text-white text-center mt-2">
                       {results[2].name}
@@ -319,7 +300,7 @@ const MultiplayerResults = () => {
                     <div className="text-lg font-bold text-amber-600">
                       {results[2].score} pts
                     </div>
-                    <div className="h-18 w-16 bg-amber-600/30 backdrop-blur-sm rounded-t-lg mt-2 flex items-end justifycenter pb-2">
+                    <div className="h-18 w-16 bg-amber-600/30 backdrop-blur-sm rounded-t-lg mt-2 flex items-end justify-center pb-2">
                       <span className="text-lg font-bold text-white">3</span>
                     </div>
                   </motion.div>
@@ -370,12 +351,12 @@ const MultiplayerResults = () => {
                             </td>
                             <td className="whitespace-nowrap px-3 py-4 text-sm">
                               <div className="flex items-center">
-                                <Avatar className="h-8 w-8 mr-2">
-                                  <AvatarImage src={player.avatar} alt={player.name} />
-                                  <AvatarFallback className={`${getAvatarColor(player.name)} text-white text-xs`}>
-                                    {getPlayerEmoji(player.name)}
-                                  </AvatarFallback>
-                                </Avatar>
+                                <EmojiAvatar 
+                                  initialEmoji={player.avatar}
+                                  size={32}
+                                  isInteractive={false}
+                                  className="mr-2"
+                                />
                                 <div className="text-white">{player.name}</div>
                                 {player.isHost && <span className="ml-2 text-xs text-amber-400">(Host)</span>}
                               </div>
