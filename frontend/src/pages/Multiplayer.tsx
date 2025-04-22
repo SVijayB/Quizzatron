@@ -9,10 +9,8 @@ import { useToast } from "@/components/ui/use-toast";
 import { ArrowLeft, ArrowRight, Users, Plus, ExternalLink } from "lucide-react";
 import CursorEffect from "@/components/CursorEffect";
 import QuizLogo from "@/components/QuizLogo";
-import EmojiAvatar from "@/components/EmojiAvatar";
+import EmojiAvatar, { getRandomEmoji } from "@/components/EmojiAvatar";
 import { useMultiplayer } from "@/contexts/MultiplayerContext";
-
-const emojis = ['😀', '😎', '🚀', '💡', '🎉', '🧠', '🎮', '🌟', '🤖', '🥳', '🤔', '🔥', '💯', '🎯', '🏆', '🍕'];
 
 const Multiplayer = () => {
   const navigate = useNavigate();
@@ -23,10 +21,11 @@ const Multiplayer = () => {
   const [lobbyCode, setLobbyCode] = useState("");
   const [isCreatingLobby, setIsCreatingLobby] = useState(false);
   const [isJoiningLobby, setIsJoiningLobby] = useState(false);
-  const [avatarEmoji, setAvatarEmoji] = useState<string>(emojis[0]);
+  const [avatarEmoji, setAvatarEmoji] = useState<string>(getRandomEmoji());
 
   useEffect(() => {
-    const randomEmoji = emojis[Math.floor(Math.random() * emojis.length)];
+    // Set a random emoji on load
+    const randomEmoji = getRandomEmoji();
     setAvatarEmoji(randomEmoji);
     
     localStorage.setItem("playerEmoji", randomEmoji);

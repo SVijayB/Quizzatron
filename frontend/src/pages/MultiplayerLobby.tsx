@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
@@ -292,19 +291,13 @@ const MultiplayerLobby = () => {
   };
   
   const updatePlayerEmoji = async (emoji: string) => {
-    if (!urlLobbyCode) return;
-    
-    try {
-      await apiService.updatePlayerAvatar(urlLobbyCode, playerName, emoji);
-      localStorage.setItem("playerEmoji", emoji);
-    } catch (error) {
-      console.error("Error updating avatar:", error);
-      toast({
-        title: "Error",
-        description: "Failed to update avatar",
-        variant: "destructive",
-      });
-    }
+    // Disable avatar updates in the lobby
+    console.log("Avatar updates are disabled in the lobby");
+    toast({
+      title: "Avatar Locked",
+      description: "Avatars can only be changed before joining the lobby.",
+    });
+    return;
   };
   
   const handleTopicChange = (value: string) => {
@@ -475,8 +468,7 @@ const MultiplayerLobby = () => {
                               <EmojiAvatar 
                                 initialEmoji={player.avatar}
                                 size={40}
-                                isInteractive={player.name === playerName}
-                                onChange={player.name === playerName ? updatePlayerEmoji : undefined}
+                                isInteractive={false}
                                 className="player-avatar"
                               />
                               <div>
@@ -639,7 +631,7 @@ const MultiplayerLobby = () => {
                   <EmojiAvatar
                     initialEmoji={players.find(p => p.name === playerName)?.avatar || playerAvatar}
                     size={56}
-                    isInteractive={true}
+                    isInteractive={false}
                     onChange={updatePlayerEmoji}
                   />
                   <div>
