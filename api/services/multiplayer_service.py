@@ -1,12 +1,30 @@
-"""Module for managing multiplayer quiz game functionality."""
+"""Enhanced multiplayer quiz game functionality with real-time updates."""
 
 import uuid
 import random
 import time
 import threading
 import logging
+import json
 from flask import jsonify
 from api.services.quiz_gen_service import generate_quiz
+from api.socket_server import (
+    broadcast_lobby_update,
+    broadcast_question,
+    broadcast_player_answered,
+    broadcast_all_answers_in,
+    broadcast_scoreboard,
+    broadcast_game_over,
+)
+
+# Game states
+GAME_STATE = {
+    "LOBBY": "lobby",
+    "QUESTION": "question",
+    "WAITING": "waiting",
+    "SCOREBOARD": "scoreboard",
+    "GAME_OVER": "game_over",
+}
 
 # In-memory storage for active lobbies
 active_lobbies = {}
@@ -29,6 +47,7 @@ def cleanup_inactive_lobbies():
         # Remove inactive lobbies
         for code in inactive_lobbies:
             del active_lobbies[code]
+            logging.info(f"Removed inactive lobby: {code}")
 
 
 def generate_lobby_code():
@@ -59,8 +78,8 @@ def create_new_lobby(host_name, host_avatar):
         "created_at": time.time(),
         "last_activity": time.time(),
         "host_id": host_id,
-        "game_started": False,
-        "game_over": False,
+        "game_state": GAME_STATE["LOBBY"],
+        "current_question_idx": -1,
         "players": [
             {
                 "id": host_id,
@@ -85,6 +104,8 @@ def create_new_lobby(host_name, host_avatar):
             "model": "gemini",
         },
         "questions": [],
+        "all_answers_received": False,
+        "waiting_for_next_question": False,
     }
 
     with lobbies_lock:
@@ -95,12 +116,12 @@ def create_new_lobby(host_name, host_avatar):
 
 def join_existing_lobby(lobby_code, player_name, player_avatar):
     """
-    Add a player to an existing lobby.
+    Join an existing multiplayer lobby.
 
     Args:
         lobby_code (str): The code of the lobby to join
-        player_name (str): The name of the joining player
-        player_avatar (str): The avatar of the joining player
+        player_name (str): The name of the player
+        player_avatar (str): The avatar of the player
 
     Returns:
         tuple: A tuple containing player ID and status code, or error message and status code
@@ -112,13 +133,18 @@ def join_existing_lobby(lobby_code, player_name, player_avatar):
 
         lobby = active_lobbies[lobby_code]
 
-        # Check if game already started
-        if lobby["game_started"]:
-            return {"error": "Game has already started"}, 403
+        # Check if game has already started
+        if lobby["game_state"] != GAME_STATE["LOBBY"]:
+            return {"error": "Game has already started"}, 400
 
-        # Check if name is already taken
-        if any(player["name"] == player_name for player in lobby["players"]):
-            return {"error": "Name already taken"}, 409
+        # Check if player name is already taken
+        for player in lobby["players"]:
+            if player["name"] == player_name:
+                return {"error": "Player name already taken"}, 400
+
+        # Check if lobby is full (max 8 players)
+        if len(lobby["players"]) >= 8:
+            return {"error": "Lobby is full"}, 400
 
         # Add player to lobby
         player_id = str(uuid.uuid4())
@@ -140,16 +166,21 @@ def join_existing_lobby(lobby_code, player_name, player_avatar):
         # Update last activity
         lobby["last_activity"] = time.time()
 
+        # Broadcast lobby update via WebSocket
+        broadcast_lobby_update(
+            lobby_code, {"players": lobby["players"], "settings": lobby["settings"]}
+        )
+
     return {"player_id": player_id}, 200
 
 
 def update_player_ready_status(lobby_code, player_name, ready_status):
     """
-    Update a player's ready status in a lobby.
+    Update the ready status of a player.
 
     Args:
         lobby_code (str): The code of the lobby
-        player_name (str): The name of the player to update
+        player_name (str): The name of the player
         ready_status (bool): The new ready status
 
     Returns:
@@ -162,7 +193,11 @@ def update_player_ready_status(lobby_code, player_name, ready_status):
 
         lobby = active_lobbies[lobby_code]
 
-        # Find player and update ready status
+        # Check if game has already started
+        if lobby["game_state"] != GAME_STATE["LOBBY"]:
+            return {"error": "Game has already started"}, 400
+
+        # Update player ready status
         player_found = False
         for player in lobby["players"]:
             if player["name"] == player_name:
@@ -175,6 +210,9 @@ def update_player_ready_status(lobby_code, player_name, ready_status):
 
         # Update last activity
         lobby["last_activity"] = time.time()
+
+        # Broadcast lobby update via WebSocket - moved outside the loop for efficiency
+        broadcast_lobby_update(lobby_code, {"players": lobby["players"]})
 
     return {"success": True}, 200
 
@@ -190,20 +228,40 @@ def update_lobby_settings(lobby_code, new_settings):
     Returns:
         tuple: A tuple containing success message and status code, or error message and status code
     """
+    logging.info(f"Updating settings for lobby {lobby_code}: {new_settings}")
+
     with lobbies_lock:
         # Check if lobby exists
         if lobby_code not in active_lobbies:
+            logging.error(f"Lobby not found: {lobby_code}")
             return {"error": "Lobby not found"}, 404
 
         lobby = active_lobbies[lobby_code]
 
+        # Check if game has already started
+        if lobby["game_state"] != GAME_STATE["LOBBY"]:
+            logging.error(
+                f"Cannot update settings - game already started in lobby {lobby_code}"
+            )
+            return {"error": "Game has already started"}, 400
+
+        # Print current settings before update
+        logging.info(f"Current settings before update: {lobby['settings']}")
+
         # Update settings
-        lobby["settings"].update(new_settings)
+        for key, value in new_settings.items():
+            lobby["settings"][key] = value
+
+        # Print settings after update
+        logging.info(f"Updated settings: {lobby['settings']}")
 
         # Update last activity
         lobby["last_activity"] = time.time()
 
-    return {"success": True}, 200
+        # Broadcast lobby update via WebSocket
+        broadcast_lobby_update(lobby_code, {"settings": lobby["settings"]})
+
+    return {"success": True, "settings": lobby["settings"]}, 200
 
 
 def start_game(lobby_code):
@@ -222,6 +280,10 @@ def start_game(lobby_code):
             return {"error": "Lobby not found"}, 404
 
         lobby = active_lobbies[lobby_code]
+
+        # Check if game has already started
+        if lobby["game_state"] != GAME_STATE["LOBBY"]:
+            return {"error": "Game has already started"}, 400
 
         # Check if at least one player is ready (besides the host)
         ready_players = [p for p in lobby["players"] if p["ready"] or p["isHost"]]
@@ -248,7 +310,7 @@ def start_game(lobby_code):
 
         try:
             # Generate the quiz using the existing service
-            logging.info("⏳ Generating multiplayer quiz with params: %s", quiz_params)
+            logging.info(f"⏳ Generating multiplayer quiz with params: {quiz_params}")
 
             # Call generate_quiz which returns a response
             response = generate_quiz(**quiz_params)
@@ -256,8 +318,6 @@ def start_game(lobby_code):
             # The response from generate_quiz is actually a Flask Response object
             # We need to convert it to the expected JSON format
             try:
-                import json
-
                 # Convert the response to string and parse as JSON
                 response_data = response.get_data(as_text=True)
                 parsed_data = json.loads(response_data)
@@ -275,7 +335,7 @@ def start_game(lobby_code):
 
                     if not questions_list or not isinstance(questions_list, list):
                         logging.error(
-                            "❌ Invalid questions format: %s", type(questions_list)
+                            f"❌ Invalid questions format: {type(questions_list)}"
                         )
                         return {"error": "Failed to generate valid quiz questions"}, 500
 
@@ -287,27 +347,39 @@ def start_game(lobby_code):
                     # This keeps the original structure for compatibility
                     lobby["questions"] = parsed_data
 
-                    # Mark the game as started
+                    # Change game state to first question
+                    lobby["game_state"] = GAME_STATE["QUESTION"]
+                    lobby["current_question_idx"] = 0
+                    lobby["all_answers_received"] = False
+
+                    # Mark the game as started for backward compatibility
+                    # This can be removed in future versions
                     lobby["game_started"] = True
+                    lobby["game_over"] = False
+
                     logging.info(
-                        "✅ Multiplayer game started successfully with %d questions",
-                        len(questions_list),
+                        f"✅ Multiplayer game started successfully with {len(questions_list)} questions"
                     )
+
+                    # Start the game by broadcasting the first question
+                    first_question = questions_list[0]
+                    broadcast_question(lobby_code, first_question, 0)
+
                 else:
-                    logging.error("❌ Unexpected response format: %s", parsed_data)
+                    logging.error(f"❌ Unexpected response format: {parsed_data}")
                     return {
                         "error": "Unexpected response format from quiz generator"
                     }, 500
 
             except Exception as e:
-                logging.error("❌ Failed to parse response data: %s", str(e))
+                logging.error(f"❌ Failed to parse response data: {str(e)}")
                 return {"error": f"Failed to process quiz: {str(e)}"}, 500
 
             # Update last activity timestamp
             lobby["last_activity"] = time.time()
 
         except Exception as e:
-            logging.error("❌ Failed to generate multiplayer quiz: %s", str(e))
+            logging.error(f"❌ Failed to generate multiplayer quiz: {str(e)}")
             return {"error": f"Failed to generate quiz: {str(e)}"}, 500
 
     return {"success": True}, 200
@@ -315,11 +387,11 @@ def start_game(lobby_code):
 
 def leave_lobby(lobby_code, player_name):
     """
-    Remove a player from a lobby or delete the lobby if the host leaves.
+    Leave a multiplayer lobby.
 
     Args:
         lobby_code (str): The code of the lobby
-        player_name (str): The name of the player leaving
+        player_name (str): The name of the player
 
     Returns:
         tuple: A tuple containing success message and status code, or error message and status code
@@ -332,18 +404,22 @@ def leave_lobby(lobby_code, player_name):
         lobby = active_lobbies[lobby_code]
 
         # Find player index
-        player_index = None
+        player_index = -1
+        player_id = None
         for i, player in enumerate(lobby["players"]):
             if player["name"] == player_name:
                 player_index = i
+                player_id = player["id"]
                 break
 
-        if player_index is None:
+        if player_index == -1:
             return {"error": "Player not found in lobby"}, 404
 
-        # Check if player is host
-        if lobby["players"][player_index]["isHost"]:
-            # If host leaves, remove the entire lobby
+        # If the player is the host and the game hasn't started, close the lobby
+        if (
+            lobby["players"][player_index]["isHost"]
+            and lobby["game_state"] == GAME_STATE["LOBBY"]
+        ):
             del active_lobbies[lobby_code]
         else:
             # Otherwise just remove the player
@@ -355,6 +431,15 @@ def leave_lobby(lobby_code, player_name):
             else:
                 # Update last activity
                 lobby["last_activity"] = time.time()
+
+                # Broadcast player left via WebSocket
+                broadcast_lobby_update(
+                    lobby_code,
+                    {
+                        "players": lobby["players"],
+                        "player_left": {"name": player_name, "id": player_id},
+                    },
+                )
 
     return {"success": True}, 200
 
@@ -379,10 +464,12 @@ def get_lobby_info(lobby_code):
         # Update last activity
         lobby["last_activity"] = time.time()
 
-        # Return lobby info without questions
+        # Return lobby info without questions (for backward compatibility)
         return {
             "lobby_code": lobby["lobby_code"],
-            "game_started": lobby["game_started"],
+            "game_started": lobby["game_state"] != GAME_STATE["LOBBY"],
+            "game_state": lobby["game_state"],
+            "current_question_idx": lobby["current_question_idx"],
             "players": lobby["players"],
             "settings": lobby["settings"],
         }, 200
@@ -409,14 +496,17 @@ def get_game_state(lobby_code):
         lobby["last_activity"] = time.time()
 
         # Check if game has started
-        if not lobby["game_started"]:
+        if lobby["game_state"] == GAME_STATE["LOBBY"]:
             return {"error": "Game has not started yet"}, 400
 
         # Return game info with questions
         return {
             "lobby_code": lobby["lobby_code"],
-            "game_started": lobby["game_started"],
-            "game_over": lobby["game_over"],
+            "game_started": True,  # For backward compatibility
+            "game_over": lobby["game_state"] == GAME_STATE["GAME_OVER"],
+            "game_state": lobby["game_state"],
+            "current_question_idx": lobby["current_question_idx"],
+            "all_answers_received": lobby["all_answers_received"],
             "players": lobby["players"],
             "questions": lobby["questions"],
         }, 200
@@ -430,10 +520,10 @@ def submit_player_answer(
 
     Args:
         lobby_code (str): The code of the lobby
-        player_name (str): The name of the player submitting an answer
-        question_index (int): The index of the question being answered
+        player_name (str): The name of the player
+        question_index (int): The index of the question
         answer (str): The player's answer
-        time_taken (float): The time taken to answer
+        time_taken (float): How long the player took to answer
         is_correct (bool): Whether the answer is correct
         score (int): The score for this answer
 
@@ -448,8 +538,12 @@ def submit_player_answer(
         lobby = active_lobbies[lobby_code]
 
         # Check if game has started
-        if not lobby["game_started"]:
+        if lobby["game_state"] == GAME_STATE["LOBBY"]:
             return {"error": "Game has not started yet"}, 400
+
+        # Check if game is over
+        if lobby["game_state"] == GAME_STATE["GAME_OVER"]:
+            return {"error": "Game is already over"}, 400
 
         # Access the questions correctly based on the known structure
         # The questions are stored as [questions_list, status_code]
@@ -473,10 +567,11 @@ def submit_player_answer(
 
         # Find player
         player_found = False
+        player_id = None
         for player in lobby["players"]:
             if player["name"] == player_name:
                 try:
-                    # Get the current question - accessing from the first element of the array
+                    # Get the current question
                     current_question = questions_list[question_index]
 
                     # Log the current question for debugging
@@ -499,6 +594,7 @@ def submit_player_answer(
                     player["currentQuestion"] = question_index + 1
                     # Ensure the score is added to the player's total score
                     player["score"] += score
+                    player_id = player["id"]
 
                     # Log the updated score for debugging
                     logging.info(
@@ -510,26 +606,61 @@ def submit_player_answer(
 
                     player_found = True
 
-                    # Check if game is over for this player
-                    if player["currentQuestion"] >= len(questions_list):
+                    # Broadcast that this player has answered
+                    broadcast_player_answered(
+                        lobby_code, player_id, player_name, question_index
+                    )
+
+                    # Check if all players have answered this question
+                    all_answered = True
+                    for p in lobby["players"]:
+                        if len(p["answers"]) <= question_index:
+                            all_answered = False
+                            break
+
+                    if all_answered:
                         logging.info(
-                            f"Player {player_name} has completed all questions"
+                            f"All players have answered question {question_index}"
                         )
+                        lobby["all_answers_received"] = True
 
-                        # Check if all players have finished
-                        all_finished = True
+                        # Move to scoreboard state
+                        lobby["game_state"] = GAME_STATE["SCOREBOARD"]
+
+                        # Prepare scoreboard data
+                        scoreboard_data = []
                         for p in lobby["players"]:
-                            if p["currentQuestion"] < len(questions_list):
-                                all_finished = False
-                                break
+                            # Get the player's answer for this question
+                            answer_data = {}
+                            if question_index < len(p["answers"]):
+                                answer_data = p["answers"][question_index]
 
-                        if all_finished:
-                            logging.info(
-                                "All players have completed the game. Setting game_over to True."
+                            scoreboard_data.append(
+                                {
+                                    "id": p["id"],
+                                    "name": p["name"],
+                                    "avatar": p["avatar"],
+                                    "isHost": p["isHost"],
+                                    "score": p["score"],
+                                    "totalCorrect": p["correctAnswers"],
+                                    "answer": answer_data.get(
+                                        "userAnswer", "Unanswered"
+                                    ),
+                                    "isCorrect": answer_data.get("isCorrect", False),
+                                    "answerScore": answer_data.get("score", 0),
+                                }
                             )
-                            lobby["game_over"] = True
 
-                            # Create a snapshot of final results in a structured format for easier access
+                        # Broadcast scoreboard to all players
+                        broadcast_scoreboard(lobby_code, scoreboard_data)
+
+                        # Check if this was the last question
+                        if question_index >= len(questions_list) - 1:
+                            # Set game over
+                            lobby["game_state"] = GAME_STATE["GAME_OVER"]
+                            lobby["game_over"] = True  # For backward compatibility
+
+                            # Create final results
                             final_results = []
                             for p in lobby["players"]:
                                 final_results.append(
@@ -545,8 +676,16 @@ def submit_player_answer(
                                     }
                                 )
 
-                            # Store the final results in the lobby
+                            # Store and broadcast final results
                             lobby["final_results"] = final_results
+                            broadcast_game_over(lobby_code, final_results)
+                        else:
+                            # Schedule next question after delay (handled by frontend)
+                            lobby["waiting_for_next_question"] = True
+
+                    # If not all players answered, we're in waiting state
+                    else:
+                        lobby["game_state"] = GAME_STATE["WAITING"]
 
                 except Exception as e:
                     # Log the error and return a helpful error message
@@ -562,6 +701,61 @@ def submit_player_answer(
         lobby["last_activity"] = time.time()
 
     return {"success": True}, 200
+
+
+def advance_to_next_question(lobby_code):
+    """
+    Advance the game to the next question.
+
+    Args:
+        lobby_code (str): The code of the lobby
+
+    Returns:
+        tuple: A tuple containing success message and status code, or error message and status code
+    """
+    with lobbies_lock:
+        # Check if lobby exists
+        if lobby_code not in active_lobbies:
+            return {"error": "Lobby not found"}, 404
+
+        lobby = active_lobbies[lobby_code]
+
+        # Check if we're in the right state to advance
+        if (
+            lobby["game_state"] != GAME_STATE["SCOREBOARD"]
+            or not lobby["waiting_for_next_question"]
+        ):
+            return {"error": "Game is not ready to advance to next question"}, 400
+
+        # Get the questions list
+        questions_data = lobby["questions"]
+        questions_list = questions_data[0]
+
+        # Increment question index
+        next_question_idx = lobby["current_question_idx"] + 1
+
+        # Check if we've reached the end of questions
+        if next_question_idx >= len(questions_list):
+            lobby["game_state"] = GAME_STATE["GAME_OVER"]
+            lobby["game_over"] = True  # For backward compatibility
+            return {"success": True, "game_over": True}, 200
+
+        # Update game state
+        lobby["current_question_idx"] = next_question_idx
+        lobby["game_state"] = GAME_STATE["QUESTION"]
+        lobby["all_answers_received"] = False
+        lobby["waiting_for_next_question"] = False
+
+        # Get the next question
+        next_question = questions_list[next_question_idx]
+
+        # Broadcast the next question
+        broadcast_question(lobby_code, next_question, next_question_idx)
+
+        # Update last activity
+        lobby["last_activity"] = time.time()
+
+        return {"success": True, "question_index": next_question_idx}, 200
 
 
 def get_game_results(lobby_code):
@@ -582,11 +776,56 @@ def get_game_results(lobby_code):
         lobby = active_lobbies[lobby_code]
 
         # Check if game is over
-        if not lobby["game_over"]:
+        if lobby["game_state"] != GAME_STATE["GAME_OVER"]:
             return {"error": "Game is not over yet"}, 400
 
         # Update last activity
         lobby["last_activity"] = time.time()
 
         # Return results
-        return {"lobby_code": lobby["lobby_code"], "players": lobby["players"]}, 200
+        if hasattr(lobby, "final_results") and lobby["final_results"]:
+            return {
+                "lobby_code": lobby["lobby_code"],
+                "players": lobby["final_results"],
+            }, 200
+        else:
+            return {"lobby_code": lobby["lobby_code"], "players": lobby["players"]}, 200
+
+
+def update_player_avatar(lobby_code, player_name, avatar):
+    """
+    Update a player's avatar in a lobby.
+
+    Args:
+        lobby_code (str): The code of the lobby
+        player_name (str): The name of the player to update
+        avatar (str): The new avatar emoji
+
+    Returns:
+        tuple: A tuple containing success message and status code, or error message and status code
+    """
+    with lobbies_lock:
+        # Check if lobby exists
+        if lobby_code not in active_lobbies:
+            return {"error": "Lobby not found"}, 404
+
+        lobby = active_lobbies[lobby_code]
+
+        # Find player and update avatar
+        player_found = False
+        for player in lobby["players"]:
+            if player["name"] == player_name:
+                player["avatar"] = avatar
+                player_found = True
+                break
+
+        if not player_found:
+            return {"error": "Player not found in lobby"}, 404
+
+        # Update last activity
+        lobby["last_activity"] = time.time()
+
+        # Broadcast player update
+        broadcast_lobby_update(lobby_code, {"players": lobby["players"]})
+
+    return {"success": True, "avatar": avatar}, 200

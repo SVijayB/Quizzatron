@@ -9,6 +9,7 @@ from flask import Flask, request, render_template, send_from_directory
 from flask_cors import CORS
 
 from api.routes import api_blueprint
+from api.socket_server import init_socketio
 
 
 def setup_logging():
@@ -73,7 +74,11 @@ def create_app(env):
         app.logger.error("Page not found: %s", request.path)
         return f"ERROR 404: CANNOT GET {request.path}", 404
 
+    # Register blueprints
     app.register_blueprint(api_blueprint)
     app.json.sort_keys = False
 
-    return app
+    # Initialize SocketIO
+    socketio = init_socketio(app)
+
+    return app, socketio

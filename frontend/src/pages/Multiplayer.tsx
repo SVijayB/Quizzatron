@@ -29,6 +29,10 @@ const Multiplayer = () => {
     const randomEmoji = emojis[Math.floor(Math.random() * emojis.length)];
     setAvatarEmoji(randomEmoji);
     
+    // Save the random emoji to localStorage immediately so it's available
+    // even if the user doesn't change it manually
+    localStorage.setItem("playerEmoji", randomEmoji);
+    
     // Try to restore player name from localStorage
     const storedPlayerName = localStorage.getItem("playerName");
     if (storedPlayerName) {
@@ -75,6 +79,7 @@ const Multiplayer = () => {
       localStorage.setItem("playerName", playerName);
       localStorage.setItem("lobbyCode", data.lobby_code);
       localStorage.setItem("isHost", "true");
+      localStorage.setItem("playerEmoji", avatarEmoji); // Save emoji to localStorage
       
       // Navigate to the lobby
       navigate(`/multiplayer/lobby/${data.lobby_code}`);
@@ -143,6 +148,7 @@ const Multiplayer = () => {
       localStorage.setItem("playerName", playerName);
       localStorage.setItem("lobbyCode", lobbyCode);
       localStorage.setItem("isHost", "false");
+      localStorage.setItem("playerEmoji", avatarEmoji); // Save emoji to localStorage
       
       // Navigate to the lobby
       navigate(`/multiplayer/lobby/${lobbyCode}`);
