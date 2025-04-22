@@ -1,413 +1,313 @@
-
 import { useState, useEffect } from "react";
-import { useNavigate, useParams } from "react-router-dom";
-import { motion, AnimatePresence } from "framer-motion";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { useToast } from "@/components/ui/use-toast";
-import { Trophy, Medal, Home, Users, Star } from "lucide-react";
-import CursorEffect from "@/components/CursorEffect";
-import QuizLogo from "@/components/QuizLogo";
-import EmojiAvatar from "@/components/EmojiAvatar";
-import confetti from "canvas-confetti";
+import { useParams, useNavigate } from "react-router-dom";
+import { apiService } from "@/services/apiService";
 import { useMultiplayer } from "@/contexts/MultiplayerContext";
-import { apiService, MultiplayerPlayer } from "@/services/apiService";
+import { Button } from "@/components/ui/button";
+import { Home, Trophy, Medal, Award, ArrowLeft, Users, BarChart2 } from "lucide-react";
+import { motion } from "framer-motion";
+import "./Quiz.css";
+
+interface Player {
+  id: string;
+  name: string;
+  isHost: boolean;
+  avatar: string;
+  score: number;
+  correctAnswers: number;
+  totalQuestions: number;
+}
+
+interface GameResults {
+  lobbyCode: string;
+  players: Player[];
+  totalQuestions: number;
+}
 
 const MultiplayerResults = () => {
   const navigate = useNavigate();
-  const { toast } = useToast();
   const { lobbyCode } = useParams<{ lobbyCode: string }>();
-  const [results, setResults] = useState<MultiplayerPlayer[]>([]);
-  const [isLoadingResults, setIsLoadingResults] = useState(true);
+  const { playerName } = useMultiplayer();
   
-  // Get multiplayer context
-  const { playerName, isHost } = useMultiplayer();
-
-  // Show confetti celebration effect on load
+  const [results, setResults] = useState<GameResults | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  
   useEffect(() => {
-    const duration = 3 * 1000;
-    const end = Date.now() + duration;
-    
-    // Default confetti options
-    const defaults = { 
-      startVelocity: 30, 
-      spread: 360, 
-      ticks: 60, 
-      zIndex: 0,
-      shapes: ['square', 'circle'],
-      colors: ['#ff0000', '#00ff00', '#0000ff', '#ffff00', '#ff00ff', '#00ffff']
+    // First try to get results from localStorage
+    const fetchLocalResults = () => {
+      try {
+        const storedResults = localStorage.getItem(`quiz_results_${lobbyCode}`);
+        if (storedResults) {
+          const parsedResults = JSON.parse(storedResults);
+          setResults(parsedResults);
+          setLoading(false);
+          return true;
+        }
+        return false;
+      } catch (e) {
+        console.error("Error parsing stored results:", e);
+        return false;
+      }
     };
     
-    function randomInRange(min: number, max: number) {
-      return Math.random() * (max - min) + min;
-    }
-    
-    const interval = setInterval(() => {
-      const timeLeft = end - Date.now();
-      
-      if (timeLeft <= 0) {
-        clearInterval(interval);
-        return;
-      }
-      
-      const particleCount = 50 * (timeLeft / duration);
-      confetti({
-        ...defaults,
-        particleCount,
-        origin: { x: randomInRange(0.1, 0.3), y: Math.random() - 0.2 }
-      });
-      confetti({
-        ...defaults,
-        particleCount,
-        origin: { x: randomInRange(0.7, 0.9), y: Math.random() - 0.2 }
-      });
-    }, 250);
-
-    return () => clearInterval(interval);
-  }, []);
-
-  // Load results
-  useEffect(() => {
-    const storedPlayerName = localStorage.getItem("playerName");
-    const storedLobbyCode = localStorage.getItem("lobbyCode");
-
-    if (!storedPlayerName || !storedLobbyCode || storedLobbyCode !== lobbyCode) {
-      navigate("/multiplayer");
-      return;
-    }
-
-    // Try to load results from localStorage first (client-side)
-    const localResults = localStorage.getItem("multiplayerResults");
-    if (localResults) {
+    // Then try to fetch from API
+    const fetchResults = async () => {
       try {
-        const parsedResults = JSON.parse(localResults);
-        if (Array.isArray(parsedResults)) {
-          // Sort results by score in descending order
-          parsedResults.sort((a, b) => b.score - a.score);
-          setResults(parsedResults);
-          setIsLoadingResults(false);
+        setLoading(true);
+        setError(null);
+        
+        // Try local results first
+        if (fetchLocalResults()) {
           return;
         }
-      } catch (error) {
-        console.error("Error parsing local results:", error);
+        
+        // If no local results, try the API
+        const apiResults = await apiService.getGameResults(lobbyCode || "");
+        
+        if (apiResults) {
+          setResults(apiResults);
+          // Also store in localStorage for future reference
+          localStorage.setItem(`quiz_results_${lobbyCode}`, JSON.stringify(apiResults));
+        } else {
+          throw new Error("No results returned from API");
+        }
+      } catch (error: any) {
+        console.error("Error fetching results:", error);
+        setError("Failed to load game results. Please try again later.");
+        
+        // Last attempt - try to reconstruct basic results if we have playerName
+        if (!fetchLocalResults() && playerName) {
+          setResults({
+            lobbyCode: lobbyCode || "",
+            players: [{
+              id: "local",
+              name: playerName,
+              isHost: false,
+              avatar: "👤",
+              score: 0,
+              correctAnswers: 0,
+              totalQuestions: 0
+            }],
+            totalQuestions: 0
+          });
+        }
+      } finally {
+        setLoading(false);
       }
-    }
-
-    // Fallback to fetching results from the server
+    };
+    
     fetchResults();
-  }, [lobbyCode, navigate]);
-
-  // Fetch results from server
-  const fetchResults = async () => {
-    try {
-      if (!lobbyCode) return;
-      
-      const data = await apiService.getGameResults(lobbyCode);
-      
-      if (data.players && Array.isArray(data.players)) {
-        // Sort results by score in descending order
-        data.players.sort((a, b) => b.score - a.score);
-        setResults(data.players);
-      } else {
-        throw new Error("Invalid results format");
-      }
-    } catch (error) {
-      console.error("Error fetching results:", error);
-      toast({
-        title: "Error",
-        description: "Failed to load quiz results. Returning to multiplayer menu.",
-        variant: "destructive",
-      });
-      navigate("/multiplayer");
-    } finally {
-      setIsLoadingResults(false);
-    }
-  };
-
-  // Generate a color for avatar fallback based on player name
-  const getAvatarColor = (name: string) => {
-    const colors = [
-      "bg-red-500", "bg-blue-500", "bg-green-500", "bg-yellow-500", 
-      "bg-purple-500", "bg-pink-500", "bg-indigo-500", "bg-teal-500"
-    ];
+  }, [lobbyCode, playerName]);
+  
+  // Find player rank
+  const findPlayerRank = (playerName: string): number => {
+    if (!results?.players) return 0;
     
-    // Simple hash function to get consistent color based on name
-    let hash = 0;
-    for (let i = 0; i < name.length; i++) {
-      hash = name.charCodeAt(i) + ((hash << 5) - hash);
-    }
-    
-    return colors[Math.abs(hash) % colors.length];
+    const sortedPlayers = [...results.players].sort((a, b) => b.score - a.score);
+    return sortedPlayers.findIndex(p => p.name === playerName) + 1;
   };
-
-  // Get medal component based on position
-  const getMedal = (position: number) => {
+  
+  // Get appropriate medal emoji for position
+  const getMedal = (position: number): JSX.Element => {
     switch (position) {
-      case 0:
-        return <Trophy className="h-5 w-5 text-yellow-400" />;
       case 1:
-        return <Medal className="h-5 w-5 text-gray-300" />;
+        return <Trophy className="h-8 w-8 text-yellow-400" />;
       case 2:
-        return <Medal className="h-5 w-5 text-amber-600" />;
+        return <Medal className="h-8 w-8 text-gray-300" />;
+      case 3:
+        return <Medal className="h-8 w-8 text-amber-700" />;
       default:
-        return null;
+        return <Award className="h-8 w-8 text-purple-500" />;
     }
   };
-
-  // Get a fun emoji avatar for a player based on their name
-  const getPlayerEmoji = (name: string) => {
-    const emojis = ["👑", "🦁", "🐯", "🐺", "🦊", "🦝", "🐮", "🐷", "🐹", "🐭", "🐰", "🐻", "🐨", "🐼", "🦄", "🐲", "🐸", "🦩", "🦜", "🦢", "🦚", "🦉", "🐢", "🐙", "🦑", "🦀", "🐡", "🐠", "🐳", "🐬", "🦈"];
-    
-    // Simple hash function to get a consistent emoji based on name
-    let hash = 0;
-    for (let i = 0; i < name.length; i++) {
-      hash = name.charCodeAt(i) + ((hash << 5) - hash);
-    }
-    
-    return emojis[Math.abs(hash) % emojis.length];
-  };
-
-  if (isLoadingResults) {
+  
+  if (loading) {
     return (
-      <div className="min-h-screen bg-[#1a1a2e] flex items-center justify-center">
-        <div className="bg-white/10 backdrop-blur-md p-8 rounded-xl shadow-lg text-white text-center">
-          <h2 className="text-2xl font-bold mb-4">Loading Results...</h2>
-          <p>Please wait while we compile the final standings.</p>
+      <div className="quiz-background">
+        <div className="quiz-gradient-overlay" />
+        <div className="flex flex-col items-center justify-center h-screen">
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-white"></div>
+          <p className="text-white mt-4 text-xl">Loading results...</p>
         </div>
       </div>
     );
   }
-
-  return (
-    <div className="min-h-screen relative overflow-hidden bg-[#1a1a2e]">
-      <CursorEffect />
-      
-      <div className="absolute inset-0">
-        <div className="absolute inset-0 bg-[linear-gradient(to_right,#4f3ed0,#8b5cf6)] opacity-50" />
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_0%,#1a1a2e_100%)]" />
-        <div className="absolute inset-0 bg-[radial-gradient(circle_800px_at_100%_200px,#4f3ed0,transparent)]" />
-        <div className="absolute inset-0 bg-[radial-gradient(circle_800px_at_0%_300px,#8b5cf6,transparent)]" />
-        <div className="absolute inset-0 bg-grid-white/[0.02] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_0%,black,transparent)]" />
-      </div>
-
-      <div className="relative min-h-screen py-8 px-4 z-10">
-        <div className="max-w-5xl mx-auto">
-          <div className="flex items-center justify-center mb-12">
-            <QuizLogo 
-              size={60} 
-              color="white" 
-              className="mr-3" 
-            />
-            <div className="text-center">
-              <h1 className="text-4xl md:text-5xl font-bold text-white">
-                Final Results
-                <span className="text-yellow-400">!</span>
-              </h1>
-              <p className="text-lg text-white/70 mt-2">
-                Lobby: <span className="font-mono bg-white/10 px-2 py-0.5 rounded-md">{lobbyCode}</span>
-              </p>
-            </div>
+  
+  if (error || !results) {
+    return (
+      <div className="quiz-background">
+        <div className="quiz-gradient-overlay" />
+        <div className="flex flex-col items-center justify-center h-screen p-4">
+          <div className="bg-red-500/20 p-4 rounded-lg mb-4">
+            <p className="text-white text-center">{error || "Failed to load results"}</p>
           </div>
-
-          {/* Winner's Podium for Top 3 */}
-          {results.length > 0 && (
-            <div className="mb-12">
-              <h2 className="text-2xl font-bold text-center text-white mb-8">
-                Winner's Podium
-              </h2>
-              
-              <div className="flex flex-col md:flex-row justify-center items-end gap-4 md:gap-8">
-                {/* Only show podium for players that exist */}
-                {results.length > 1 && (
-                  <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.4, duration: 0.5 }}
-                    className="order-2 md:order-1 flex flex-col items-center"
-                  >
-                    <div className="relative mb-2">
-                      <div className="absolute -top-3 -right-3 p-1.5 rounded-full bg-gray-300 shadow-lg">
-                        <Medal className="h-4 w-4 text-gray-700" />
-                      </div>
-                      <EmojiAvatar 
-                        initialEmoji={results[1].avatar}
-                        size={80}
-                        isInteractive={false}
-                        className="border-4 border-gray-300 shadow-xl"
-                      />
-                    </div>
-                    <h3 className="text-base font-semibold text-white text-center mt-2">
-                      {results[1].name}
-                    </h3>
-                    <div className="text-lg font-bold text-gray-300">
-                      {results[1].score} pts
-                    </div>
-                    <div className="h-24 w-16 bg-gray-300/30 backdrop-blur-sm rounded-t-lg mt-2 flex items-end justify-center pb-2">
-                      <span className="text-lg font-bold text-white">2</span>
-                    </div>
-                  </motion.div>
-                )}
-                
-                <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.2, duration: 0.5 }}
-                  className="order-1 md:order-2 flex flex-col items-center"
-                >
-                  <div className="relative mb-2">
-                    <div className="absolute -top-3 -right-3 p-1.5 rounded-full bg-yellow-400 shadow-lg">
-                      <Trophy className="h-5 w-5 text-yellow-700" />
-                    </div>
-                    <EmojiAvatar 
-                      initialEmoji={results[0].avatar}
-                      size={112}
-                      isInteractive={false}
-                      className="border-4 border-yellow-400 shadow-xl"
-                    />
-                  </div>
-                  <h3 className="text-xl font-bold text-white text-center mt-2">
-                    {results[0].name}
-                  </h3>
-                  <div className="text-2xl font-bold text-yellow-400">
-                    {results[0].score} pts
-                  </div>
-                  <div className="h-32 w-20 bg-yellow-400/30 backdrop-blur-sm rounded-t-lg mt-2 flex items-end justify-center pb-2">
-                    <span className="text-2xl font-bold text-white">1</span>
-                  </div>
-                </motion.div>
-                
-                {results.length > 2 && (
-                  <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.6, duration: 0.5 }}
-                    className="order-3 flex flex-col items-center"
-                  >
-                    <div className="relative mb-2">
-                      <div className="absolute -top-3 -right-3 p-1.5 rounded-full bg-amber-600 shadow-lg">
-                        <Medal className="h-4 w-4 text-amber-900" />
-                      </div>
-                      <EmojiAvatar 
-                        initialEmoji={results[2].avatar}
-                        size={64}
-                        isInteractive={false}
-                        className="border-4 border-amber-600 shadow-xl"
-                      />
-                    </div>
-                    <h3 className="text-base font-semibold text-white text-center mt-2">
-                      {results[2].name}
-                    </h3>
-                    <div className="text-lg font-bold text-amber-600">
-                      {results[2].score} pts
-                    </div>
-                    <div className="h-18 w-16 bg-amber-600/30 backdrop-blur-sm rounded-t-lg mt-2 flex items-end justify-center pb-2">
-                      <span className="text-lg font-bold text-white">3</span>
-                    </div>
-                  </motion.div>
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* Complete Leaderboard */}
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.8, duration: 0.5 }}
+          <Button 
+            onClick={() => navigate("/")}
+            variant="default"
+            className="mt-4"
           >
-            <Card className="bg-white/10 backdrop-blur-sm border-white/20 shadow-[0_0_15px_rgba(139,92,246,0.15)] mb-6">
-              <CardHeader className="pb-4">
-                <CardTitle className="text-2xl text-white flex items-center">
-                  <Users className="w-5 h-5 mr-2 text-pink-400" />
-                  Complete Leaderboard
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="overflow-hidden sm:rounded-lg">
-                  <table className="min-w-full divide-y divide-white/10">
-                    <thead className="bg-white/5">
-                      <tr>
-                        <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-white">#</th>
-                        <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-white">Player</th>
-                        <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-white">Correct</th>
-                        <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-white">Score</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-white/5">
-                      <AnimatePresence>
-                        {results.map((player, index) => (
-                          <motion.tr 
-                            key={player.id}
-                            initial={{ opacity: 0, y: 10 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ delay: 0.1 * index, duration: 0.3 }}
-                            className={`${player.name === playerName ? 'bg-white/10' : ''}`}
-                          >
-                            <td className="whitespace-nowrap px-3 py-4 text-sm">
-                              <div className="flex items-center">
-                                <span className="text-white font-semibold w-6 text-center">{index + 1}</span>
-                                {getMedal(index)}
-                              </div>
-                            </td>
-                            <td className="whitespace-nowrap px-3 py-4 text-sm">
-                              <div className="flex items-center">
-                                <EmojiAvatar 
-                                  initialEmoji={player.avatar}
-                                  size={32}
-                                  isInteractive={false}
-                                  className="mr-2"
-                                />
-                                <div className="text-white">{player.name}</div>
-                                {player.isHost && <span className="ml-2 text-xs text-amber-400">(Host)</span>}
-                              </div>
-                            </td>
-                            <td className="whitespace-nowrap px-3 py-4 text-sm">
-                              <div className="text-white">
-                                {player.correctAnswers} of {player.totalQuestions}
-                                <span className="ml-2 text-xs text-white/60">
-                                  ({Math.round((player.correctAnswers / player.totalQuestions) * 100)}%)
-                                </span>
-                              </div>
-                            </td>
-                            <td className="whitespace-nowrap px-3 py-4 text-sm">
-                              <div className="font-bold text-amber-400">{player.score}</div>
-                            </td>
-                          </motion.tr>
-                        ))}
-                      </AnimatePresence>
-                    </tbody>
-                  </table>
-                </div>
-              </CardContent>
-            </Card>
-          </motion.div>
-
-          <div className="flex justify-center mt-6">
-            {isHost ? (
-              <div className="flex gap-4">
-                <Button
-                  onClick={() => navigate("/")}
-                  variant="outline"
-                  className="bg-white/10 hover:bg-white/15 text-white border-white/20"
-                >
-                  <Home className="mr-2 h-4 w-4" /> Return Home
-                </Button>
-                <Button
-                  onClick={() => navigate("/multiplayer")}
-                  className="bg-gradient-to-r from-violet-500 to-indigo-500 hover:from-violet-600 hover:to-indigo-600 text-white"
-                >
-                  <Users className="mr-2 h-4 w-4" /> New Multiplayer Quiz
-                </Button>
-              </div>
-            ) : (
-              <Button
-                onClick={() => navigate("/multiplayer")}
-                className="bg-gradient-to-r from-violet-500 to-indigo-500 hover:from-violet-600 hover:to-indigo-600 text-white"
-              >
-                <Users className="mr-2 h-4 w-4" /> Play Again
-              </Button>
-            )}
+            <Home className="mr-2 h-4 w-4" />
+            Return to Home
+          </Button>
+        </div>
+      </div>
+    );
+  }
+  
+  // Sort players by score (highest first)
+  const sortedPlayers = [...results.players].sort((a, b) => b.score - a.score);
+  const currentPlayerRank = findPlayerRank(playerName);
+  
+  return (
+    <div className="quiz-background">
+      <div className="quiz-gradient-overlay" />
+      <div className="quiz-radial-overlay-1" />
+      <div className="quiz-radial-overlay-2" />
+      
+      <div className="container mx-auto max-w-6xl p-4 min-h-screen flex flex-col">
+        <Button
+          variant="ghost"
+          onClick={() => navigate("/")}
+          className="absolute top-4 left-4 text-white"
+        >
+          <ArrowLeft className="mr-2 h-4 w-4" />
+          Back to Home
+        </Button>
+        
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+          className="text-center mb-10 mt-16"
+        >
+          <h1 className="text-4xl md:text-5xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-purple-600">
+            Game Results
+          </h1>
+          <p className="text-gray-300 mt-2">Lobby Code: {lobbyCode}</p>
+        </motion.div>
+        
+        {/* Leaderboard */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.2 }}
+          className="bg-black/30 backdrop-blur-sm rounded-xl p-6 border border-white/10 shadow-xl mb-8"
+        >
+          <div className="flex items-center text-white mb-6">
+            <Trophy className="h-6 w-6 mr-2 text-yellow-400" />
+            <h2 className="text-2xl font-bold">Leaderboard</h2>
           </div>
+          
+          <div className="space-y-4">
+            {sortedPlayers.map((player, index) => (
+              <motion.div
+                key={player.id}
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ duration: 0.3, delay: 0.1 * index }}
+                className={`flex items-center p-4 rounded-lg ${
+                  player.name === playerName ? 
+                  "bg-indigo-500/30 border border-indigo-500/50" : 
+                  "bg-white/10 border border-white/5"
+                }`}
+              >
+                <div className="flex items-center justify-center w-10 h-10">
+                  {getMedal(index + 1)}
+                </div>
+                
+                <div className="flex-1 ml-4">
+                  <div className="flex items-center">
+                    <div className="w-10 h-10 flex items-center justify-center text-xl rounded-full bg-white/10 mr-3">
+                      {player.avatar}
+                    </div>
+                    <div>
+                      <div className="flex items-center">
+                        <span className="font-bold text-white text-lg">
+                          {player.name}
+                        </span>
+                        {player.name === playerName && (
+                          <span className="ml-2 bg-indigo-500/30 text-xs px-2 py-0.5 rounded-full text-white">
+                            You
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex items-center">
+                        <span className="text-sm text-gray-300">
+                          {player.correctAnswers}/{results.totalQuestions} correct
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="text-right">
+                  <div className="text-2xl font-bold text-indigo-300">
+                    {player.score}
+                  </div>
+                  <div className="text-xs text-gray-400">points</div>
+                </div>
+              </motion.div>
+            ))}
+          </div>
+        </motion.div>
+        
+        {/* Player summary */}
+        {playerName && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.4 }}
+            className="bg-black/30 backdrop-blur-sm rounded-xl p-6 border border-white/10 shadow-xl mb-8"
+          >
+            <div className="flex items-center text-white mb-6">
+              <Users className="h-6 w-6 mr-2 text-indigo-400" />
+              <h2 className="text-2xl font-bold">Your Performance</h2>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="bg-white/10 rounded-lg p-4 text-center">
+                <div className="text-sm text-gray-300 mb-1">Rank</div>
+                <div className="text-3xl font-bold text-white">
+                  {currentPlayerRank}/{sortedPlayers.length}
+                </div>
+              </div>
+              
+              <div className="bg-white/10 rounded-lg p-4 text-center">
+                <div className="text-sm text-gray-300 mb-1">Score</div>
+                <div className="text-3xl font-bold text-indigo-300">
+                  {sortedPlayers.find(p => p.name === playerName)?.score || 0}
+                </div>
+              </div>
+              
+              <div className="bg-white/10 rounded-lg p-4 text-center">
+                <div className="text-sm text-gray-300 mb-1">Correct Answers</div>
+                <div className="text-3xl font-bold text-green-400">
+                  {sortedPlayers.find(p => p.name === playerName)?.correctAnswers || 0}/{results.totalQuestions}
+                </div>
+              </div>
+            </div>
+          </motion.div>
+        )}
+        
+        {/* Action buttons */}
+        <div className="flex flex-col sm:flex-row justify-center gap-4 mt-auto">
+          <Button
+            variant="default"
+            className="bg-indigo-600 hover:bg-indigo-700"
+            onClick={() => navigate("/")}
+          >
+            <Home className="mr-2 h-4 w-4" />
+            Return to Home
+          </Button>
+          
+          <Button
+            variant="outline"
+            className="border-indigo-500 text-indigo-400 hover:bg-indigo-500/20"
+            onClick={() => navigate("/multiplayer")}
+          >
+            <Users className="mr-2 h-4 w-4" />
+            New Multiplayer Game
+          </Button>
         </div>
       </div>
     </div>

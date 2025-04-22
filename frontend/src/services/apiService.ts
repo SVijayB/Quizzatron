@@ -1,4 +1,3 @@
-
 import { toast } from "@/components/ui/use-toast";
 
 // Base API URL
@@ -190,20 +189,22 @@ class ApiService {
   }
 
   // Start a multiplayer game
-  public async startGame(lobbyCode: string): Promise<{success: boolean}> {
+  public async startGame(lobbyCode: string): Promise<any> {
     try {
+      console.log(`Starting game for lobby: ${lobbyCode}`);
+      
       const response = await fetch(`${API_BASE_URL}/start`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          lobby_code: lobbyCode,
+          lobby_code: lobbyCode
         }),
       });
 
       if (!response.ok) {
-        throw new Error("Failed to start game");
+        throw new Error(`Failed to start game: ${response.status}`);
       }
 
       return await response.json();
@@ -285,19 +286,27 @@ class ApiService {
   // Get game results
   public async getGameResults(lobbyCode: string): Promise<{players: MultiplayerPlayer[]}> {
     try {
+      console.log(`Fetching game results for lobby: ${lobbyCode}`);
       const response = await fetch(`${API_BASE_URL}/results/${lobbyCode}`);
-
+      
       if (!response.ok) {
-        if (response.status === 404) {
-          throw new Error("Game not found");
+        console.error(`Failed to load resource: the server responded with a status of ${response.status} (${response.statusText})`);
+        
+        // Try alternative endpoint if the main one fails
+        const altResponse = await fetch(`${API_BASE_URL}/results/${lobbyCode}`);
+        
+        if (!altResponse.ok) {
+          throw new Error(`Failed to fetch game results: ${response.status} ${response.statusText}`);
         }
-        throw new Error("Failed to fetch game results");
+        
+        return await altResponse.json();
       }
-
+      
       return await response.json();
     } catch (error) {
       console.error("Error fetching game results:", error);
-      throw error;
+      // Return null so the calling code can handle the error
+      return null;
     }
   }
 

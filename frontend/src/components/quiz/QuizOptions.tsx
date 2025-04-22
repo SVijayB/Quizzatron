@@ -1,4 +1,3 @@
-
 import { cn } from "@/lib/utils";
 
 export interface QuizOptionsProps {
@@ -21,6 +20,7 @@ export const QuizOptions: React.FC<QuizOptionsProps> = ({
       {options.map((option, index) => {
         const isSelected = selectedAnswer === option;
         const isCorrect = option === correctAnswer;
+        const selectedCorrectly = isSelected && isCorrect;
         
         return (
           <button
@@ -31,9 +31,9 @@ export const QuizOptions: React.FC<QuizOptionsProps> = ({
               "p-4 rounded-lg text-left transition-all",
               "hover:bg-white/10",
               "disabled:cursor-not-allowed",
-              isRevealed && isSelected && !isCorrect && "bg-red-500/20 border-red-500",
-              isRevealed && isCorrect && "bg-green-500/20 border-green-500",
-              !isRevealed && isSelected && "bg-white/10 border-white",
+              isRevealed && isSelected && !isCorrect && "bg-red-500/20 border-red-500", // Selected wrong answer
+              isRevealed && (isCorrect || selectedCorrectly) && "bg-green-500/20 border-green-500", // Correct answer or correct selection
+              !isRevealed && isSelected && "bg-white/10 border-white", // Selected but not revealed
               "border",
               isRevealed ? "border-opacity-100" : "border-opacity-10"
             )}

@@ -624,6 +624,9 @@ def submit_player_answer(
                         )
                         lobby["all_answers_received"] = True
 
+                        # Explicitly broadcast that all answers are in
+                        broadcast_all_answers_in(lobby_code)
+
                         # Move to scoreboard state
                         lobby["game_state"] = GAME_STATE["SCOREBOARD"]
 
@@ -720,12 +723,12 @@ def advance_to_next_question(lobby_code):
 
         lobby = active_lobbies[lobby_code]
 
-        # Check if we're in the right state to advance
-        if (
-            lobby["game_state"] != GAME_STATE["SCOREBOARD"]
-            or not lobby["waiting_for_next_question"]
-        ):
-            return {"error": "Game is not ready to advance to next question"}, 400
+        # More lenient check for state transition - from any state except LOBBY
+        if lobby["game_state"] == GAME_STATE["LOBBY"]:
+            return {"error": "Game has not started yet"}, 400
+
+        # Set waiting_for_next_question to true so we're always ready to advance
+        lobby["waiting_for_next_question"] = True
 
         # Get the questions list
         questions_data = lobby["questions"]
@@ -738,6 +741,25 @@ def advance_to_next_question(lobby_code):
         if next_question_idx >= len(questions_list):
             lobby["game_state"] = GAME_STATE["GAME_OVER"]
             lobby["game_over"] = True  # For backward compatibility
+
+            # Create final results if they don't exist yet
+            if "final_results" not in lobby:
+                final_results = []
+                for p in lobby["players"]:
+                    final_results.append(
+                        {
+                            "id": p["id"],
+                            "name": p["name"],
+                            "isHost": p["isHost"],
+                            "avatar": p["avatar"],
+                            "score": p["score"],
+                            "correctAnswers": p["correctAnswers"],
+                            "totalQuestions": p["totalQuestions"],
+                            "answers": p["answers"],
+                        }
+                    )
+                lobby["final_results"] = final_results
+
             return {"success": True, "game_over": True}, 200
 
         # Update game state
@@ -783,12 +805,13 @@ def get_game_results(lobby_code):
         lobby["last_activity"] = time.time()
 
         # Return results
-        if hasattr(lobby, "final_results") and lobby["final_results"]:
+        if "final_results" in lobby and lobby["final_results"]:
             return {
                 "lobby_code": lobby["lobby_code"],
                 "players": lobby["final_results"],
             }, 200
         else:
+            # Fallback to returning players if final_results is missing
             return {"lobby_code": lobby["lobby_code"], "players": lobby["players"]}, 200
 
 
