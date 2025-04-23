@@ -379,7 +379,7 @@ const Quiz = () => {
   // Render countdown screen
   if (!isQuizStarted) {
     return (
-      <div className="min-h-screen relative overflow-hidden bg-gradient-to-br from-indigo-900 via-purple-900 to-violet-800">
+      <div className="min-h-screen flex items-center justify-center relative overflow-hidden bg-gradient-to-br from-indigo-900 via-purple-900 to-violet-800">
         {/* Background elements */}
         <div className="absolute inset-0">
           <div className="absolute inset-0 bg-[linear-gradient(to_right,#4f3ed0,#8b5cf6)] opacity-30" />
@@ -412,34 +412,33 @@ const Quiz = () => {
           </div>
         </div>
         
-        <div className="relative z-10 flex flex-col items-center justify-center h-full py-16">
+        <div className="relative z-10 flex flex-col items-center justify-center w-full max-w-lg mx-auto px-4 text-center">
           <motion.div 
-            className="text-center"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ duration: 0.5 }}
           >
-            <h2 className="text-3xl md:text-4xl font-bold text-white mb-6">
+            <h2 className="text-3xl md:text-4xl font-bold text-white mb-10">
               Get Ready for Your Quiz!
             </h2>
             
-            <div className="relative mb-10">
+            <div className="relative mb-14">
               {/* Countdown circle */}
-              <div className="w-32 h-32 md:w-40 md:h-40 rounded-full bg-white/5 backdrop-blur-xl flex items-center justify-center mx-auto relative border border-white/20 shadow-lg">
+              <div className="w-36 h-36 md:w-48 md:h-48 rounded-full bg-white/5 backdrop-blur-xl flex items-center justify-center mx-auto relative border border-white/20 shadow-lg">
                 <AnimatePresence mode="wait">
                   <motion.div
                     key={countdownTime}
                     initial={{ scale: 0.5, opacity: 0 }}
                     animate={{ scale: 1, opacity: 1 }}
                     exit={{ scale: 1.5, opacity: 0 }}
-                    transition={{ duration: 0.4 }}
-                    className="text-5xl md:text-6xl font-bold text-white"
+                    transition={{ duration: 0.8 }}
+                    className="text-6xl md:text-7xl font-bold text-white"
                   >
                     {countdownTime}
                   </motion.div>
                 </AnimatePresence>
                 
-                {/* Animated ring */}
+                {/* Animated ring - slowed down */}
                 <motion.div 
                   className="absolute inset-0 rounded-full border-4 border-violet-400"
                   animate={{
@@ -447,14 +446,14 @@ const Quiz = () => {
                     opacity: [0.7, 0],
                   }}
                   transition={{
-                    duration: 1,
+                    duration: 2,
                     repeat: Infinity,
                     ease: "easeOut",
-                    repeatDelay: 0
+                    repeatDelay: 0.2
                   }}
                 />
                 
-                {/* Second animated ring (offset timing) */}
+                {/* Second animated ring (offset timing) - slowed down */}
                 <motion.div 
                   className="absolute inset-0 rounded-full border-4 border-indigo-400"
                   animate={{
@@ -462,23 +461,23 @@ const Quiz = () => {
                     opacity: [0.5, 0],
                   }}
                   transition={{
-                    duration: 1,
+                    duration: 2.5,
                     repeat: Infinity,
                     ease: "easeOut",
-                    delay: 0.5,
-                    repeatDelay: 0
+                    delay: 0.75,
+                    repeatDelay: 0.2
                   }}
                 />
               </div>
               
-              {/* Pulse effect */}
+              {/* Pulse effect - slowed down */}
               <motion.div
                 className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full h-full rounded-full bg-violet-500/20 blur-xl"
                 animate={{
                   scale: [0.8, 1.2, 0.8],
                 }}
                 transition={{
-                  duration: 2,
+                  duration: 3.5,
                   repeat: Infinity,
                   ease: "easeInOut",
                 }}
@@ -495,7 +494,7 @@ const Quiz = () => {
             </motion.p>
             
             <motion.div
-              className="mt-6 bg-white/10 backdrop-blur-md rounded-lg px-6 py-3 inline-flex items-center border border-white/10"
+              className="mt-8 bg-white/10 backdrop-blur-md rounded-lg px-6 py-3 inline-flex items-center border border-white/10"
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.5 }}
@@ -554,7 +553,7 @@ const Quiz = () => {
             }`} />
           )}
           
-          {/* Animated floating particles - evenly distributed across the screen */}
+          {/* Animated floating particles - slowed down and smoother */}
           <div className="absolute inset-0 overflow-hidden">
             {[...Array(15)].map((_, i) => (
               <motion.div
@@ -567,12 +566,12 @@ const Quiz = () => {
                   top: `${Math.random() * 100}%`,
                 }}
                 animate={{
-                  y: [0, -80, 0],
-                  x: [0, Math.random() * 40 - 20, 0],
-                  opacity: [0.1, 0.3, 0.1]
+                  y: [0, -40, 0],
+                  x: [0, Math.random() * 20 - 10, 0],
+                  opacity: [0.1, 0.2, 0.1]
                 }}
                 transition={{
-                  duration: Math.random() * 8 + 12,
+                  duration: Math.random() * 15 + 25, // Much slower animation
                   repeat: Infinity,
                   ease: "easeInOut"
                 }}
@@ -580,15 +579,15 @@ const Quiz = () => {
             ))}
           </div>
           
-          {/* Floating quiz-related icons */}
+          {/* Floating quiz-related icons - slowed down */}
           <div className="absolute inset-0 overflow-hidden pointer-events-none">
             <motion.div 
               animate={{
-                y: [0, -15, 0],
-                x: [0, 5, 0],
-                rotate: [0, 5, 0],
+                y: [0, -10, 0],
+                x: [0, 3, 0],
+                rotate: [0, 3, 0],
                 transition: {
-                  duration: 4,
+                  duration: 6, // Slower movement
                   repeat: Infinity,
                   repeatType: "mirror",
                 }
@@ -599,11 +598,11 @@ const Quiz = () => {
             </motion.div>
             <motion.div 
               animate={{
-                y: [0, -15, 0],
-                x: [0, -5, 0],
-                rotate: [0, -5, 0],
+                y: [0, -8, 0],
+                x: [0, -3, 0],
+                rotate: [0, -3, 0],
                 transition: {
-                  duration: 5,
+                  duration: 7.5, // Slower movement
                   repeat: Infinity,
                   repeatType: "mirror",
                 }
@@ -614,11 +613,11 @@ const Quiz = () => {
             </motion.div>
             <motion.div 
               animate={{
-                y: [0, -15, 0],
-                x: [0, 5, 0],
-                rotate: [0, 5, 0],
+                y: [0, -9, 0],
+                x: [0, 3, 0],
+                rotate: [0, 3, 0],
                 transition: {
-                  duration: 6,
+                  duration: 8, // Slower movement
                   repeat: Infinity,
                   repeatType: "mirror",
                 }
@@ -629,11 +628,11 @@ const Quiz = () => {
             </motion.div>
             <motion.div 
               animate={{
-                y: [0, -15, 0],
-                x: [0, -5, 0],
-                rotate: [0, -5, 0],
+                y: [0, -7, 0],
+                x: [0, -3, 0],
+                rotate: [0, -3, 0],
                 transition: {
-                  duration: 5.5,
+                  duration: 7, // Slower movement
                   repeat: Infinity,
                   repeatType: "mirror",
                 }
@@ -661,16 +660,16 @@ const Quiz = () => {
                 </span>
               </div>
               
-              {/* Score display */}
+              {/* Score display - larger and more prominent */}
               <div className="flex items-center space-x-4">
-                <div className="bg-white/10 backdrop-blur-sm px-3 py-1 rounded-lg flex items-center">
-                  <Timer className="w-4 h-4 text-amber-300 mr-2" />
-                  <span className="text-white text-sm">{Math.ceil(timeLeft)}s</span>
+                <div className="bg-white/10 backdrop-blur-sm px-4 py-2 rounded-lg flex items-center">
+                  <Timer className="w-5 h-5 text-amber-300 mr-2" />
+                  <span className="text-white text-base font-medium">{Math.ceil(timeLeft)}s</span>
                 </div>
                 
-                <div className="bg-white/10 backdrop-blur-sm px-3 py-1 rounded-lg flex items-center">
-                  <Trophy className="w-4 h-4 text-amber-300 mr-2" />
-                  <span className="text-white text-sm">{totalScore} pts</span>
+                <div className="bg-gradient-to-r from-violet-600/70 to-indigo-600/70 backdrop-blur-sm px-5 py-2.5 rounded-lg flex items-center shadow-lg border border-white/10">
+                  <Trophy className="w-5 h-5 text-amber-300 mr-2" />
+                  <span className="text-white text-lg font-bold">{totalScore} pts</span>
                 </div>
               </div>
             </div>
@@ -733,16 +732,16 @@ const Quiz = () => {
           </motion.div>
         )}
         
-        {/* Main question card */}
-        <motion.div
-          key={`question-${currentQuestion}`}
-          className="relative z-10 px-4 flex items-center justify-center min-h-[50vh]" 
-          initial={{ opacity: 0, scale: 0.95 }}
-          animate={{ opacity: 1, scale: 1 }}
-          exit={{ opacity: 0, scale: 0.95 }}
-          transition={{ duration: 0.3 }}
-        >
-          <div className="w-full max-w-5xl mx-auto">
+        {/* Main question card - now properly centered and sized */}
+        <div className="flex items-center justify-center min-h-[calc(100vh-180px)] px-4 py-4 md:py-8">
+          <motion.div
+            key={`question-${currentQuestion}`}
+            className="relative z-10 w-full max-w-5xl mx-auto" 
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.95 }}
+            transition={{ duration: 0.3 }}
+          >
             <div className="bg-white/10 backdrop-blur-md rounded-2xl p-8 md:p-10 shadow-xl border border-white/10">
               {/* Question text */}
               <h2 
@@ -818,7 +817,7 @@ const Quiz = () => {
                         <Sparkles className="w-6 h-6 ml-3 text-green-200" />
                       )}
                       
-                      {/* Add shine effect on hover */}
+                      {/* Enhanced shine effect on hover */}
                       {!isRevealed && (
                         <div className="absolute inset-0 rounded-xl overflow-hidden">
                           <div className="absolute inset-0 opacity-0 hover:opacity-20 bg-gradient-to-r from-transparent via-white to-transparent -translate-x-full hover:translate-x-full transition-all duration-1000 ease-in-out"></div>
@@ -829,8 +828,8 @@ const Quiz = () => {
                 })}
               </div>
             </div>
-          </div>
-        </motion.div>
+          </motion.div>
+        </div>
         
         {/* Feedback overlay */}
         <AnimatePresence>

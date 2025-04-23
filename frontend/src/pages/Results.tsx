@@ -407,7 +407,7 @@ const Results = () => {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ delay: 0.8 }}
-              className="flex flex-col sm:flex-row justify-center gap-4 pt-4"
+              className="flex justify-center pt-4"
             >
               <Button
                 onClick={goToHome}
@@ -416,15 +416,6 @@ const Results = () => {
               >
                 <Home className="mr-2 h-5 w-5" />
                 Return to Home
-              </Button>
-              
-              <Button
-                onClick={() => navigate("/categories")}
-                variant="outline"
-                size="lg"
-                className="bg-white/10 backdrop-blur-sm hover:bg-white/20 text-white border-white/20"
-              >
-                Try Another Quiz
               </Button>
             </motion.div>
           </motion.div>

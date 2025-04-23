@@ -112,7 +112,7 @@ const Index = () => {
   const handleCategorySelect = (category: string) => {
     setFormData(prev => ({ ...prev, topic: category }));
     setShowSuggestions(false);
-    setIsCategorySelected(true);
+    // Don't set isCategorySelected to true anymore, so it always uses the generate API
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -122,87 +122,72 @@ const Index = () => {
     try {
       let data;
       
-      if (isCategorySelected) {
-        data = await fetchQuizByCategory(
-          formData.topic,
-          formData.difficulty,
-          formData.numQuestions,
-          formData.image
-        );
+      // Always use the generate API instead of fetchQuizByCategory
+      // Regular topic-based quiz generation
+      const requestData = new FormData();
+      
+      // Match backend's expected form fields
+      requestData.append('model', formData.model);
+      requestData.append('topic', formData.topic);
+      requestData.append('difficulty', formData.difficulty);
+      requestData.append('num_questions', formData.numQuestions.toString());
+      requestData.append('image', formData.image ? 'true' : 'false');
+      
+      if (selectedFile) {
+        // If a PDF file is selected, use generate_pdf endpoint
+        requestData.append('pdf', selectedFile);
+        
+        const response = await fetch('http://127.0.0.1:5000/api/quiz/generate_pdf', {
+          method: 'POST',
+          body: requestData
+        });
+
+        if (!response.ok) {
+          throw new Error(`Failed to generate quiz: ${response.status} ${response.statusText}`);
+        }
+
+        const responseText = await response.text();
+        console.log("Server response:", responseText);
+        
+        try {
+          const parsedData = JSON.parse(responseText);
+          
+          // Handle array response with status code [data, statusCode]
+          if (Array.isArray(parsedData) && parsedData.length === 2 && typeof parsedData[1] === 'number') {
+            data = parsedData[0]; // Extract just the quiz data part
+          } else {
+            data = parsedData;
+          }
+        } catch (parseError) {
+          console.error("Error parsing JSON response:", parseError);
+          throw new Error("Invalid response format from server");
+        }
       } else {
-        const requestFormData = new FormData();
+        // Regular topic-based generation
+        const response = await fetch('http://127.0.0.1:5000/api/quiz/generate', {
+          method: 'POST',
+          body: requestData
+        });
+
+        if (!response.ok) {
+          throw new Error(`Failed to generate quiz: ${response.status} ${response.statusText}`);
+        }
+
+        const responseText = await response.text();
+        console.log("Server response:", responseText);
         
-        // Match backend's expected form fields
-        requestFormData.append('model', formData.model);
-        requestFormData.append('topic', formData.topic);
-        requestFormData.append('difficulty', formData.difficulty);
-        requestFormData.append('num_questions', formData.numQuestions.toString());
-        requestFormData.append('image', formData.image ? 'true' : 'false');
-        
-        if (selectedFile) {
-          requestFormData.append('pdf', selectedFile);
+        try {
+          const parsedData = JSON.parse(responseText);
           
-          const response = await fetch('http://127.0.0.1:5000/api/quiz/generate_pdf', {
-            method: 'POST',
-            body: requestFormData
-          });
-
-          if (!response.ok) {
-            throw new Error(`Failed to generate quiz: ${response.status} ${response.statusText}`);
+          // Handle array response with status code [data, statusCode]
+          if (Array.isArray(parsedData) && parsedData.length === 2 && typeof parsedData[1] === 'number') {
+            data = parsedData[0]; // Extract just the quiz data part
+          } else {
+            data = parsedData;
           }
-
-          const responseText = await response.text();
-          console.log("Server response:", responseText);
-          
-          try {
-            const parsedData = JSON.parse(responseText);
-            
-            // Handle array response with status code [data, statusCode]
-            if (Array.isArray(parsedData) && parsedData.length === 2 && typeof parsedData[1] === 'number') {
-              data = parsedData[0]; // Extract just the quiz data part
-            } else {
-              data = parsedData;
-            }
-          } catch (parseError) {
-            console.error("Error parsing JSON response:", parseError);
-            throw new Error("Invalid response format from server");
-          }
-        } else {
-          // Regular topic-based quiz generation
-          const requestData = new FormData();
-          
-          // Match backend's expected form fields
-          requestData.append('model', formData.model);
-          requestData.append('topic', formData.topic);
-          requestData.append('difficulty', formData.difficulty);
-          requestData.append('num_questions', formData.numQuestions.toString());
-          requestData.append('image', formData.image ? 'true' : 'false');
-          
-          const response = await fetch('http://127.0.0.1:5000/api/quiz/generate', {
-            method: 'POST',
-            body: requestData
-          });
-
-          if (!response.ok) {
-            throw new Error(`Failed to generate quiz: ${response.status} ${response.statusText}`);
-          }
-
-          const responseText = await response.text();
-          console.log("Server response:", responseText);
-          
-          try {
-            const parsedData = JSON.parse(responseText);
-            
-            // Handle array response with status code [data, statusCode]
-            if (Array.isArray(parsedData) && parsedData.length === 2 && typeof parsedData[1] === 'number') {
-              data = parsedData[0]; // Extract just the quiz data part
-            } else {
-              data = parsedData;
-            }
-          } catch (parseError) {
-            console.error("Error parsing JSON response:", parseError);
-            throw new Error("Invalid response format from server");
-          }
+        } catch (parseError) {
+          console.error("Error parsing JSON response:", parseError);
+          throw new Error("Invalid response format from server");
         }
       }
 
