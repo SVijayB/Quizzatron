@@ -1,140 +1,174 @@
-import { useState, useRef, useEffect } from 'react';
-import { AnimatePresence, motion } from 'framer-motion';
-import { ChevronDown } from 'lucide-react';
+import { useState, useEffect, useRef } from "react";
+import { ChevronDown } from "lucide-react";
+import { cn } from "@/lib/utils";
+
+// Emoji categories for a structured, manageable selection
+const emojiCategories = {
+  animals: [
+    "🐶", "🦊", "🐱", "🦁", "🐯", "🐻", "🐼", "🐨", "🐻‍❄️", "🐷", 
+    "🦄", "🐴", "🦓", "🐘", "🦧", "🐪", "🦒", "🐫", "🦝", "🦡", 
+    "🦊", "🐿️", "🦔", "🦇", "🐁", "🐹", "🦫", "🐇", "🐰", "🐿️"
+  ],
+  aquatic: [
+    "🐙", "🦑", "🦞", "🦀", "🦐", "🐠", "🐡", "🐬", "🐳", "🦈"
+  ],
+  insects: [
+    "🦋", "🐌", "🐛", "🐝", "🪱", "🐞", "🦟", "🦗", "🪲", "🦂"
+  ],
+  birds: [
+    "🦜", "🐓", "🦃", "🦢", "🐧", "🦩", "🦉", "🦅", "🦤", "🦆"
+  ],
+  misc: [
+    "👻", "🤖", "👽", "👾", "🎃", "💩", "🤡", "👹", "👺", "🧙‍♀️"
+  ],
+};
+
+// Flatten emoji list for random selection
+const allEmojis = Object.values(emojiCategories).flat();
+
+export const getRandomEmoji = () => {
+  return allEmojis[Math.floor(Math.random() * allEmojis.length)];
+};
 
 interface EmojiAvatarProps {
-  initialEmoji: string;
+  initialEmoji?: string;
+  onChange?: (emoji: string) => void;
   size?: number;
   isInteractive?: boolean;
-  onChange?: (emoji: string) => void;
   className?: string;
 }
 
-// List of emojis to choose from - organized by categories for the grid layout
-const emojiOptions = [
-  ["🐶", "🦊", "🐱", "🦁", "🐯", "🐻", "🐼", "🐨", "🐻‍❄️", "🐮"],
-  ["🐷", "🐸", "🐵", "🐔", "🐧", "🐦", "🦆", "🦅", "🦉", "🦇"],
-  ["🦄", "🐴", "🦓", "🦍", "🦧", "🐘", "🦏", "🦛", "🦒", "🐫"],
-  ["🐿️", "🦫", "🦥", "🦘", "🦡", "🦔", "🐀", "🐰", "🦝", "🦨"],
-  ["🐙", "🦑", "🦞", "🦐", "🦀", "🐠", "🐬", "🐳", "🐊", "🐢"],
-  ["🦋", "🐌", "🐜", "🐝", "🪱", "🪰", "🪲", "🪳", "🦟", "🦗"],
-  ["👻", "🤖", "👽", "👾", "🎃", "💩", "🧙‍♂️", "🧚‍♀️", "🧛‍♀️", "🧜‍♀️"]
-];
-
-// Flattened emoji list for random selection
-const flatEmojiList = emojiOptions.flat();
-
-// Helper function to get a random emoji from options
-export const getRandomEmoji = (): string => {
-  return flatEmojiList[Math.floor(Math.random() * flatEmojiList.length)];
-};
-
 const EmojiAvatar = ({
   initialEmoji = "🐶",
+  onChange,
   size = 40,
   isInteractive = false,
-  onChange,
-  className = "",
+  className,
 }: EmojiAvatarProps) => {
-  // Ensure the initialEmoji is from our options list
-  const safeInitialEmoji = flatEmojiList.includes(initialEmoji) ? initialEmoji : getRandomEmoji();
-  const [emoji, setEmoji] = useState(safeInitialEmoji);
-  const [isOpen, setIsOpen] = useState(false);
+  const [emoji, setEmoji] = useState(initialEmoji);
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const [menuPosition, setMenuPosition] = useState({ top: 0, left: 0 });
   
-  // Handle emoji selection
-  const handleSelectEmoji = (newEmoji: string) => {
-    setEmoji(newEmoji);
-    setIsOpen(false);
+  useEffect(() => {
+    if (initialEmoji) {
+      setEmoji(initialEmoji);
+    }
+  }, [initialEmoji]);
+
+  useEffect(() => {
+    // Calculate and set menu position when it opens
+    if (isMenuOpen && buttonRef.current) {
+      const rect = buttonRef.current.getBoundingClientRect();
+      setMenuPosition({
+        top: rect.bottom + window.scrollY + 8,
+        left: rect.left + window.scrollX + rect.width / 2
+      });
+    }
+  }, [isMenuOpen]);
+
+  // Handle clicks outside the menu to close it
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (menuRef.current && 
+          !menuRef.current.contains(event.target as Node) && 
+          buttonRef.current && 
+          !buttonRef.current.contains(event.target as Node)) {
+        setIsMenuOpen(false);
+      }
+    };
+
+    if (isMenuOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
     
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [isMenuOpen]);
+
+  const handleEmojiChange = (newEmoji: string) => {
+    setEmoji(newEmoji);
     if (onChange) {
       onChange(newEmoji);
     }
+    setIsMenuOpen(false);
   };
-  
-  // Handle random emoji selection
-  const handleRandomEmoji = () => {
-    if (!isInteractive) return;
-    
-    // Get a new random emoji (different from current)
-    let newEmoji = emoji;
-    while (newEmoji === emoji) {
-      newEmoji = getRandomEmoji();
-    }
-    
-    setEmoji(newEmoji);
-    
-    if (onChange) {
-      onChange(newEmoji);
-    }
+
+  // Fix for background of the entire card turning black
+  const handleButtonClick = (e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent event bubbling
+    e.preventDefault(); // Prevent default behavior
+    setIsMenuOpen(!isMenuOpen);
   };
-  
-  return (
-    <div className={`relative ${className}`}>
-      {/* Avatar */}
-      <div 
-        className={`
-          flex items-center justify-center 
-          rounded-full bg-gradient-to-br from-violet-500 to-indigo-600 
-          transition-all duration-200
-          ${isInteractive ? 'cursor-pointer hover:shadow-lg hover:scale-105' : ''}
-        `}
-        style={{ width: size, height: size, fontSize: size * 0.6 }}
-        onClick={isInteractive ? () => setIsOpen(prev => !prev) : undefined}
-      >
-        {emoji}
-        {isInteractive && (
-          <div 
-            className="absolute -bottom-1 -right-1 bg-white rounded-full w-4 h-4 flex items-center justify-center border border-indigo-500 shadow-md"
-            style={{ fontSize: 10 }}
-          >
-            <ChevronDown className="w-3 h-3 text-indigo-600" />
-          </div>
+
+  const containerSize = `${size}px`;
+  const fontSize = `${size * 0.6}px`;
+
+  // Non-interactive version
+  if (!isInteractive) {
+    return (
+      <div
+        className={cn(
+          "flex items-center justify-center rounded-full bg-gradient-to-br from-violet-500 to-indigo-600",
+          className
         )}
+        style={{ width: containerSize, height: containerSize }}
+      >
+        <span style={{ fontSize }}>{emoji}</span>
       </div>
-      
-      {/* Emoji Picker Dialog (Modal Style) */}
-      {isInteractive && isOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/20">
-          <div 
-            onClick={(e) => e.stopPropagation()}
-            className="w-full max-w-md bg-white rounded-xl shadow-2xl overflow-hidden"
-          >
-            <div className="p-3 bg-gray-50 border-b">
-              <h3 className="text-center text-sm font-medium text-gray-700">Choose an avatar</h3>
-            </div>
-            
-            <div className="p-4 max-h-[60vh] overflow-y-auto">
-              <div className="grid grid-cols-10 gap-2">
-                {flatEmojiList.map((emojiChar) => (
-                  <button
-                    key={emojiChar}
-                    onClick={() => handleSelectEmoji(emojiChar)}
-                    className={`
-                      w-10 h-10 flex items-center justify-center rounded-md text-xl
-                      hover:bg-indigo-100 transition-colors
-                      ${emoji === emojiChar ? 'bg-indigo-200 ring-2 ring-indigo-500' : 'bg-gray-50'}
-                    `}
-                  >
-                    {emojiChar}
-                  </button>
-                ))}
-              </div>
-            </div>
-            
-            <div className="p-3 border-t bg-gray-50 flex justify-between">
+    );
+  }
+
+  // Interactive version with direct DOM handling
+  return (
+    <div className="relative inline-block" style={{ zIndex: 1 }}>
+      {/* Avatar Button */}
+      <button
+        ref={buttonRef}
+        type="button"
+        onClick={handleButtonClick}
+        className={cn(
+          "flex items-center justify-center rounded-full bg-gradient-to-br from-violet-500 to-indigo-600 cursor-pointer relative group",
+          className
+        )}
+        style={{ width: containerSize, height: containerSize }}
+      >
+        <span style={{ fontSize }}>{emoji}</span>
+        <div className="absolute inset-0 rounded-full flex items-center justify-center bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity">
+          <ChevronDown className="w-5 h-5 text-white/80" />
+        </div>
+      </button>
+
+      {/* Emoji Selection Menu - Rendered in a portal to avoid z-index issues */}
+      {isMenuOpen && (
+        <div 
+          ref={menuRef}
+          className="fixed p-3 w-[280px] max-h-[320px] overflow-y-auto bg-gray-900/95 border border-white/10 backdrop-blur-md rounded-lg shadow-xl"
+          style={{ 
+            top: `${menuPosition.top}px`,
+            left: `${menuPosition.left}px`,
+            transform: 'translateX(-50%)',
+            zIndex: 9999
+          }}
+        >
+          <div className="grid grid-cols-6 gap-2">
+            {allEmojis.map((e, i) => (
               <button
-                onClick={() => setIsOpen(false)}
-                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md shadow-sm hover:bg-gray-50"
+                key={i}
+                type="button"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  handleEmojiChange(e);
+                }}
+                className={`w-10 h-10 flex items-center justify-center rounded-lg bg-gray-800 hover:bg-white/10 transition-colors ${
+                  emoji === e ? "bg-white/20 ring-1 ring-white/30" : ""
+                }`}
               >
-                Cancel
+                <span className="text-xl text-white">{e}</span>
               </button>
-              <button
-                onClick={handleRandomEmoji}
-                className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 border border-transparent rounded-md shadow-sm hover:bg-indigo-700"
-              >
-                Random Avatar
-              </button>
-            </div>
+            ))}
           </div>
         </div>
       )}

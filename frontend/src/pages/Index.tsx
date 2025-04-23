@@ -14,7 +14,7 @@ import { Slider } from "@/components/ui/slider";
 import { useToast } from "@/components/ui/use-toast";
 import { 
   Sparkles, Brain, Zap, FileText, Users, BookOpen, 
-  Star, Trophy, Settings, Gamepad2, Info 
+  Star, Trophy, Settings, Gamepad2, Info, Timer, Crown 
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import CursorEffect from "@/components/CursorEffect";
@@ -317,6 +317,108 @@ const Index = () => {
         <div className="absolute inset-0 bg-[radial-gradient(circle_800px_at_100%_200px,#4f3ed0,transparent)]" />
         <div className="absolute inset-0 bg-[radial-gradient(circle_800px_at_0%_300px,#8b5cf6,transparent)]" />
         <div className="absolute inset-0 bg-grid-white/[0.02] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_0%,black,transparent)]" />
+        
+        {/* Animated floating game elements - matching the multiplayer page style */}
+        <div className="absolute inset-0 overflow-hidden pointer-events-none">
+          {/* Floating quiz-related icons */}
+          <motion.div 
+            custom={1}
+            variants={floatingIconVariants}
+            animate={{
+              y: [0, -15, 0],
+              x: [0, 5, 0],
+              rotate: [0, 5, 0],
+              transition: {
+                duration: 4,
+                repeat: Infinity,
+                repeatType: "mirror",
+              }
+            }}
+            className="absolute left-[15%] top-[20%] text-white/20 text-4xl"
+          >
+            <Trophy className="w-10 h-10" />
+          </motion.div>
+          <motion.div 
+            custom={2}
+            animate={{
+              y: [0, -15, 0],
+              x: [0, -5, 0],
+              rotate: [0, -5, 0],
+              transition: {
+                duration: 5,
+                repeat: Infinity,
+                repeatType: "mirror",
+              }
+            }}
+            className="absolute right-[20%] top-[15%] text-white/20 text-4xl"
+          >
+            <Gamepad2 className="w-12 h-12" />
+          </motion.div>
+          <motion.div 
+            custom={3}
+            animate={{
+              y: [0, -15, 0],
+              x: [0, 5, 0],
+              rotate: [0, 5, 0],
+              transition: {
+                duration: 6,
+                repeat: Infinity,
+                repeatType: "mirror",
+              }
+            }}
+            className="absolute left-[10%] bottom-[20%] text-white/20 text-4xl"
+          >
+            <Zap className="w-8 h-8" />
+          </motion.div>
+          <motion.div 
+            custom={4}
+            animate={{
+              y: [0, -15, 0],
+              x: [0, -5, 0],
+              rotate: [0, -5, 0],
+              transition: {
+                duration: 5.5,
+                repeat: Infinity,
+                repeatType: "mirror",
+              }
+            }}
+            className="absolute right-[15%] bottom-[25%] text-white/20 text-4xl"
+          >
+            <Timer className="w-9 h-9" />
+          </motion.div>
+          <motion.div 
+            custom={5}
+            animate={{
+              y: [0, -15, 0],
+              x: [0, 5, 0],
+              rotate: [0, 5, 0],
+              transition: {
+                duration: 4.5,
+                repeat: Infinity,
+                repeatType: "mirror",
+              }
+            }}
+            className="absolute left-[25%] top-[50%] text-white/20 text-4xl"
+          >
+            <Crown className="w-7 h-7" />
+          </motion.div>
+          <motion.div 
+            custom={6}
+            animate={{
+              y: [0, -15, 0],
+              x: [0, -5, 0],
+              rotate: [0, -5, 0],
+              transition: {
+                duration: 3.5,
+                repeat: Infinity,
+                repeatType: "mirror",
+              }
+            }}
+            className="absolute right-[25%] top-[40%] text-white/20 text-4xl"
+          >
+            <Star className="w-6 h-6" />
+          </motion.div>
+        </div>
         
         {/* Animated floating particles */}
         <div className="absolute inset-0 overflow-hidden">
