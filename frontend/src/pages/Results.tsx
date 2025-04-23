@@ -56,7 +56,8 @@ const Results = () => {
         throw new Error("Invalid results format");
       }
 
-      const validResults = parsedResults.map((result: any) => ({
+      // Create a fresh array from the parsed results to ensure proper mapping
+      const validResults = [...parsedResults].map((result: any) => ({
         question: result.question || "Unknown Question",
         userAnswer: result.userAnswer || "Unanswered",
         correctAnswer: result.correctAnswer || "Unknown",
@@ -65,6 +66,10 @@ const Results = () => {
         timeRemaining: result.timeRemaining || 0
       }));
 
+      console.log("Valid results array length:", validResults.length);
+      console.log("Last result item:", validResults[validResults.length - 1]);
+      
+      // Set the results array immediately to avoid race conditions
       setResults(validResults);
       setTotalScore(scoreData ? parseInt(scoreData) : 0);
 
@@ -126,6 +131,15 @@ const Results = () => {
       navigate("/");
     }
   }, [navigate, location.pathname]);
+
+  // Explicitly create a function for home navigation
+  const goToHome = () => {
+    // Clear any quiz-related data from localStorage to prevent future issues
+    localStorage.removeItem("quizResults");
+    localStorage.removeItem("quizData");
+    // Navigate to home
+    navigate("/", { replace: true });
+  };
 
   if (!results.length) return null;
 
@@ -201,7 +215,7 @@ const Results = () => {
           <div className="mb-6">
             <Button 
               variant="ghost" 
-              onClick={() => navigate("/")}
+              onClick={goToHome}
               className="text-white bg-white/10 hover:bg-white/20"
             >
               <ArrowLeft className="w-4 h-4 mr-2" /> Back to Home
@@ -321,8 +335,7 @@ const Results = () => {
               </h2>
               
               <div className="space-y-4">
-                {/* Removed AnimatePresence to fix potential issues with last question */}
-                {results.slice(0).map((result, index) => (
+                {results.map((result, index) => (
                   <motion.div
                     key={`result-${index}`}
                     initial={{ opacity: 0, y: 15 }}
@@ -397,7 +410,7 @@ const Results = () => {
               className="flex flex-col sm:flex-row justify-center gap-4 pt-4"
             >
               <Button
-                onClick={() => navigate("/")}
+                onClick={goToHome}
                 size="lg"
                 className="bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white border-none shadow-lg shadow-purple-900/30"
               >

@@ -65,6 +65,9 @@ const Quiz = () => {
   // Background animation states
   const [backgroundAnimation, setBackgroundAnimation] = useState("");
 
+  // Add loading state
+  const [isFinishing, setIsFinishing] = useState(false);
+
   // Initialize quiz data
   useEffect(() => {
     try {
@@ -233,7 +236,7 @@ const Quiz = () => {
       if (currentQuestion < quizData.length - 1) {
         moveToNextQuestion();
       } else {
-        finishQuiz();
+        finishQuiz(option); // Pass the selected option directly
       }
     }, 1500);
   };
@@ -291,25 +294,86 @@ const Quiz = () => {
   };
   
   // Finish quiz and navigate to results
-  const finishQuiz = () => {
-    // Make sure all questions are included in results
+  const finishQuiz = (finalAnswer?: string) => {
+    // Show the finishing state
+    setIsFinishing(true);
+    
+    // Use the passed answer or the state value
+    const lastSelectedAnswer = finalAnswer || selectedAnswer;
+    
+    // Create a copy of the current results
+    let finalResults = [...quizResults];
+    let finalScore = totalScore;
+    
+    // Check if we need to add the last question
     if (quizResults.length < quizData.length) {
-      console.log("Ensuring all questions are included in results");
+      console.log(`Ensuring all questions are included in results. Current results: ${quizResults.length}, Total questions: ${quizData.length}`);
+      
+      // Specifically handle the last question's result
+      const lastQuestion = quizData[currentQuestion];
+      const correctOptionText = lastQuestion.options.find(
+        opt => opt.charAt(0) === lastQuestion.correct_answer
+      )?.slice(3) || "";
+      
+      const selectedOptionText = lastSelectedAnswer ? 
+        lastQuestion.options.find(opt => opt.charAt(0) === lastSelectedAnswer)?.slice(3) || "" : 
+        "Unanswered";
+      
+      const isCorrect = lastSelectedAnswer === lastQuestion.correct_answer;
+      const points = isCorrect ? Math.ceil(timeLeft) : 0;
+      
+      // Create a result for the last question
+      const lastQuestionResult: QuizResult = {
+        question: lastQuestion.question,
+        userAnswer: selectedOptionText,
+        correctAnswer: correctOptionText,
+        isCorrect: isCorrect,
+        score: points,
+        timeRemaining: timeLeft
+      };
+      
+      // Add the missing question to our final results
+      finalResults = [...finalResults, lastQuestionResult];
+      
+      // Update the total score if needed
+      if (isCorrect) {
+        finalScore += points;
+      }
     }
     
-    // Save results to localStorage
-    localStorage.setItem("quizResults", JSON.stringify(quizResults));
-    localStorage.setItem("totalScore", totalScore.toString());
+    // Log the final results to verify
+    console.log(`Final results length: ${finalResults.length}`);
+    console.log("Last result:", finalResults[finalResults.length - 1]);
+    
+    // Save final results to localStorage
+    localStorage.setItem("quizResults", JSON.stringify(finalResults));
+    localStorage.setItem("totalScore", finalScore.toString());
     
     // For multiplayer, save player scores too
     if (isMultiplayer) {
-      localStorage.setItem("playerScores", JSON.stringify(playerScores));
+      // Update player score one last time if needed
+      if (quizResults.length < quizData.length && lastSelectedAnswer === quizData[currentQuestion].correct_answer) {
+        const additionalPoints = Math.ceil(timeLeft);
+        const updatedScores = playerScores.map(player => 
+          player.name === playerName 
+            ? { 
+                ...player, 
+                score: player.score + additionalPoints, 
+                answeredQuestions: player.answeredQuestions + 1 
+              }
+            : player
+        );
+        setPlayerScores(updatedScores);
+        localStorage.setItem("playerScores", JSON.stringify(updatedScores));
+      } else {
+        localStorage.setItem("playerScores", JSON.stringify(playerScores));
+      }
     }
     
-    // Navigate to results page
+    // Navigate to results page after a short delay to ensure everything is saved
     setTimeout(() => {
       navigate(isMultiplayer ? "/multiplayer/results" : "/results");
-    }, 1000);
+    }, 1500);
   };
   
   // Render countdown screen
@@ -672,27 +736,27 @@ const Quiz = () => {
         {/* Main question card */}
         <motion.div
           key={`question-${currentQuestion}`}
-          className="relative z-10 px-4"
+          className="relative z-10 px-4 flex items-center justify-center min-h-[50vh]" 
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
           exit={{ opacity: 0, scale: 0.95 }}
           transition={{ duration: 0.3 }}
         >
-          <div className="max-w-4xl mx-auto">
-            <div className="bg-white/10 backdrop-blur-md rounded-2xl p-6 shadow-lg border border-white/10">
+          <div className="w-full max-w-5xl mx-auto">
+            <div className="bg-white/10 backdrop-blur-md rounded-2xl p-8 md:p-10 shadow-xl border border-white/10">
               {/* Question text */}
               <h2 
-                className="text-xl md:text-2xl text-white mb-6 leading-relaxed"
+                className="text-2xl md:text-3xl text-white mb-8 leading-relaxed text-center font-medium"
                 dangerouslySetInnerHTML={{ __html: question.question }}
               />
 
               {/* Optional image - only show when image exists and is not undefined/empty */}
               {question.image && question.image !== "undefined" && (
-                <div className="mb-6 flex justify-center">
+                <div className="mb-8 flex justify-center">
                   <img 
                     src={question.image} 
                     alt="Question" 
-                    className="max-h-48 rounded-lg shadow-md"
+                    className="max-h-60 rounded-lg shadow-md"
                     onError={(e) => {
                       // Hide image container if image fails to load
                       (e.target as HTMLElement).parentElement?.classList.add('hidden');
@@ -702,7 +766,7 @@ const Quiz = () => {
               )}
 
               {/* Answer options */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
                 {question.options.map((option, index) => {
                   const optionValue = option.charAt(0);
                   const optionText = option.slice(3); // Remove "A. " prefix
@@ -716,7 +780,7 @@ const Quiz = () => {
                       onClick={() => handleAnswerSelect(optionValue)}
                       disabled={isRevealed}
                       className={`
-                        relative flex items-center text-left p-4 rounded-xl 
+                        relative flex items-center text-left p-5 rounded-xl 
                         transition-all duration-200 
                         ${isRevealed && isCorrect 
                           ? "bg-green-600/90 text-white ring-2 ring-green-400/70" 
@@ -726,12 +790,17 @@ const Quiz = () => {
                               ? "bg-violet-600 text-white" 
                               : "bg-white/10 text-white hover:bg-white/20"
                         }
+                        border border-white/5 hover:border-white/20
                       `}
-                      whileHover={!isRevealed ? { scale: 1.02 } : {}}
+                      whileHover={!isRevealed ? { 
+                        scale: 1.03, 
+                        boxShadow: "0 10px 25px -5px rgba(124, 58, 237, 0.5)",
+                        borderColor: "rgba(255, 255, 255, 0.2)"
+                      } : {}}
                       whileTap={!isRevealed ? { scale: 0.98 } : {}}
                     >
                       <div className={`
-                        w-8 h-8 min-w-8 flex items-center justify-center rounded-full mr-3
+                        w-10 h-10 min-w-10 flex items-center justify-center rounded-full mr-4
                         ${isRevealed && isCorrect 
                           ? "bg-green-500" 
                           : isRevealed && isSelected 
@@ -739,14 +808,21 @@ const Quiz = () => {
                             : "bg-white/10"
                         }
                       `}>
-                        <span className="text-sm font-medium">
+                        <span className="text-md font-medium">
                           {optionLabel}
                         </span>
                       </div>
-                      <span className="flex-1" dangerouslySetInnerHTML={{ __html: optionText }} />
+                      <span className="flex-1 text-lg" dangerouslySetInnerHTML={{ __html: optionText }} />
                       
                       {isRevealed && isCorrect && (
-                        <Sparkles className="w-5 h-5 ml-2 text-green-200" />
+                        <Sparkles className="w-6 h-6 ml-3 text-green-200" />
+                      )}
+                      
+                      {/* Add shine effect on hover */}
+                      {!isRevealed && (
+                        <div className="absolute inset-0 rounded-xl overflow-hidden">
+                          <div className="absolute inset-0 opacity-0 hover:opacity-20 bg-gradient-to-r from-transparent via-white to-transparent -translate-x-full hover:translate-x-full transition-all duration-1000 ease-in-out"></div>
+                        </div>
                       )}
                     </motion.button>
                   );
@@ -783,6 +859,28 @@ const Quiz = () => {
                   )}
                   {feedbackMessage}
                 </div>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Finishing overlay */}
+        <AnimatePresence>
+          {isFinishing && (
+            <motion.div
+              className="absolute inset-0 z-50 bg-black/60 backdrop-blur-sm flex flex-col items-center justify-center"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+            >
+              <motion.div
+                initial={{ scale: 0.8 }}
+                animate={{ scale: 1 }}
+                className="text-center"
+              >
+                <div className="w-16 h-16 border-4 border-t-violet-500 border-r-violet-500 border-b-violet-200 border-l-violet-200 rounded-full animate-spin mb-4 mx-auto"></div>
+                <h2 className="text-2xl font-bold text-white mb-2">Generating Final Results</h2>
+                <p className="text-white/70">Calculating your score...</p>
               </motion.div>
             </motion.div>
           )}
