@@ -1,4 +1,3 @@
-
 /* Layout */
 .lobby-background {
     min-height: 100vh;
@@ -154,6 +153,7 @@
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
     overflow: hidden;
     backdrop-filter: blur(10px);
+    order: 1;
 }
 
 .players-card {
@@ -166,6 +166,7 @@
     border: 1px solid rgba(255, 255, 255, 0.1);
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
     margin: 0 1rem;
+    order: 2;
 }
 
 .status-card {
@@ -177,6 +178,7 @@
     border: 1px solid rgba(255, 255, 255, 0.1);
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
     overflow: hidden;
+    order: 3;
 }
 
 /* Responsive layout adjustments */
@@ -192,6 +194,19 @@
         width: 100%;
         max-width: 600px;
         margin: 0 0 1rem 0;
+    }
+
+    /* Mobile order changes */
+    .status-card {
+        order: 1; /* Move status card to the top */
+    }
+
+    .players-card {
+        order: 2; /* Keep players card in the middle */
+    }
+
+    .how-to-play-card {
+        order: 3; /* Move how-to-play to the bottom */
     }
 }
 
