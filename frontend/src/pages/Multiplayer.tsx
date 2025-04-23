@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/components/ui/use-toast";
-import { ArrowLeft, ArrowRight, Users, Plus, ExternalLink, Trophy, Timer, Crown, Zap, Gamepad2, Share2, Heart, GitBranch, RefreshCw } from "lucide-react";
+import { ArrowLeft, ArrowRight, Users, Plus, ExternalLink, Trophy, Timer, Crown, Zap, Gamepad2, Share2, Heart, GitBranch } from "lucide-react";
 import CursorEffect from "@/components/CursorEffect";
 import QuizLogo from "@/components/QuizLogo";
 import EmojiAvatar, { getRandomEmoji } from "@/components/EmojiAvatar";
@@ -70,11 +70,11 @@ const Multiplayer = () => {
   };
 
   useEffect(() => {
-    // Set an initial emoji on load
-    const initialEmoji = getRandomEmoji();
-    setAvatarEmoji(initialEmoji);
+    // Set a random emoji on load
+    const randomEmoji = getRandomEmoji();
+    setAvatarEmoji(randomEmoji);
     
-    localStorage.setItem("playerEmoji", initialEmoji);
+    localStorage.setItem("playerEmoji", randomEmoji);
     
     const storedPlayerName = localStorage.getItem("playerName");
     if (storedPlayerName) {
@@ -85,13 +85,6 @@ const Multiplayer = () => {
     localStorage.removeItem("isHost");
     localStorage.removeItem("multiplayerResults");
   }, []);
-
-  const handleEmojiChange = (newEmoji) => {
-    setAvatarEmoji(newEmoji);
-    localStorage.setItem("playerEmoji", newEmoji);
-    
-    // REMOVED: Toast notification code that was here
-  };
 
   const createLobby = async () => {
     if (!playerName.trim()) {
@@ -408,14 +401,14 @@ const Multiplayer = () => {
                         className="flex items-center gap-6"
                       >
                         <div className="relative">
-                          {/* Use the enhanced EmojiAvatar component */}
                           <EmojiAvatar 
                             initialEmoji={avatarEmoji}
-                            onChange={handleEmojiChange}
+                            onChange={setAvatarEmoji}
                             size={80}
                             isInteractive={true}
                             className="min-w-[80px]"
                           />
+                          <div className="absolute inset-[-4px] rounded-full border-[1px] border-dashed border-white/40"></div>
                         </div>
                         
                         <div className="flex-1">
@@ -430,7 +423,7 @@ const Multiplayer = () => {
                             className="bg-white/10 border-white/20 text-white placeholder:text-white/50 focus:ring-0"
                           />
                           <p className="text-xs text-white/50 mt-1">
-                            Click the emoji to open avatar picker
+                            Click the emoji to change your avatar
                           </p>
                         </div>
                       </motion.div>

@@ -169,18 +169,18 @@ const Index = () => {
           }
         } else {
           // Regular topic-based quiz generation
+          const requestData = new FormData();
+          
+          // Match backend's expected form fields
+          requestData.append('model', formData.model);
+          requestData.append('topic', formData.topic);
+          requestData.append('difficulty', formData.difficulty);
+          requestData.append('num_questions', formData.numQuestions.toString());
+          requestData.append('image', formData.image ? 'true' : 'false');
+          
           const response = await fetch('http://127.0.0.1:5000/api/quiz/generate', {
             method: 'POST',
-            headers: {
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-              model: formData.model,
-              topic: formData.topic,
-              difficulty: formData.difficulty,
-              num_questions: formData.numQuestions,
-              image: formData.image
-            })
+            body: requestData
           });
 
           if (!response.ok) {
@@ -718,7 +718,7 @@ const Index = () => {
             <img 
               src="/undraw_quiz_zvhe.svg" 
               alt="Quiz illustration" 
-              className="w-4/5 md:w-3/4 max-w-sm filter drop-shadow-lg"
+              className="w-3/5 sm:w-3/4 md:w-3/4 max-w-sm filter drop-shadow-lg"
             />
           </motion.div>
         </motion.div>
