@@ -24,14 +24,12 @@ const Multiplayer = () => {
   const [isJoiningLobby, setIsJoiningLobby] = useState(false);
   const [avatarEmoji, setAvatarEmoji] = useState<string>(getRandomEmoji());
   
-  // Mock data for visual enhancements
   const mockLeaderboard = [
     { name: "QuizMaster", score: 980, emoji: "🧠" },
     { name: "BrainGenius", score: 920, emoji: "🚀" },
     { name: "WisdomWiz", score: 850, emoji: "🦉" },
   ];
   
-  // Animation variants
   const containerVariants = {
     hidden: { opacity: 0 },
     visible: { 
@@ -70,7 +68,6 @@ const Multiplayer = () => {
   };
 
   useEffect(() => {
-    // Set a random emoji on load
     const randomEmoji = getRandomEmoji();
     setAvatarEmoji(randomEmoji);
     
@@ -202,7 +199,6 @@ const Multiplayer = () => {
     <div className="min-h-screen relative overflow-hidden bg-[#1a1a2e]">
       <CursorEffect />
       
-      {/* Enhanced background with animated elements */}
       <div className="absolute inset-0">
         <div className="absolute inset-0 bg-[linear-gradient(to_right,#4f3ed0,#8b5cf6)] opacity-50" />
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_0%,#1a1a2e_100%)]" />
@@ -210,9 +206,7 @@ const Multiplayer = () => {
         <div className="absolute inset-0 bg-[radial-gradient(circle_800px_at_0%_300px,#8b5cf6,transparent)]" />
         <div className="absolute inset-0 bg-grid-white/[0.02] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_0%,black,transparent)]" />
         
-        {/* Animated floating game elements */}
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
-          {/* Floating quiz-related icons */}
           <motion.div 
             custom={1}
             variants={floatingIconVariants}
@@ -275,7 +269,6 @@ const Multiplayer = () => {
             Back to Home
           </Button>
 
-          {/* Main content section with fancy animations */}
           <AnimatePresence mode="wait">
             <motion.div 
               key={activeView}
@@ -367,8 +360,7 @@ const Multiplayer = () => {
 
               {(activeView === "create" || activeView === "join") && (
                 <motion.div variants={itemVariants}>
-                  <Card className="bg-white/10 backdrop-blur-sm border-white/20 shadow-[0_0_15px_rgba(139,92,246,0.15)] overflow-hidden">
-                    {/* Decorative elements */}
+                  <Card className="bg-white/10 backdrop-blur-sm border-white/20 shadow-[0_0_15px_rgba(139,92,246,0.15)] overflow-visible">
                     <div className="absolute top-0 left-0 bg-gradient-to-br from-violet-500/30 via-transparent to-transparent w-20 h-20 rounded-br-full"></div>
                     <div className="absolute bottom-0 right-0 bg-gradient-to-tl from-indigo-500/20 via-transparent to-transparent w-40 h-40 rounded-tl-full"></div>
                     
@@ -400,15 +392,16 @@ const Multiplayer = () => {
                         transition={{ delay: 0.2 }}
                         className="flex items-center gap-6"
                       >
-                        <div className="relative">
+                        <div className="relative z-20">
                           <EmojiAvatar 
                             initialEmoji={avatarEmoji}
                             onChange={setAvatarEmoji}
                             size={80}
                             isInteractive={true}
-                            className="min-w-[80px]"
+                            className="hover:scale-105 transition-transform duration-300"
                           />
-                          <div className="absolute inset-[-4px] rounded-full border-[1px] border-dashed border-white/40"></div>
+                          <div className="absolute -inset-2 rounded-full border-2 border-white/10 blur-sm" />
+                          <div className="absolute -inset-[3px] rounded-full border border-white/20" />
                         </div>
                         
                         <div className="flex-1">
@@ -525,7 +518,6 @@ const Multiplayer = () => {
                       </motion.div>
                     </CardContent>
                     
-                    {/* Multiplayer feature highlights */}
                     <CardFooter className="flex flex-col gap-3 relative z-10 pb-6">
                       <motion.div
                         initial={{ opacity: 0 }}

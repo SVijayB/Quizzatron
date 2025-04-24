@@ -1,314 +1,234 @@
-import { useState, useEffect } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { useNavigate, useParams } from "react-router-dom";
+import { motion } from "framer-motion";
+import { useToast } from "@/components/ui/use-toast";
+import { Trophy, ArrowLeft, HomeIcon, RefreshCw, Repeat, Share2, UserCheck } from "lucide-react";
+import QuizLogo from "@/components/QuizLogo";
+import EmojiAvatar from "@/components/EmojiAvatar";
+import CursorEffect from "@/components/CursorEffect";
 import { apiService } from "@/services/apiService";
 import { useMultiplayer } from "@/contexts/MultiplayerContext";
-import { Button } from "@/components/ui/button";
-import { Home, Trophy, Medal, Award, ArrowLeft, Users, BarChart2 } from "lucide-react";
-import { motion } from "framer-motion";
-import "./Quiz.css";
 
-interface Player {
-  id: string;
+interface MultiplayerResult {
+  player_id: string;
   name: string;
-  isHost: boolean;
   avatar: string;
   score: number;
-  correctAnswers: number;
-  totalQuestions: number;
+  correct_answers: number;
+  incorrect_answers: number;
+  rank: number;
 }
 
-interface GameResults {
-  lobbyCode: string;
-  players: Player[];
-  totalQuestions: number;
+interface ResultsData {
+  results: MultiplayerResult[];
+  settings: {
+    numQuestions: number;
+    timePerQuestion: number;
+    difficulty: string;
+    topic: string | null;
+    categories?: string[];
+    allowSkipping?: boolean;
+    model?: string;
+  };
+  quiz_id: string;
 }
 
 const MultiplayerResults = () => {
-  const navigate = useNavigate();
   const { lobbyCode } = useParams<{ lobbyCode: string }>();
-  const { playerName } = useMultiplayer();
-  
-  const [results, setResults] = useState<GameResults | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  
+  const navigate = useNavigate();
+  const { toast } = useToast();
+  const [results, setResults] = useState<MultiplayerResult[]>([]);
+  const [settings, setSettings] = useState({
+    numQuestions: 10,
+    timePerQuestion: 15,
+    difficulty: "medium",
+    topic: null as string | null,
+    categories: [] as string[],
+    allowSkipping: false,
+    model: "default"
+  });
+  const [isLoading, setIsLoading] = useState(true);
+  const [quizId, setQuizId] = useState<string>("");
+  const { playerId } = useMultiplayer();
+
   useEffect(() => {
-    // First try to get results from localStorage
-    const fetchLocalResults = () => {
+    const fetchResults = async () => {
+      setIsLoading(true);
       try {
-        const storedResults = localStorage.getItem(`quiz_results_${lobbyCode}`);
+        const storedResults = localStorage.getItem("multiplayerResults");
         if (storedResults) {
           const parsedResults = JSON.parse(storedResults);
           setResults(parsedResults);
-          setLoading(false);
-          return true;
-        }
-        return false;
-      } catch (e) {
-        console.error("Error parsing stored results:", e);
-        return false;
-      }
-    };
-    
-    // Then try to fetch from API
-    const fetchResults = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-        
-        // Try local results first
-        if (fetchLocalResults()) {
-          return;
-        }
-        
-        // If no local results, try the API
-        const apiResults = await apiService.getGameResults(lobbyCode || "");
-        
-        if (apiResults) {
-          setResults(apiResults);
-          // Also store in localStorage for future reference
-          localStorage.setItem(`quiz_results_${lobbyCode}`, JSON.stringify(apiResults));
         } else {
-          throw new Error("No results returned from API");
-        }
-      } catch (error: any) {
-        console.error("Error fetching results:", error);
-        setError("Failed to load game results. Please try again later.");
-        
-        // Last attempt - try to reconstruct basic results if we have playerName
-        if (!fetchLocalResults() && playerName) {
-          setResults({
-            lobbyCode: lobbyCode || "",
-            players: [{
-              id: "local",
-              name: playerName,
-              isHost: false,
-              avatar: "👤",
-              score: 0,
-              correctAnswers: 0,
-              totalQuestions: 0
-            }],
-            totalQuestions: 0
+          toast({
+            title: "No Results Found",
+            description: "Results could not be loaded. Please try again.",
+            variant: "destructive",
           });
         }
+      } catch (error) {
+        console.error("Error fetching results:", error);
+        toast({
+          title: "Error",
+          description: "Failed to load results.",
+          variant: "destructive",
+        });
       } finally {
-        setLoading(false);
+        setIsLoading(false);
       }
     };
-    
+
     fetchResults();
-  }, [lobbyCode, playerName]);
-  
-  // Find player rank
-  const findPlayerRank = (playerName: string): number => {
-    if (!results?.players) return 0;
-    
-    const sortedPlayers = [...results.players].sort((a, b) => b.score - a.score);
-    return sortedPlayers.findIndex(p => p.name === playerName) + 1;
+  }, [lobbyCode, toast]);
+
+  const handleReturnToLobby = () => {
+    setGameSettings({
+      numQuestions: 10,
+      timePerQuestion: 15,
+      difficulty: "medium",
+      topic: null
+    });
+    setPlayers([]);
+    navigate("/multiplayer");
   };
-  
-  // Get appropriate medal emoji for position
-  const getMedal = (position: number): JSX.Element => {
-    switch (position) {
-      case 1:
-        return <Trophy className="h-8 w-8 text-yellow-400" />;
-      case 2:
-        return <Medal className="h-8 w-8 text-gray-300" />;
-      case 3:
-        return <Medal className="h-8 w-8 text-amber-700" />;
-      default:
-        return <Award className="h-8 w-8 text-purple-500" />;
-    }
+
+  const sortedResults = [...results].sort((a, b) => b.score - a.score);
+
+  const containerVariants = {
+    hidden: { opacity: 0 },
+    visible: {
+      opacity: 1,
+      transition: {
+        staggerChildren: 0.1,
+        delayChildren: 0.2,
+      },
+    },
+    exit: {
+      opacity: 0,
+      transition: { duration: 0.2 },
+    },
   };
-  
-  if (loading) {
-    return (
-      <div className="quiz-background">
-        <div className="quiz-gradient-overlay" />
-        <div className="flex flex-col items-center justify-center h-screen">
-          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-white"></div>
-          <p className="text-white mt-4 text-xl">Loading results...</p>
-        </div>
-      </div>
-    );
-  }
-  
-  if (error || !results) {
-    return (
-      <div className="quiz-background">
-        <div className="quiz-gradient-overlay" />
-        <div className="flex flex-col items-center justify-center h-screen p-4">
-          <div className="bg-red-500/20 p-4 rounded-lg mb-4">
-            <p className="text-white text-center">{error || "Failed to load results"}</p>
-          </div>
-          <Button 
-            onClick={() => navigate("/")}
-            variant="default"
-            className="mt-4"
-          >
-            <Home className="mr-2 h-4 w-4" />
-            Return to Home
-          </Button>
-        </div>
-      </div>
-    );
-  }
-  
-  // Sort players by score (highest first)
-  const sortedPlayers = [...results.players].sort((a, b) => b.score - a.score);
-  const currentPlayerRank = findPlayerRank(playerName);
-  
+
+  const itemVariants = {
+    hidden: { y: 20, opacity: 0 },
+    visible: {
+      y: 0,
+      opacity: 1,
+      transition: { duration: 0.4 },
+    },
+  };
+
   return (
-    <div className="quiz-background">
-      <div className="quiz-gradient-overlay" />
-      <div className="quiz-radial-overlay-1" />
-      <div className="quiz-radial-overlay-2" />
-      
-      <div className="container mx-auto max-w-6xl p-4 min-h-screen flex flex-col">
+    <div className="min-h-screen relative overflow-hidden bg-[#1a1a2e]">
+      <CursorEffect />
+
+      <div className="absolute inset-0">
+        <div className="absolute inset-0 bg-[linear-gradient(to_right,#4f3ed0,#8b5cf6)] opacity-50" />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_0%,#1a1a2e_100%)]" />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_800px_at_100%_200px,#4f3ed0,transparent)]" />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_800px_at_0%_300px,#8b5cf6,transparent)]" />
+        <div className="absolute inset-0 bg-grid-white/[0.02] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_0%,black,transparent)]" />
+      </div>
+
+      <div className="relative min-h-screen flex flex-col items-center justify-center p-4 z-10">
         <Button
+          onClick={() => navigate("/multiplayer")}
           variant="ghost"
-          onClick={() => navigate("/")}
-          className="absolute top-4 left-4 text-white"
+          className="absolute top-4 left-4 text-white hover:bg-white/10"
         >
           <ArrowLeft className="mr-2 h-4 w-4" />
-          Back to Home
+          Back to Multiplayer
         </Button>
-        
+
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
-          className="text-center mb-10 mt-16"
+          variants={containerVariants}
+          initial="hidden"
+          animate="visible"
+          exit="exit"
+          className="w-full max-w-2xl"
         >
-          <h1 className="text-4xl md:text-5xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-purple-600">
-            Game Results
-          </h1>
-          <p className="text-gray-300 mt-2">Lobby Code: {lobbyCode}</p>
-        </motion.div>
-        
-        {/* Leaderboard */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.2 }}
-          className="bg-black/30 backdrop-blur-sm rounded-xl p-6 border border-white/10 shadow-xl mb-8"
-        >
-          <div className="flex items-center text-white mb-6">
-            <Trophy className="h-6 w-6 mr-2 text-yellow-400" />
-            <h2 className="text-2xl font-bold">Leaderboard</h2>
-          </div>
-          
-          <div className="space-y-4">
-            {sortedPlayers.map((player, index) => (
-              <motion.div
-                key={player.id}
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ duration: 0.3, delay: 0.1 * index }}
-                className={`flex items-center p-4 rounded-lg ${
-                  player.name === playerName ? 
-                  "bg-indigo-500/30 border border-indigo-500/50" : 
-                  "bg-white/10 border border-white/5"
-                }`}
-              >
-                <div className="flex items-center justify-center w-10 h-10">
-                  {getMedal(index + 1)}
-                </div>
-                
-                <div className="flex-1 ml-4">
-                  <div className="flex items-center">
-                    <div className="w-10 h-10 flex items-center justify-center text-xl rounded-full bg-white/10 mr-3">
-                      {player.avatar}
-                    </div>
-                    <div>
-                      <div className="flex items-center">
-                        <span className="font-bold text-white text-lg">
-                          {player.name}
-                        </span>
-                        {player.name === playerName && (
-                          <span className="ml-2 bg-indigo-500/30 text-xs px-2 py-0.5 rounded-full text-white">
-                            You
-                          </span>
-                        )}
-                      </div>
-                      <div className="flex items-center">
-                        <span className="text-sm text-gray-300">
-                          {player.correctAnswers}/{results.totalQuestions} correct
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                
-                <div className="text-right">
-                  <div className="text-2xl font-bold text-indigo-300">
-                    {player.score}
-                  </div>
-                  <div className="text-xs text-gray-400">points</div>
-                </div>
-              </motion.div>
-            ))}
-          </div>
-        </motion.div>
-        
-        {/* Player summary */}
-        {playerName && (
           <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 0.4 }}
-            className="bg-black/30 backdrop-blur-sm rounded-xl p-6 border border-white/10 shadow-xl mb-8"
+            variants={itemVariants}
+            className="flex items-center justify-center mb-8"
           >
-            <div className="flex items-center text-white mb-6">
-              <Users className="h-6 w-6 mr-2 text-indigo-400" />
-              <h2 className="text-2xl font-bold">Your Performance</h2>
-            </div>
-            
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="bg-white/10 rounded-lg p-4 text-center">
-                <div className="text-sm text-gray-300 mb-1">Rank</div>
-                <div className="text-3xl font-bold text-white">
-                  {currentPlayerRank}/{sortedPlayers.length}
-                </div>
-              </div>
-              
-              <div className="bg-white/10 rounded-lg p-4 text-center">
-                <div className="text-sm text-gray-300 mb-1">Score</div>
-                <div className="text-3xl font-bold text-indigo-300">
-                  {sortedPlayers.find(p => p.name === playerName)?.score || 0}
-                </div>
-              </div>
-              
-              <div className="bg-white/10 rounded-lg p-4 text-center">
-                <div className="text-sm text-gray-300 mb-1">Correct Answers</div>
-                <div className="text-3xl font-bold text-green-400">
-                  {sortedPlayers.find(p => p.name === playerName)?.correctAnswers || 0}/{results.totalQuestions}
-                </div>
+            <motion.div
+              animate={{
+                y: [0, -10, 0],
+                rotate: [0, -5, 0, 5, 0],
+              }}
+              transition={{
+                duration: 5,
+                repeat: Infinity,
+                repeatType: "mirror",
+              }}
+            >
+              <QuizLogo size={60} color="white" className="mr-2" />
+            </motion.div>
+            <div>
+              <h1 className="text-4xl font-bold text-white bg-clip-text text-transparent bg-gradient-to-r from-white via-purple-200 to-white">
+                Multiplayer Results
+              </h1>
+              <div className="flex items-center gap-1 text-white/70">
+                <Users className="h-3.5 w-3.5 text-purple-300" />
+                <p>See how you stack up against your friends!</p>
               </div>
             </div>
           </motion.div>
-        )}
-        
-        {/* Action buttons */}
-        <div className="flex flex-col sm:flex-row justify-center gap-4 mt-auto">
-          <Button
-            variant="default"
-            className="bg-indigo-600 hover:bg-indigo-700"
-            onClick={() => navigate("/")}
-          >
-            <Home className="mr-2 h-4 w-4" />
-            Return to Home
-          </Button>
-          
-          <Button
-            variant="outline"
-            className="border-indigo-500 text-indigo-400 hover:bg-indigo-500/20"
-            onClick={() => navigate("/multiplayer")}
-          >
-            <Users className="mr-2 h-4 w-4" />
-            New Multiplayer Game
-          </Button>
-        </div>
+
+          <motion.div variants={itemVariants}>
+            <Card className="bg-white/10 backdrop-blur-sm border-white/20 shadow-[0_0_15px_rgba(139,92,246,0.15)] overflow-hidden">
+              <div className="absolute top-0 right-0 bg-gradient-to-bl from-violet-500/30 via-transparent to-transparent w-40 h-40 rounded-bl-full"></div>
+
+              <CardHeader className="pb-4 relative z-10">
+                <CardTitle className="text-2xl text-white flex items-center">
+                  <Trophy className="w-5 h-5 mr-2 text-yellow-400" />
+                  Final Standings
+                </CardTitle>
+                <CardDescription className="text-white/70">
+                  Congratulations to our top players!
+                </CardDescription>
+              </CardHeader>
+
+              <CardContent className="space-y-4 relative z-10">
+                {isLoading ? (
+                  <div className="flex items-center justify-center">
+                    <RefreshCw className="animate-spin h-6 w-6 text-white" />
+                    <span className="ml-2 text-white">Loading Results...</span>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {sortedResults.map((result, index) => (
+                      <div
+                        key={index}
+                        className="flex items-center justify-between bg-black/10 rounded-lg p-3"
+                      >
+                        <div className="flex items-center">
+                          <span className="text-lg font-semibold text-white mr-3">
+                            {index + 1}.
+                          </span>
+                          <span className="text-white text-xl mr-3">{result.avatar}</span>
+                          <span className="text-white font-medium">{result.name}</span>
+                        </div>
+                        <div className="text-white font-bold text-lg">
+                          {result.score} Points
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+
+              <div className="p-4 relative z-10">
+                <Button
+                  onClick={handleReturnToLobby}
+                  className="w-full bg-gradient-to-r from-violet-500 to-indigo-500 hover:from-violet-600 hover:to-indigo-600 text-white font-medium py-3 transition-all duration-300 hover:scale-[1.02] hover:shadow-lg hover:shadow-indigo-500/25"
+                >
+                  Return to Multiplayer Menu
+                </Button>
+              </div>
+            </Card>
+          </motion.div>
+        </motion.div>
       </div>
     </div>
   );
