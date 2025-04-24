@@ -241,7 +241,7 @@ const MultiplayerResults = () => {
                   Final Standings
                 </CardTitle>
                 <CardDescription className="text-white/70">
-                  Congratulations to our top players!
+                  Congratulations to the winners!
                 </CardDescription>
               </CardHeader>
 
@@ -328,9 +328,17 @@ const MultiplayerResults = () => {
                         <div className="bg-white/5 border border-white/10 rounded-lg p-3">
                           <div className="flex items-center text-purple-300 mb-1">
                             <Clock className="w-4 h-4 mr-1" />
-                            <span className="text-sm font-medium">Time per Question</span>
+                            <span className="text-sm font-medium">Avg. Time (Winner)</span>
                           </div>
-                          <p className="text-2xl font-bold text-white">{settings.timePerQuestion}s</p>
+                          {sortedResults.length > 0 ? (
+                            <p className="text-2xl font-bold text-white">
+                              {sortedResults[0]?.totalQuestions && sortedResults[0]?.correctAnswers 
+                                ? `${((settings.timePerQuestion * sortedResults[0].totalQuestions - sortedResults[0].score) / sortedResults[0].totalQuestions).toFixed(1)}s`
+                                : `${(settings.timePerQuestion / 2).toFixed(1)}s`}
+                            </p>
+                          ) : (
+                            <p className="text-2xl font-bold text-white">--</p>
+                          )}
                         </div>
                       </div>
                     </div>

@@ -76,8 +76,10 @@ const MultiplayerQuiz = () => {
   const [showAnswerAnimation, setShowAnswerAnimation] = useState<boolean>(false);
   // State for waiting screen countdown
   const [waitingCountdown, setWaitingCountdown] = useState<number | null>(null);
-  // State for background animation
-  const [backgroundAnimation, setBackgroundAnimation] = useState<string>("");
+  // State for feedback animation
+  const [feedbackMessage, setFeedbackMessage] = useState<string>("");
+  const [feedbackType, setFeedbackType] = useState<"correct" | "incorrect">("correct");
+  const [showFeedback, setShowFeedback] = useState<boolean>(false);
   const [isFinishing, setIsFinishing] = useState<boolean>(false);
   
   // Effect for timer
@@ -199,6 +201,8 @@ const MultiplayerQuiz = () => {
     setCountdown(gameSettings.timePerQuestion);
     setTimerRunning(true);
     setShowAnswerAnimation(false);
+    setShowFeedback(false);
+    setFeedbackMessage("");
   };
 
   // Calculate score based on the remaining time and multiplayer settings
@@ -222,6 +226,17 @@ const MultiplayerQuiz = () => {
     // Calculate final score
     const finalScore = Math.round(basePoints * difficultyMultiplier);
     return finalScore;
+  };
+
+  // Calculate the maximum possible score
+  const calculateMaxScore = () => {
+    return gameSettings.timePerQuestion * allQuestions.length;
+  };
+
+  // Calculate progress percentage for score bar
+  const calculateScorePercentage = (playerScore: number) => {
+    const maxScore = calculateMaxScore();
+    return maxScore > 0 ? (playerScore / maxScore) * 100 : 0;
   };
 
   // Handle answer selection with enhanced visual effects
@@ -270,8 +285,11 @@ const MultiplayerQuiz = () => {
     const questionScore = calculateScore(correct, remainingTime);
     setScore(questionScore);
     
-    // Show animation
+    // Show feedback animation
     setShowAnswerAnimation(true);
+    setShowFeedback(true);
+    setFeedbackType(correct ? "correct" : "incorrect");
+    setFeedbackMessage(correct ? `+${questionScore} points!` : "Incorrect!");
     
     // Play celebration effect for correct answer
     if (correct) {
@@ -280,10 +298,6 @@ const MultiplayerQuiz = () => {
         spread: 70,
         origin: { y: 0.6 }
       });
-      
-      setBackgroundAnimation("correct-answer");
-    } else {
-      setBackgroundAnimation("incorrect-answer");
     }
     
     // Send score update to server
@@ -496,15 +510,6 @@ const MultiplayerQuiz = () => {
         
         return (
           <div className="relative min-h-screen w-full">
-            {/* Background animation overlays */}
-            {backgroundAnimation && (
-              <div className={`absolute inset-0 transition-opacity duration-500 ${
-                backgroundAnimation === "correct-answer" 
-                  ? "bg-green-500/10" 
-                  : "bg-red-500/10"
-              }`} />
-            )}
-            
             {/* Animated floating quiz-related icons */}
             <div className="absolute inset-0 overflow-hidden pointer-events-none">
               <motion.div 
@@ -569,37 +574,23 @@ const MultiplayerQuiz = () => {
               </motion.div>
             </div>
 
-            {/* Top bar with progress and score/time */}
-            <motion.div 
-              className="relative z-10 pt-4 px-4 lg:px-8"
-              initial={{ opacity: 0, y: -20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.2 }}
-            >
+            {/* Top bar with progress and timer only */}
+            <div className="relative z-10 pt-4 px-4 lg:px-8">
               <div className="max-w-6xl mx-auto">
-                <div className="flex flex-col md:flex-row justify-between items-center mb-4">
+                <div className="flex justify-between items-center mb-2">
                   {/* Question progress */}
-                  <div className="flex items-center text-white mb-2 md:mb-0">
+                  <div className="flex items-center text-white">
                     <span className="bg-white/10 backdrop-blur-sm px-3 py-1 rounded-lg text-sm">
                       Question {currentQuestionIndex + 1} of {allQuestions.length}
                     </span>
                   </div>
                   
-                  {/* Score display - larger and more prominent */}
+                  {/* Timer */}
                   <div className="flex items-center space-x-4">
                     <div className="bg-white/10 backdrop-blur-sm px-4 py-2 rounded-lg flex items-center">
                       <Timer className="w-5 h-5 text-amber-300 mr-2" />
                       <span className="text-white text-base font-medium">{Math.ceil(countdown)}s</span>
                     </div>
-                    
-                    {players.find(p => p.name === playerName) && (
-                      <div className="bg-gradient-to-r from-violet-600/70 to-indigo-600/70 backdrop-blur-sm px-5 py-2.5 rounded-lg flex items-center shadow-lg border border-white/10">
-                        <Trophy className="w-5 h-5 text-amber-300 mr-2" />
-                        <span className="text-white text-lg font-bold">
-                          {players.find(p => p.name === playerName)?.score || 0} pts
-                        </span>
-                      </div>
-                    )}
                   </div>
                 </div>
                 
@@ -626,41 +617,63 @@ const MultiplayerQuiz = () => {
                   </div>
                 </div>
               </div>
-            </motion.div>
+            </div>
             
-            {/* Multiplayer scoreboard */}
-            <motion.div 
-              className="relative z-10 px-4"
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-            >
-              <div className="max-w-6xl mx-auto mb-4">
+            {/* Main question card */}
+            <div className="flex items-center justify-center min-h-[calc(100vh-220px)] px-4 py-4 md:py-8 relative">
+              {/* Player scoreboard moved to center of the quiz card on the left */}
+              <motion.div 
+                className="absolute top-[45%] left-4 -translate-y-1/2 z-10 w-48"
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+              >
                 <div className="bg-white/10 backdrop-blur-md rounded-xl p-3">
                   <h3 className="text-xs font-medium text-white/70 mb-2 flex items-center">
                     <Users className="w-3 h-3 mr-1" /> Players
                   </h3>
-                  <div className="flex flex-wrap gap-2">
-                    {players.map((player, idx) => (
-                      <div 
-                        key={idx} 
-                        className={`flex items-center space-x-2 px-2 py-1 rounded-lg ${
-                          player.name === playerName ? "bg-violet-700/50 ring-1 ring-violet-400/30" : "bg-white/5"
-                        }`}
-                      >
-                        <div className="w-6 h-6 flex items-center justify-center text-sm">
-                          {player.avatar}
-                        </div>
-                        <span className="text-xs text-white">{player.name}</span>
-                        <span className="text-xs font-medium text-amber-300">{player.score}</span>
-                      </div>
-                    ))}
+                  <div className="flex flex-col gap-2 max-h-[300px] overflow-y-auto">
+                    {players
+                      .sort((a, b) => b.score - a.score)
+                      .map((player, idx) => {
+                        const scorePercentage = calculateScorePercentage(player.score);
+                        return (
+                          <div 
+                            key={idx} 
+                            className={`flex flex-col px-2 py-1.5 rounded-lg ${
+                              player.name === playerName ? "bg-violet-700/50 ring-1 ring-violet-400/30" : "bg-white/5"
+                            }`}
+                          >
+                            <div className="flex items-center justify-between mb-1">
+                              <div className="flex items-center">
+                                <div className="w-5 h-5 flex items-center justify-center text-sm">
+                                  {player.avatar}
+                                </div>
+                                <span className="text-xs text-white ml-1.5">
+                                  {player.name}
+                                  {player.currentQuestion > currentQuestionIndex && (
+                                    <span className="ml-1.5 text-xs text-green-400">✓</span>
+                                  )}
+                                </span>
+                              </div>
+                              <span className="text-xs font-medium text-amber-300">{player.score}</span>
+                            </div>
+                            <div className="w-full h-1.5 bg-white/10 rounded-full overflow-hidden">
+                              <div 
+                                className={`h-full rounded-full transition-all duration-700 ${
+                                  player.name === playerName 
+                                    ? "bg-gradient-to-r from-indigo-500 to-violet-500" 
+                                    : "bg-gradient-to-r from-emerald-500 to-teal-500"
+                                }`}
+                                style={{ width: `${scorePercentage}%` }}
+                              />
+                            </div>
+                          </div>
+                        )
+                      })}
                   </div>
                 </div>
-              </div>
-            </motion.div>
-            
-            {/* Main question card */}
-            <div className="flex items-center justify-center min-h-[calc(100vh-220px)] px-4 py-4 md:py-8">
+              </motion.div>
+
               <motion.div
                 key={`question-${currentQuestionIndex}`}
                 className="relative z-10 w-full max-w-5xl mx-auto" 
@@ -670,26 +683,97 @@ const MultiplayerQuiz = () => {
                 transition={{ duration: 0.3 }}
               >
                 <div className="bg-white/10 backdrop-blur-md rounded-2xl p-8 md:p-10 shadow-xl border border-white/10">
-                  <QuizQuestion
-                    question={{
-                      question: currentQuestion.question,
-                      options: currentQuestion.options,
-                      correct_answer: currentQuestion.correct_answer,
-                      image: currentQuestion.image
-                    }}
-                    userAnswer={userAnswer}
-                    answered={answered}
-                    answerAnimation={showAnswerAnimation}
-                    countdown={countdown}
-                    handleAnswer={handleAnswer}
+                  {/* Question text */}
+                  <h2 
+                    className="text-2xl md:text-3xl text-white mb-8 leading-relaxed text-center font-medium"
+                    dangerouslySetInnerHTML={{ __html: currentQuestion.question }}
                   />
+
+                  {/* Optional image - only show when image exists and is not undefined/empty */}
+                  {currentQuestion.image && currentQuestion.image !== "undefined" && (
+                    <div className="mb-8 flex justify-center">
+                      <img 
+                        src={currentQuestion.image} 
+                        alt="Question" 
+                        className="max-h-60 rounded-lg shadow-md"
+                        onError={(e) => {
+                          // Hide image container if image fails to load
+                          (e.target as HTMLElement).parentElement?.classList.add('hidden');
+                        }}
+                      />
+                    </div>
+                  )}
+
+                  {/* Answer options */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
+                    {currentQuestion.options.map((option, index) => {
+                      const optionValue = option.charAt(0);
+                      const optionText = option.slice(3); // Remove "A. " prefix
+                      const isSelected = userAnswer === optionValue;
+                      const isCorrect = currentQuestion.correct_answer === optionValue;
+                      const optionLabel = String.fromCharCode(65 + index); // A, B, C, D
+                      
+                      return (
+                        <motion.button
+                          key={index}
+                          onClick={() => handleAnswer(optionValue)}
+                          disabled={answered}
+                          className={`
+                            relative flex items-center text-left p-5 rounded-xl 
+                            transition-all duration-200 
+                            ${answered && isCorrect 
+                              ? "bg-green-600/90 text-white ring-2 ring-green-400/70" 
+                              : answered && isSelected 
+                                ? "bg-red-600/80 text-white" 
+                                : isSelected 
+                                  ? "bg-violet-600 text-white" 
+                                  : "bg-white/10 text-white hover:bg-white/20"
+                            }
+                            border border-white/5 hover:border-white/20
+                          `}
+                          whileHover={!answered ? { 
+                            scale: 1.03, 
+                            boxShadow: "0 10px 25px -5px rgba(124, 58, 237, 0.5)",
+                            borderColor: "rgba(255, 255, 255, 0.2)"
+                          } : {}}
+                          whileTap={!answered ? { scale: 0.98 } : {}}
+                        >
+                          <div className={`
+                            w-8 h-8 min-w-8 flex items-center justify-center rounded-full mr-3
+                            ${answered && isCorrect 
+                              ? "bg-green-500" 
+                              : answered && isSelected 
+                                ? "bg-red-500" 
+                                : "bg-white/10"
+                            }
+                          `}>
+                            <span className="text-md font-medium">
+                              {optionLabel}
+                            </span>
+                          </div>
+                          <span className="flex-1 text-lg" dangerouslySetInnerHTML={{ __html: optionText }} />
+                          
+                          {answered && isCorrect && (
+                            <Sparkles className="w-5 h-5 ml-3 text-green-200" />
+                          )}
+                          
+                          {/* Enhanced shine effect on hover */}
+                          {!answered && (
+                            <div className="absolute inset-0 rounded-xl overflow-hidden">
+                              <div className="absolute inset-0 opacity-0 hover:opacity-20 bg-gradient-to-r from-transparent via-white to-transparent -translate-x-full hover:translate-x-full transition-all duration-1000 ease-in-out"></div>
+                            </div>
+                          )}
+                        </motion.button>
+                      );
+                    })}
+                  </div>
                 </div>
               </motion.div>
             </div>
             
             {/* Feedback overlay */}
             <AnimatePresence>
-              {showAnswerAnimation && (
+              {showFeedback && (
                 <motion.div
                   className="absolute inset-0 pointer-events-none z-20 flex items-center justify-center"
                   initial={{ opacity: 0 }}
@@ -698,7 +782,7 @@ const MultiplayerQuiz = () => {
                 >
                   <motion.div
                     className={`px-6 py-3 rounded-xl backdrop-blur-sm shadow-lg ${
-                      isCorrect 
+                      feedbackType === "correct" 
                         ? "bg-green-500/30 text-white border border-green-400/50" 
                         : "bg-red-500/30 text-white border border-red-400/50"
                     }`}
@@ -707,19 +791,186 @@ const MultiplayerQuiz = () => {
                     exit={{ scale: 0.8, y: 20 }}
                   >
                     <div className="flex items-center text-xl font-bold">
-                      {isCorrect ? (
+                      {feedbackType === "correct" ? (
                         <>
                           <Award className="w-5 h-5 mr-2" />
-                          +{score} points!
+                          {feedbackMessage}
                         </>
                       ) : (
                         <>
                           <Timer className="w-5 h-5 mr-2" />
-                          Incorrect!
+                          {feedbackMessage}
                         </>
                       )}
                     </div>
                   </motion.div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            {/* Waiting overlay - rearranged with scoreboard in center */}
+            <AnimatePresence>
+              {quizState === QuizState.WAITING && (
+                <motion.div
+                  className="absolute inset-0 z-30 bg-black/60 backdrop-blur-sm flex flex-col items-center justify-center p-4"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                >
+                  {/* Answer result at the top */}
+                  <div className="mb-4 text-center">
+                    {isCorrect ? (
+                      <motion.div 
+                        initial={{ scale: 0.5, opacity: 0 }}
+                        animate={{ scale: 1, opacity: 1 }}
+                        transition={{ duration: 0.5 }}
+                        className="mb-2 inline-flex items-center justify-center w-16 h-16 rounded-full bg-green-500/20 border border-green-400/30"
+                      >
+                        <Check className="h-8 w-8 text-green-400" />
+                      </motion.div>
+                    ) : (
+                      <motion.div 
+                        initial={{ scale: 0.5, opacity: 0 }}
+                        animate={{ scale: 1, opacity: 1 }}
+                        transition={{ duration: 0.5 }}
+                        className="mb-2 inline-flex items-center justify-center w-16 h-16 rounded-full bg-red-500/20 border border-red-400/30"
+                      >
+                        <X className="h-8 w-8 text-red-400" />
+                      </motion.div>
+                    )}
+                    
+                    <h2 className="text-xl font-bold text-white mb-2">
+                      {isCorrect ? "Correct!" : "Incorrect!"}
+                    </h2>
+                    
+                    {isCorrect && (
+                      <div className="flex flex-col items-center">
+                        <div className="bg-gradient-to-r from-violet-500/40 to-indigo-500/40 backdrop-blur-md rounded-lg px-3 py-1.5 inline-block border border-violet-400/30">
+                          <span className="text-lg font-bold text-white">{score}</span>
+                          <span className="text-indigo-200 text-xs ml-1">points</span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Countdown REMOVED from here */}
+                  
+                  {/* Live Scoreboard MOVED to center */}
+                  <div className="w-full max-w-md mb-4">
+                    <div className="bg-black/30 backdrop-blur-sm rounded-xl p-3 border border-white/10 shadow-xl">
+                      <div className="flex items-center text-white mb-2">
+                        <Trophy className="h-5 w-5 text-amber-400 mr-2" />
+                        <h3 className="text-xl font-semibold">Live Scoreboard</h3>
+                      </div>
+                      
+                      <div className="space-y-1.5 max-h-[250px] overflow-y-auto">
+                        {players
+                          .sort((a, b) => b.score - a.score)
+                          .map((player, index) => {
+                            const scorePercentage = calculateScorePercentage(player.score);
+                            return (
+                              <div 
+                                key={player.id} 
+                                className={`flex items-center p-2 rounded-lg ${
+                                  player.name === playerName ? "bg-indigo-500/30" : "bg-white/10"
+                                } transition-all duration-300`}
+                              >
+                                <div className={`w-5 h-5 flex items-center justify-center mr-1.5 
+                                  ${index === 0 ? "text-yellow-400 text-sm" : 
+                                    index === 1 ? "text-gray-300 text-sm" : 
+                                    index === 2 ? "text-amber-700 text-sm" : "text-gray-400 text-sm"}`}>
+                                  {index + 1}
+                                </div>
+                                <div className="w-7 h-7 flex items-center justify-center text-base rounded-full bg-white/10 mr-2">
+                                  {player.avatar}
+                                </div>
+                                <div className="flex-grow mr-2">
+                                  <div className="flex items-center">
+                                    <span className="font-medium text-white text-xs">
+                                      {player.name}
+                                    </span>
+                                    {player.name === playerName && (
+                                      <span className="ml-1 text-[10px] bg-indigo-500/30 px-1 py-0.5 rounded-full text-white">You</span>
+                                    )}
+                                    {player.currentQuestion > currentQuestionIndex && (
+                                      <span className="ml-1 text-[10px] font-medium text-green-400">✓</span>
+                                    )}
+                                  </div>
+                                  <div className="flex items-center">
+                                    <div className="flex-grow h-1.5 bg-white/10 rounded-full overflow-hidden mr-1.5">
+                                      <div 
+                                        className={`h-full rounded-full transition-all duration-700 ${
+                                          player.name === playerName 
+                                            ? "bg-gradient-to-r from-indigo-500 to-violet-500" 
+                                            : "bg-gradient-to-r from-emerald-500 to-teal-500"
+                                        }`}
+                                        style={{ width: `${scorePercentage}%` }}
+                                      />
+                                    </div>
+                                    <span className="text-[10px] opacity-70 text-white whitespace-nowrap">
+                                      {player.currentQuestion}/{allQuestions.length}
+                                    </span>
+                                  </div>
+                                </div>
+                                <span className="text-sm font-bold text-indigo-300">
+                                  {player.score}
+                                </span>
+                              </div>
+                            );
+                          })}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Waiting message or countdown MOVED to bottom */}
+                  <div>
+                    {waitingCountdown !== null ? (
+                      <motion.div
+                        key={waitingCountdown}
+                        initial={{ scale: 0.9, opacity: 0 }}
+                        animate={{ scale: 1, opacity: 1 }}
+                        transition={{ duration: 0.4 }}
+                        className="relative flex flex-col items-center"
+                      >
+                        <div className="w-20 h-20 rounded-full bg-white/5 backdrop-blur-xl flex items-center justify-center mx-auto relative border border-white/20 shadow-lg">
+                          <motion.div
+                            key={waitingCountdown}
+                            initial={{ scale: 0.5, opacity: 0 }}
+                            animate={{ scale: 1, opacity: 1 }}
+                            exit={{ scale: 1.5, opacity: 0 }}
+                            transition={{ duration: 0.8 }}
+                            className="text-3xl font-bold text-white"
+                          >
+                            {waitingCountdown}
+                          </motion.div>
+                          
+                          {/* Animated rings */}
+                          <motion.div 
+                            className="absolute inset-0 rounded-full border-2 border-violet-400"
+                            animate={{
+                              scale: [1, 1.1],
+                              opacity: [0.7, 0],
+                            }}
+                            transition={{
+                              duration: 2,
+                              repeat: Infinity,
+                              ease: "easeOut",
+                              repeatDelay: 0.2
+                            }}
+                          />
+                        </div>
+                        
+                        <p className="text-white/80 text-sm font-medium tracking-wide text-center mt-2">
+                          Next question in...
+                        </p>
+                      </motion.div>
+                    ) : (
+                      <div className="bg-white/5 backdrop-blur-sm rounded-xl p-3 border border-white/10 flex flex-col items-center">
+                        <div className="w-8 h-8 border-2 border-t-violet-500 border-r-violet-500 border-b-violet-200 border-l-violet-200 rounded-full animate-spin mb-2"></div>
+                        <h3 className="text-sm font-semibold text-white">Waiting for others...</h3>
+                      </div>
+                    )}
+                  </div>
                 </motion.div>
               )}
             </AnimatePresence>
@@ -728,132 +979,212 @@ const MultiplayerQuiz = () => {
         
       case QuizState.WAITING:
         return (
-          <div className="flex flex-col items-center justify-center h-full p-6">
-            <div className="mb-6 text-center">
+          <div className="flex flex-col items-center justify-center min-h-screen p-6">
+            {/* Upper section with result feedback */}
+            <div className="mb-8 text-center">
               {isCorrect ? (
                 <motion.div 
                   initial={{ scale: 0.5, opacity: 0 }}
                   animate={{ scale: 1, opacity: 1 }}
                   transition={{ duration: 0.5 }}
-                  className="mb-4 inline-flex items-center justify-center w-20 h-20 rounded-full bg-green-500/20"
+                  className="mb-6 inline-flex items-center justify-center w-24 h-24 rounded-full bg-green-500/20 border border-green-400/30"
                 >
-                  <Check className="h-10 w-10 text-green-500" />
+                  <Check className="h-12 w-12 text-green-400" />
                 </motion.div>
               ) : (
                 <motion.div 
                   initial={{ scale: 0.5, opacity: 0 }}
                   animate={{ scale: 1, opacity: 1 }}
                   transition={{ duration: 0.5 }}
-                  className="mb-4 inline-flex items-center justify-center w-20 h-20 rounded-full bg-red-500/20"
+                  className="mb-6 inline-flex items-center justify-center w-24 h-24 rounded-full bg-red-500/20 border border-red-400/30"
                 >
-                  <X className="h-10 w-10 text-red-500" />
+                  <X className="h-12 w-12 text-red-400" />
                 </motion.div>
               )}
               
-              <h2 className="text-3xl font-bold text-white mb-2">
+              <h2 className="text-3xl font-bold text-white mb-3">
                 {isCorrect ? "Correct!" : "Incorrect!"}
               </h2>
               
               {isCorrect && (
                 <div className="flex flex-col items-center mt-2">
-                  <div className="bg-white/10 rounded-lg px-4 py-2 inline-block">
-                    <span className="text-lg font-bold text-indigo-300">{score}</span>
-                    <span className="text-white text-sm ml-1">points</span>
+                  <div className="bg-gradient-to-r from-violet-500/40 to-indigo-500/40 backdrop-blur-md rounded-lg px-6 py-3 inline-block border border-violet-400/30">
+                    <span className="text-2xl font-bold text-white">{score}</span>
+                    <span className="text-indigo-200 text-sm ml-1">points</span>
                   </div>
                   <p className="text-gray-300 text-sm mt-2">
                     {Math.floor(gameSettings.timePerQuestion - timeTaken)}s bonus time
                   </p>
                 </div>
               )}
-              
-              {/* Countdown timer */}
-              {waitingCountdown !== null && (
-                <motion.div
-                  key={waitingCountdown}
-                  initial={{ scale: 1.5, opacity: 0 }}
-                  animate={{ scale: 1, opacity: 1 }}
-                  transition={{ duration: 0.3 }}
-                  className="mt-6 mb-4"
-                >
-                  <div className="relative inline-flex items-center justify-center">
-                    <div className="absolute inset-0 bg-indigo-500/20 rounded-full animate-ping"></div>
-                    <div className="relative bg-indigo-500/30 text-white font-bold text-4xl w-16 h-16 rounded-full flex items-center justify-center">
-                      {waitingCountdown}
-                    </div>
-                  </div>
-                  <p className="text-white mt-2">Next question in...</p>
-                </motion.div>
-              )}
-              
-              {waitingCountdown === null && (
-                <div className="mt-8 flex items-center justify-center">
-                  <div className="animate-pulse mr-2 text-indigo-300 text-sm">Waiting for other players</div>
-                  <Spinner />
+            </div>
+
+            {/* Center countdown with pulsing effect - Fixed alignment */}
+            {waitingCountdown !== null && (
+              <motion.div
+                key={waitingCountdown}
+                initial={{ scale: 0.9, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                transition={{ duration: 0.4 }}
+                className="relative mb-8 flex flex-col items-center"
+              >
+                <div className="w-40 h-40 rounded-full bg-white/5 backdrop-blur-xl flex items-center justify-center mx-auto relative border border-white/20 shadow-lg">
+                  <motion.div
+                    key={waitingCountdown}
+                    initial={{ scale: 0.5, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    exit={{ scale: 1.5, opacity: 0 }}
+                    transition={{ duration: 0.8 }}
+                    className="text-7xl font-bold text-white"
+                  >
+                    {waitingCountdown}
+                  </motion.div>
+                  
+                  {/* Animated rings */}
+                  <motion.div 
+                    className="absolute inset-0 rounded-full border-4 border-violet-400"
+                    animate={{
+                      scale: [1, 1.1],
+                      opacity: [0.7, 0],
+                    }}
+                    transition={{
+                      duration: 2,
+                      repeat: Infinity,
+                      ease: "easeOut",
+                      repeatDelay: 0.2
+                    }}
+                  />
+                  
+                  <motion.div 
+                    className="absolute inset-0 rounded-full border-4 border-indigo-400"
+                    animate={{
+                      scale: [1, 1.2],
+                      opacity: [0.5, 0],
+                    }}
+                    transition={{
+                      duration: 2.5,
+                      repeat: Infinity,
+                      ease: "easeOut",
+                      delay: 0.75,
+                      repeatDelay: 0.2
+                    }}
+                  />
                 </div>
-              )}
-            </div>
+                
+                {/* Pulse effect */}
+                <motion.div
+                  className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full h-full rounded-full bg-violet-500/20 blur-xl"
+                  animate={{
+                    scale: [0.8, 1.2, 0.8],
+                  }}
+                  transition={{
+                    duration: 3.5,
+                    repeat: Infinity,
+                    ease: "easeInOut",
+                  }}
+                />
+                
+                <p className="text-white/80 text-xl font-medium tracking-wide text-center mt-6">
+                  Next question in...
+                </p>
+              </motion.div>
+            )}
             
-            {/* Player Scoreboard */}
-            <div className="w-full max-w-md bg-black/30 backdrop-blur-sm rounded-xl p-5 border border-white/10 shadow-xl">
-              <div className="flex items-center text-white mb-4">
-                <h3 className="text-xl font-semibold">Live Scoreboard</h3>
+            {/* Waiting for other players message */}
+            {waitingCountdown === null && (
+              <div className="bg-white/5 backdrop-blur-sm rounded-2xl p-8 border border-white/10 flex flex-col items-center">
+                <div className="w-16 h-16 border-4 border-t-violet-500 border-r-violet-500 border-b-violet-200 border-l-violet-200 rounded-full animate-spin mb-4"></div>
+                <h3 className="text-xl font-semibold text-white mb-2">Waiting for other players...</h3>
+                <p className="text-white/70 text-sm text-center">
+                  Some players are still answering this question.
+                </p>
               </div>
-              
-              <div className="space-y-3 max-h-[300px] overflow-y-auto">
-                {players
-                  .sort((a, b) => b.score - a.score)
-                  .map((player, index) => (
-                    <div 
-                      key={player.id} 
-                      className={`flex items-center justify-between p-3 rounded-lg ${
-                        player.name === playerName ? "bg-indigo-500/30" : "bg-white/10"
-                      } transition-all duration-300`}
-                    >
-                      <div className="flex items-center">
-                        <div className={`w-6 h-6 flex items-center justify-center mr-2 
-                          ${index === 0 ? "text-yellow-400" : 
-                            index === 1 ? "text-gray-300" : 
-                            index === 2 ? "text-amber-700" : "text-gray-400"}`}>
-                          {index + 1}
-                        </div>
-                        <div className="w-10 h-10 flex items-center justify-center text-xl rounded-full bg-white/10 mr-3">
-                          {player.avatar}
-                        </div>
-                        <div>
-                          <div className="flex items-center">
-                            <span className="font-medium text-white">
-                              {player.name}
-                            </span>
-                            {player.name === playerName && (
-                              <span className="ml-2 bg-indigo-500/30 text-xs px-2 py-0.5 rounded-full text-white">You</span>
-                            )}
+            )}
+            
+            {/* Player Scoreboard - Made larger */}
+            <motion.div 
+              className="w-full max-w-xl mt-8"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.2 }}
+            >
+              <div className="bg-black/30 backdrop-blur-sm rounded-xl p-5 border border-white/10 shadow-xl">
+                <div className="flex items-center justify-between text-white mb-4">
+                  <div className="flex items-center">
+                    <Trophy className="h-6 w-6 text-amber-400 mr-2" />
+                    <h3 className="text-2xl font-semibold">Live Scoreboard</h3>
+                  </div>
+                </div>
+                
+                <div className="space-y-4 max-h-[320px] overflow-y-auto">
+                  {players
+                    .sort((a, b) => b.score - a.score)
+                    .map((player, index) => {
+                      const scorePercentage = calculateScorePercentage(player.score);
+                      return (
+                        <div 
+                          key={player.id} 
+                          className={`flex items-center p-4 rounded-lg ${
+                            player.name === playerName ? "bg-indigo-500/30" : "bg-white/10"
+                          } transition-all duration-300`}
+                        >
+                          <div className={`w-7 h-7 flex items-center justify-center mr-3 
+                            ${index === 0 ? "text-yellow-400 text-xl" : 
+                              index === 1 ? "text-gray-300" : 
+                              index === 2 ? "text-amber-700" : "text-gray-400"}`}>
+                            {index + 1}
                           </div>
-                          <div className="flex items-center">
-                            <span className="text-xs opacity-70 text-white">
-                              {player.currentQuestion}/{allQuestions.length} answered
-                            </span>
-                            {player.currentQuestion > currentQuestionIndex && (
-                              <span className="ml-2 text-xs text-green-400">Ready for next question</span>
-                            )}
+                          <div className="w-12 h-12 flex items-center justify-center text-2xl rounded-full bg-white/10 mr-4">
+                            {player.avatar}
                           </div>
+                          <div className="flex-grow mr-4">
+                            <div className="flex items-center mb-1">
+                              <span className="font-medium text-white text-lg">
+                                {player.name}
+                              </span>
+                              {player.name === playerName && (
+                                <span className="ml-2 bg-indigo-500/30 text-xs px-2 py-0.5 rounded-full text-white">You</span>
+                              )}
+                            </div>
+                            <div className="flex items-center">
+                              <div className="flex-grow h-2.5 bg-white/10 rounded-full overflow-hidden mr-3">
+                                <div 
+                                  className={`h-full rounded-full transition-all duration-700 ${
+                                    player.name === playerName 
+                                      ? "bg-gradient-to-r from-indigo-500 to-violet-500" 
+                                      : "bg-gradient-to-r from-emerald-500 to-teal-500"
+                                  }`}
+                                  style={{ width: `${scorePercentage}%` }}
+                                />
+                              </div>
+                              <div className="flex items-center whitespace-nowrap">
+                                <span className="text-xs opacity-70 text-white">
+                                  {player.currentQuestion}/{allQuestions.length}
+                                </span>
+                                {player.currentQuestion > currentQuestionIndex && (
+                                  <span className="ml-2 text-xs font-medium text-green-400 bg-green-400/10 px-1.5 py-0.5 rounded">Ready</span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                          <span className="text-2xl font-bold text-indigo-300">
+                            {player.score}
+                          </span>
                         </div>
-                      </div>
-                      <span className="text-xl font-bold text-indigo-300">
-                        {player.score}
-                      </span>
-                    </div>
-                  ))}
+                      );
+                    })}
+                </div>
               </div>
-            </div>
+            </motion.div>
           </div>
         );
         
       default:
-        return (
-          <div className="flex items-center justify-center h-full">
-            <p className="text-white">Something went wrong!</p>
-          </div>
-        );
+          return (
+            <div className="flex items-center justify-center h-full">
+              <p className="text-white">Something went wrong!</p>
+            </div>
+          );
     }
   };
 
