@@ -136,24 +136,37 @@ const MultiplayerLobby = () => {
       fetchCategories();
     }
     
-    // Add window beforeunload event to handle browser close/navigation
-    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-      // Send leave lobby event to server
+    // Handle cleanup when component unmounts or when navigation occurs
+    const cleanup = () => {
+      console.log("Cleaning up and leaving lobby...");
       if (playerId && urlLobbyCode) {
         socketService.leaveRoom(urlLobbyCode, playerName, playerId);
         apiService.leaveLobby(urlLobbyCode, playerName).catch(err => 
-          console.error("Error leaving lobby on page unload:", err)
+          console.error("Error leaving lobby on cleanup:", err)
         );
       }
+    };
+    
+    // Add window beforeunload event to handle browser close/navigation
+    // But don't show the browser's "unsaved changes" prompt
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      cleanup();
       
-      // Modern browsers require returnValue to be set
-      e.preventDefault();
-      e.returnValue = '';
+      // Remove the default confirmation dialog by not setting returnValue
+      // and not using preventDefault()
+      e.returnValue = '';  // Required for legacy compatibility, but empty string prevents dialog
     };
     
     window.addEventListener('beforeunload', handleBeforeUnload);
     
+    // Register with React Router for navigation events (for back button)
+    // We'll use the effect cleanup function which runs when component unmounts
+    
     return () => {
+      // First, perform cleanup of the lobby connection
+      cleanup();
+      
+      // Then clean up event listeners
       if (cleanupListeners) cleanupListeners();
       cleanupGameStarted();
       cleanupNewQuestion();
@@ -583,7 +596,7 @@ const MultiplayerLobby = () => {
                                 type="text"
                                 value={topicInput}
                                 onChange={(e) => handleTopicChange(e.target.value)}
-                                placeholder="Enter a topic (optional)"
+                                placeholder="Enter a topic"
                                 className={`settings-input ${!isHost ? 'disabled' : ''}`}
                                 disabled={!isHost}
                               />

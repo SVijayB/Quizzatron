@@ -129,8 +129,22 @@ def setup_socket_handlers(sio):
         leave_room(lobby_code)
         logging.info(f"Player {player_name} ({request.sid}) left lobby {lobby_code}")
 
-        # Notify other clients in the room
-        emit("player_left", {"name": player_name, "id": player_id}, room=lobby_code)
+        # Import here to avoid circular imports
+        from api.services.multiplayer_service import leave_lobby
+
+        # Call the multiplayer service to update lobby state
+        result, status_code = leave_lobby(lobby_code, player_name)
+
+        if status_code == 200:
+            logging.info(
+                f"Player {player_name} successfully removed from lobby {lobby_code}"
+            )
+        else:
+            logging.error(
+                f"Failed to remove player {player_name} from lobby {lobby_code}: {result}"
+            )
+
+        # Note: The leave_lobby function will broadcast player_left and lobby_update events
 
     @sio.on("start_game")
     def handle_start_game(data):
