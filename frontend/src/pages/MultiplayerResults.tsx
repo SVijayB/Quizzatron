@@ -19,6 +19,8 @@ interface MultiplayerResult {
   correctAnswers?: number;
   correct_answers?: number;
   totalQuestions?: number;
+  total_questions?: number;
+  incorrectAnswers?: number;
   incorrect_answers?: number;
   answers?: {
     question: string;
@@ -26,6 +28,7 @@ interface MultiplayerResult {
     correctAnswer: string;
     isCorrect: boolean;
     score: number;
+    timeTaken?: number;
   }[];
   rank?: number;
 }
@@ -78,12 +81,25 @@ const MultiplayerResults = () => {
               name: player.name,
               avatar: player.avatar || "👤",
               score: player.score || 0,
-              correctAnswers: player.correctAnswers || 0,
-              totalQuestions: player.totalQuestions || 0,
+              correctAnswers: player.correctAnswers || player.correct_answers || 0,
+              totalQuestions: player.totalQuestions || player.total_questions || parsedData.totalQuestions || 10,
               answers: player.answers || []
             })));
+            
+            // Also capture any game settings if available
+            if (parsedData.settings) {
+              setSettings(parsedData.settings);
+            }
           } else if (Array.isArray(parsedData)) {
-            setResults(parsedData);
+            setResults(parsedData.map((player: any) => ({
+              id: player.id,
+              name: player.name,
+              avatar: player.avatar || "👤",
+              score: player.score || 0,
+              correctAnswers: player.correctAnswers || player.correct_answers || 0,
+              totalQuestions: player.totalQuestions || player.total_questions || 10,
+              answers: player.answers || []
+            })));
           }
           
           // Show confetti effect for celebration
@@ -142,10 +158,55 @@ const MultiplayerResults = () => {
       numQuestions: 10,
       timePerQuestion: 15,
       difficulty: "medium",
-      topic: null
+      topic: null,
+      categories: [],
+      allowSkipping: false,
+      model: "gemini",
+      includeImages: false
     });
     setPlayers([]);
     navigate("/multiplayer");
+  };
+
+  // Calculate average time taken for a player
+  const calculateAverageTime = (player: MultiplayerResult) => {
+    const correctAnswers = player.correctAnswers || player.correct_answers || 0;
+    const totalQuestions = player.totalQuestions || player.total_questions || 10;
+    
+    // If player has no correct answers or answers array is missing, return a default value
+    if (correctAnswers === 0 || !player.answers || player.answers.length === 0) {
+      return (settings.timePerQuestion / 2).toFixed(1);
+    }
+    
+    // If we have the answers array with actual timeTaken values, use that
+    if (player.answers && player.answers.length > 0) {
+      // Find time taken for each answer and calculate average
+      let totalTimeTaken = 0;
+      let answersWithTime = 0;
+      
+      player.answers.forEach(answer => {
+        if (answer.hasOwnProperty('timeTaken')) {
+          totalTimeTaken += answer.timeTaken;
+          answersWithTime++;
+        }
+      });
+      
+      if (answersWithTime > 0) {
+        return (totalTimeTaken / answersWithTime).toFixed(1);
+      }
+    }
+    
+    // Fallback calculation: We know the score equals remaining time for correct answers
+    // So time taken = timePerQuestion - score/correctAnswers (average remaining time)
+    if (correctAnswers > 0) {
+      // Average remaining time per correct answer
+      const avgRemainingTime = player.score / correctAnswers;
+      // Average time taken = total time - remaining time
+      return (settings.timePerQuestion - avgRemainingTime).toFixed(1);
+    }
+    
+    // Last fallback
+    return (settings.timePerQuestion / 2).toFixed(1);
   };
 
   const sortedResults = [...results].sort((a, b) => b.score - a.score);
@@ -267,7 +328,9 @@ const MultiplayerResults = () => {
                               : "bg-black/10";
                         
                         const correctAnswers = result.correctAnswers || result.correct_answers || 0;
-                        const totalQuestions = result.totalQuestions || (result.incorrect_answers ? correctAnswers + result.incorrect_answers : 10);
+                        const totalQuestions = result.totalQuestions || result.total_questions || 
+                                              (result.incorrectAnswers || result.incorrect_answers ? 
+                                               correctAnswers + (result.incorrectAnswers || result.incorrect_answers || 0) : 10);
                         
                         return (
                           <div
@@ -323,18 +386,18 @@ const MultiplayerResults = () => {
                             <CheckCircle2 className="w-4 h-4 mr-1" />
                             <span className="text-sm font-medium">Total Questions</span>
                           </div>
-                          <p className="text-2xl font-bold text-white">{sortedResults[0]?.totalQuestions || 10}</p>
+                          <p className="text-2xl font-bold text-white">
+                            {sortedResults[0]?.totalQuestions || sortedResults[0]?.total_questions || 10}
+                          </p>
                         </div>
                         <div className="bg-white/5 border border-white/10 rounded-lg p-3">
                           <div className="flex items-center text-purple-300 mb-1">
                             <Clock className="w-4 h-4 mr-1" />
-                            <span className="text-sm font-medium">Avg. Time (Winner)</span>
+                            <span className="text-sm font-medium">Avg. Answer Time</span>
                           </div>
                           {sortedResults.length > 0 ? (
                             <p className="text-2xl font-bold text-white">
-                              {sortedResults[0]?.totalQuestions && sortedResults[0]?.correctAnswers 
-                                ? `${((settings.timePerQuestion * sortedResults[0].totalQuestions - sortedResults[0].score) / sortedResults[0].totalQuestions).toFixed(1)}s`
-                                : `${(settings.timePerQuestion / 2).toFixed(1)}s`}
+                              {calculateAverageTime(sortedResults[0])}s
                             </p>
                           ) : (
                             <p className="text-2xl font-bold text-white">--</p>
