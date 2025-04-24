@@ -12,6 +12,7 @@ class SocketService {
   private connectedLobbyCode: string | null = null;
   private reconnectAttempts = 0;
   private maxReconnectAttempts = 5;
+  private eventHandlers: Map<string, (...args: any[]) => void> = new Map();
   
   // Initialize the socket connection
   public connect(): Socket {
@@ -28,6 +29,9 @@ class SocketService {
       
       // Set up base socket event listeners
       this.setupBaseListeners();
+    } else if (!this.socket.connected) {
+      console.log("🔌 Reconnecting socket");
+      this.socket.connect();
     }
     
     return this.socket;
@@ -37,10 +41,28 @@ class SocketService {
   public disconnect(): void {
     if (this.socket) {
       console.log("🔌 Disconnecting socket");
+      
+      // Clear all existing socket event listeners first
+      if (this.socket.hasListeners('connect')) this.socket.off('connect');
+      if (this.socket.hasListeners('disconnect')) this.socket.off('disconnect');
+      if (this.socket.hasListeners('connect_error')) this.socket.off('connect_error');
+      
+      // Clear other event handlers
+      [
+        "lobby_update", "player_joined", "player_left", "game_started",
+        "connection_response", "room_joined", "error", "new_question", 
+        "player_answered", "all_answers_in", "scoreboard", "game_over"
+      ].forEach(eventType => {
+        if (this.socket?.hasListeners(eventType)) {
+          this.socket.off(eventType);
+        }
+      });
+      
       this.socket.disconnect();
       this.socket = null;
       this.connectedLobbyCode = null;
       this.registeredEvents.clear();
+      this.eventHandlers.clear();
     }
   }
   
@@ -74,10 +96,25 @@ class SocketService {
     }
   }
   
-  // Register an event listener
+  // Register an event listener with improved event tracking
   public on(event: string, callback: EventCallback): () => void {
+    if (!this.socket) {
+      this.connect();
+    }
+    
     if (!this.registeredEvents.has(event)) {
       this.registeredEvents.set(event, []);
+      
+      // Create a handler for this event type if it doesn't exist
+      if (!this.eventHandlers.has(event)) {
+        const handler = (...args: any[]) => {
+          this.notifyCallbacks(event, ...args);
+        };
+        
+        this.eventHandlers.set(event, handler);
+        this.socket?.on(event, handler);
+        console.log(`🔌 Added socket listener for: ${event}`);
+      }
     }
     
     const callbacks = this.registeredEvents.get(event);
@@ -93,27 +130,56 @@ class SocketService {
         if (index !== -1) {
           callbacks.splice(index, 1);
           console.log(`🔌 Removed callback for: ${event}`);
+          
+          // If no more callbacks for this event, remove the socket listener
+          if (callbacks.length === 0) {
+            const handler = this.eventHandlers.get(event);
+            if (handler && this.socket) {
+              this.socket.off(event, handler);
+              this.eventHandlers.delete(event);
+              this.registeredEvents.delete(event);
+              console.log(`🔌 Removed socket listener for: ${event}`);
+            }
+          }
         }
       }
     };
   }
   
-  // Remove all listeners for a specific event
+  // Remove all listeners for a specific event with proper cleanup
   public removeAllListeners(event: string): void {
+    const handler = this.eventHandlers.get(event);
+    if (handler && this.socket) {
+      this.socket.off(event, handler);
+      this.eventHandlers.delete(event);
+    }
+    
     if (this.registeredEvents.has(event)) {
       this.registeredEvents.delete(event);
       console.log(`🔌 Removed all callbacks for: ${event}`);
     }
   }
   
-  // Emit an event
+  // Emit an event with connection check and error handling
   public emit(event: string, data: any): void {
-    if (!this.socket) {
+    if (!this.socket || !this.socket.connected) {
+      console.log(`🔌 Socket not connected, connecting before emitting ${event}`);
       this.connect();
+      
+      // Allow a small delay for connection to establish
+      setTimeout(() => {
+        console.log(`🔌 Emitting delayed event: ${event}`, data);
+        this.socket?.emit(event, data);
+      }, 500);
+      return;
     }
     
     console.log(`🔌 Emitting event: ${event}`, data);
-    this.socket?.emit(event, data);
+    try {
+      this.socket.emit(event, data);
+    } catch (error) {
+      console.error(`🔌 Error emitting ${event}:`, error);
+    }
   }
   
   // Start a game
@@ -160,7 +226,7 @@ class SocketService {
     return this.socket;
   }
   
-  // Setup base socket event listeners
+  // Setup base socket event listeners with better error handling
   private setupBaseListeners(): void {
     if (!this.socket) return;
     
@@ -168,10 +234,15 @@ class SocketService {
       console.log(`🔌 Connected to socket server: ${this.socket?.id}`);
       this.reconnectAttempts = 0;
       this.notifyCallbacks("connect");
+      
+      // Rejoin room if there was a previous connection
+      if (this.connectedLobbyCode) {
+        console.log(`🔌 Automatically rejoining room: ${this.connectedLobbyCode}`);
+      }
     });
     
-    this.socket.on("disconnect", () => {
-      console.log("🔌 Disconnected from socket server");
+    this.socket.on("disconnect", (reason) => {
+      console.log(`🔌 Disconnected from socket server: ${reason}`);
       this.notifyCallbacks("disconnect");
     });
     
@@ -181,19 +252,8 @@ class SocketService {
       
       if (this.reconnectAttempts > this.maxReconnectAttempts) {
         console.error("🔌 Maximum reconnect attempts reached");
+        this.socket?.disconnect();
       }
-    });
-    
-    // Setup handlers for all expected server events
-    [
-      "lobby_update", "player_joined", "player_left", "game_started",
-      "connection_response", "room_joined", "error", "new_question", 
-      "player_answered", "all_answers_in", "scoreboard", "game_over"
-    ].forEach(eventType => {
-      this.socket?.on(eventType, (data) => {
-        console.log(`🔌 Received ${eventType}:`, data);
-        this.notifyCallbacks(eventType, data);
-      });
     });
   }
   

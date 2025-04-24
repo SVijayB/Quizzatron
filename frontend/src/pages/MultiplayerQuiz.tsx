@@ -1,12 +1,13 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { useMultiplayer } from "@/contexts/MultiplayerContext";
 import { apiService } from "@/services/apiService";
 import { socketService } from "@/services/socketService";
-import { toast } from "@/components/ui/use-toast"; // Fix: Change from useToast to toast import
+import { toast } from "@/components/ui/use-toast";
+import confetti from "canvas-confetti";
 import QuizQuestion from "@/components/QuizQuestion";
-import { Check, X } from "lucide-react";
+import { Check, X, Trophy, Timer, Users, Award, Sparkles } from "lucide-react";
 import "./Quiz.css";
 
 // Types for questions and players
@@ -75,6 +76,9 @@ const MultiplayerQuiz = () => {
   const [showAnswerAnimation, setShowAnswerAnimation] = useState<boolean>(false);
   // State for waiting screen countdown
   const [waitingCountdown, setWaitingCountdown] = useState<number | null>(null);
+  // State for background animation
+  const [backgroundAnimation, setBackgroundAnimation] = useState<string>("");
+  const [isFinishing, setIsFinishing] = useState<boolean>(false);
   
   // Effect for timer
   useEffect(() => {
@@ -197,15 +201,30 @@ const MultiplayerQuiz = () => {
     setShowAnswerAnimation(false);
   };
 
-  // Calculate score based on the remaining time
+  // Calculate score based on the remaining time and multiplayer settings
   const calculateScore = (correct: boolean, timeLeft: number) => {
     if (!correct) return 0;
     
-    // Simply return the time left in seconds as the score (rounded to the nearest integer)
-    return Math.round(timeLeft);
+    // Calculate points based on the time per question setting
+    // Higher time settings should result in higher potential scores
+    // This ensures fair scoring across different time settings
+    const timeRatio = timeLeft / gameSettings.timePerQuestion;
+    const basePoints = Math.round(timeLeft);
+    
+    // Apply multiplier based on difficulty
+    let difficultyMultiplier = 1;
+    if (gameSettings.difficulty === "hard") {
+      difficultyMultiplier = 1.5;
+    } else if (gameSettings.difficulty === "easy") {
+      difficultyMultiplier = 0.8;
+    }
+    
+    // Calculate final score
+    const finalScore = Math.round(basePoints * difficultyMultiplier);
+    return finalScore;
   };
 
-  // Handle answer selection
+  // Handle answer selection with enhanced visual effects
   const handleAnswer = (answer: string) => {
     if (answered || quizState !== QuizState.QUESTION) return;
     
@@ -253,6 +272,19 @@ const MultiplayerQuiz = () => {
     
     // Show animation
     setShowAnswerAnimation(true);
+    
+    // Play celebration effect for correct answer
+    if (correct) {
+      confetti({
+        particleCount: 100,
+        spread: 70,
+        origin: { y: 0.6 }
+      });
+      
+      setBackgroundAnimation("correct-answer");
+    } else {
+      setBackgroundAnimation("incorrect-answer");
+    }
     
     // Send score update to server
     socketService.submitAnswer(
@@ -303,6 +335,8 @@ const MultiplayerQuiz = () => {
       socketService.connect();
     }
     
+    console.log("Setting up socket event listeners in MultiplayerQuiz");
+    
     // First initialize all our event handlers
     const playerAnsweredHandler = (data: any) => {
       console.log("Player answered:", data);
@@ -344,7 +378,7 @@ const MultiplayerQuiz = () => {
       if (data && data.question) {
         // Get the question index from the received data
         // This is crucial - the server sends the index we should move to
-        const newIndex = data.index || 0;
+        const newIndex = data.question_index || data.index || 0;
         console.log(`Moving to question index: ${newIndex}`);
         
         // Update the current question index
@@ -366,6 +400,7 @@ const MultiplayerQuiz = () => {
         // If we have full data from server, use that
         if (data && data.players) {
           localStorage.setItem(`quiz_results_${lobbyCode}`, JSON.stringify(data));
+          localStorage.setItem("multiplayerResults", JSON.stringify(data.players || []));
         } 
         // Otherwise save what we have locally
         else {
@@ -374,6 +409,7 @@ const MultiplayerQuiz = () => {
             lobbyCode: lobbyCode,
             totalQuestions: allQuestions.length
           }));
+          localStorage.setItem("multiplayerResults", JSON.stringify(players || []));
         }
       } catch (e) {
         console.error("Failed to save results to local storage:", e);
@@ -381,14 +417,21 @@ const MultiplayerQuiz = () => {
       
       // Immediately trigger navigation without changing state to avoid render errors
       navigate(`/multiplayer/results/${lobbyCode}`, { replace: true });
-      
-      // We don't need to update state since we're navigating away
-      // This prevents any unnecessary renders that might cause errors
     };
 
     const errorHandler = (data: any) => {
       console.error("Socket error:", data);
-      // Show toast with error
+      
+      // Ignore specific error messages related to game start
+      if (data.message && (
+          data.message.includes("Game has already started") || 
+          data.message.includes("Failed to start game") ||
+          data.message.includes("400"))) {
+        console.log("Ignoring expected error during game initialization:", data.message);
+        return;
+      }
+      
+      // Show toast only for other errors
       toast({
         variant: "destructive",
         title: "Error",
@@ -397,6 +440,7 @@ const MultiplayerQuiz = () => {
     };
     
     // Register all socket event listeners
+    console.log("Registering socket event handlers");
     const cleanupPlayerAnswered = socketService.on("player_answered", playerAnsweredHandler);
     const cleanupAllAnswersIn = socketService.on("all_answers_in", allAnswersInHandler);
     const cleanupNewQuestion = socketService.on("new_question", newQuestionHandler);
@@ -408,13 +452,14 @@ const MultiplayerQuiz = () => {
     
     // Make sure we clean up all event handlers on unmount
     return () => {
+      console.log("Cleaning up socket event handlers in MultiplayerQuiz");
       cleanupPlayerAnswered();
       cleanupAllAnswersIn();
       cleanupNewQuestion();
       cleanupGameOver();
       cleanupError();
     };
-  }, [lobbyCode, playerName, playerId, navigate]);
+  }, [lobbyCode, playerName, playerId, navigate, isHost]);
 
   // A simple spinner component for loading states
   const Spinner = () => (
@@ -437,8 +482,8 @@ const MultiplayerQuiz = () => {
       case QuizState.LOADING:
         return (
           <div className="flex flex-col items-center justify-center h-full">
-            <Spinner />
-            <p className="text-white mt-4">Loading quiz...</p>
+            <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-indigo-400"></div>
+            <p className="text-white mt-4 text-xl font-medium">Loading quiz...</p>
           </div>
         );
         
@@ -446,79 +491,238 @@ const MultiplayerQuiz = () => {
         if (!allQuestions[currentQuestionIndex]) return null;
         
         const currentQuestion = allQuestions[currentQuestionIndex];
+        const questionProgress = ((currentQuestionIndex + 1) / allQuestions.length) * 100;
+        const timeProgress = (countdown / gameSettings.timePerQuestion) * 100;
         
         return (
-          <div className="relative w-full h-full">
-            {/* Player scoreboard (top left) */}
-            <div className="absolute top-4 left-4 bg-black/30 backdrop-blur-sm rounded-lg p-3 border border-white/10 z-10">
-              <div className="flex items-center text-white mb-2">
-                <span className="text-sm font-semibold">Players</span>
-              </div>
-              <div className="max-h-[150px] overflow-y-auto">
-                {players
-                  .sort((a, b) => b.score - a.score)
-                  .map((player) => (
-                    <div 
-                      key={player.id} 
-                      className={`flex items-center justify-between py-1 px-2 rounded ${
-                        player.name === playerName ? "bg-indigo-500/30" : ""
-                      }`}
-                    >
-                      <div className="flex items-center">
-                        <div className="w-6 h-6 flex items-center justify-center mr-2">
-                          {player.avatar}
-                        </div>
-                        <span className="text-sm font-medium truncate max-w-[100px]">
-                          {player.name}
+          <div className="relative min-h-screen w-full">
+            {/* Background animation overlays */}
+            {backgroundAnimation && (
+              <div className={`absolute inset-0 transition-opacity duration-500 ${
+                backgroundAnimation === "correct-answer" 
+                  ? "bg-green-500/10" 
+                  : "bg-red-500/10"
+              }`} />
+            )}
+            
+            {/* Animated floating quiz-related icons */}
+            <div className="absolute inset-0 overflow-hidden pointer-events-none">
+              <motion.div 
+                animate={{
+                  y: [0, -10, 0],
+                  x: [0, 3, 0],
+                  rotate: [0, 3, 0],
+                  transition: {
+                    duration: 6,
+                    repeat: Infinity,
+                    repeatType: "mirror",
+                  }
+                }}
+                className="absolute left-[15%] top-[20%] text-white/10 text-4xl"
+              >
+                <Trophy className="w-10 h-10" />
+              </motion.div>
+              <motion.div 
+                animate={{
+                  y: [0, -8, 0],
+                  x: [0, -3, 0],
+                  rotate: [0, -3, 0],
+                  transition: {
+                    duration: 7.5,
+                    repeat: Infinity,
+                    repeatType: "mirror",
+                  }
+                }}
+                className="absolute right-[20%] top-[15%] text-white/10 text-4xl"
+              >
+                <Timer className="w-12 h-12" />
+              </motion.div>
+              <motion.div 
+                animate={{
+                  y: [0, -9, 0],
+                  x: [0, 3, 0],
+                  rotate: [0, 3, 0],
+                  transition: {
+                    duration: 8,
+                    repeat: Infinity,
+                    repeatType: "mirror",
+                  }
+                }}
+                className="absolute left-[10%] bottom-[20%] text-white/10 text-4xl"
+              >
+                <Sparkles className="w-8 h-8" />
+              </motion.div>
+              <motion.div 
+                animate={{
+                  y: [0, -7, 0],
+                  x: [0, -3, 0],
+                  rotate: [0, -3, 0],
+                  transition: {
+                    duration: 7,
+                    repeat: Infinity,
+                    repeatType: "mirror",
+                  }
+                }}
+                className="absolute right-[15%] bottom-[25%] text-white/10 text-4xl"
+              >
+                <Award className="w-9 h-9" />
+              </motion.div>
+            </div>
+
+            {/* Top bar with progress and score/time */}
+            <motion.div 
+              className="relative z-10 pt-4 px-4 lg:px-8"
+              initial={{ opacity: 0, y: -20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.2 }}
+            >
+              <div className="max-w-6xl mx-auto">
+                <div className="flex flex-col md:flex-row justify-between items-center mb-4">
+                  {/* Question progress */}
+                  <div className="flex items-center text-white mb-2 md:mb-0">
+                    <span className="bg-white/10 backdrop-blur-sm px-3 py-1 rounded-lg text-sm">
+                      Question {currentQuestionIndex + 1} of {allQuestions.length}
+                    </span>
+                  </div>
+                  
+                  {/* Score display - larger and more prominent */}
+                  <div className="flex items-center space-x-4">
+                    <div className="bg-white/10 backdrop-blur-sm px-4 py-2 rounded-lg flex items-center">
+                      <Timer className="w-5 h-5 text-amber-300 mr-2" />
+                      <span className="text-white text-base font-medium">{Math.ceil(countdown)}s</span>
+                    </div>
+                    
+                    {players.find(p => p.name === playerName) && (
+                      <div className="bg-gradient-to-r from-violet-600/70 to-indigo-600/70 backdrop-blur-sm px-5 py-2.5 rounded-lg flex items-center shadow-lg border border-white/10">
+                        <Trophy className="w-5 h-5 text-amber-300 mr-2" />
+                        <span className="text-white text-lg font-bold">
+                          {players.find(p => p.name === playerName)?.score || 0} pts
                         </span>
                       </div>
-                      <span className="text-sm font-bold text-indigo-300">
-                        {player.score}
-                      </span>
+                    )}
+                  </div>
+                </div>
+                
+                {/* Progress bars */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mb-4">
+                  <div className="bg-white/5 rounded-full h-2 overflow-hidden">
+                    <div 
+                      className="h-full bg-gradient-to-r from-violet-500 to-fuchsia-500 transition-all duration-500"
+                      style={{ width: `${questionProgress}%` }}
+                    />
+                  </div>
+                  
+                  <div className="bg-white/5 rounded-full h-2 overflow-hidden">
+                    <div 
+                      className={`h-full transition-all duration-100 ${
+                        countdown > gameSettings.timePerQuestion * 0.6
+                          ? "bg-emerald-500" 
+                          : countdown > gameSettings.timePerQuestion * 0.3 
+                          ? "bg-amber-500"
+                          : "bg-rose-500"
+                      }`}
+                      style={{ width: `${timeProgress}%` }}
+                    />
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+            
+            {/* Multiplayer scoreboard */}
+            <motion.div 
+              className="relative z-10 px-4"
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+            >
+              <div className="max-w-6xl mx-auto mb-4">
+                <div className="bg-white/10 backdrop-blur-md rounded-xl p-3">
+                  <h3 className="text-xs font-medium text-white/70 mb-2 flex items-center">
+                    <Users className="w-3 h-3 mr-1" /> Players
+                  </h3>
+                  <div className="flex flex-wrap gap-2">
+                    {players.map((player, idx) => (
+                      <div 
+                        key={idx} 
+                        className={`flex items-center space-x-2 px-2 py-1 rounded-lg ${
+                          player.name === playerName ? "bg-violet-700/50 ring-1 ring-violet-400/30" : "bg-white/5"
+                        }`}
+                      >
+                        <div className="w-6 h-6 flex items-center justify-center text-sm">
+                          {player.avatar}
+                        </div>
+                        <span className="text-xs text-white">{player.name}</span>
+                        <span className="text-xs font-medium text-amber-300">{player.score}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+            
+            {/* Main question card */}
+            <div className="flex items-center justify-center min-h-[calc(100vh-220px)] px-4 py-4 md:py-8">
+              <motion.div
+                key={`question-${currentQuestionIndex}`}
+                className="relative z-10 w-full max-w-5xl mx-auto" 
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.95 }}
+                transition={{ duration: 0.3 }}
+              >
+                <div className="bg-white/10 backdrop-blur-md rounded-2xl p-8 md:p-10 shadow-xl border border-white/10">
+                  <QuizQuestion
+                    question={{
+                      question: currentQuestion.question,
+                      options: currentQuestion.options,
+                      correct_answer: currentQuestion.correct_answer,
+                      image: currentQuestion.image
+                    }}
+                    userAnswer={userAnswer}
+                    answered={answered}
+                    answerAnimation={showAnswerAnimation}
+                    countdown={countdown}
+                    handleAnswer={handleAnswer}
+                  />
+                </div>
+              </motion.div>
+            </div>
+            
+            {/* Feedback overlay */}
+            <AnimatePresence>
+              {showAnswerAnimation && (
+                <motion.div
+                  className="absolute inset-0 pointer-events-none z-20 flex items-center justify-center"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                >
+                  <motion.div
+                    className={`px-6 py-3 rounded-xl backdrop-blur-sm shadow-lg ${
+                      isCorrect 
+                        ? "bg-green-500/30 text-white border border-green-400/50" 
+                        : "bg-red-500/30 text-white border border-red-400/50"
+                    }`}
+                    initial={{ scale: 0.8, y: 20 }}
+                    animate={{ scale: 1, y: 0 }}
+                    exit={{ scale: 0.8, y: 20 }}
+                  >
+                    <div className="flex items-center text-xl font-bold">
+                      {isCorrect ? (
+                        <>
+                          <Award className="w-5 h-5 mr-2" />
+                          +{score} points!
+                        </>
+                      ) : (
+                        <>
+                          <Timer className="w-5 h-5 mr-2" />
+                          Incorrect!
+                        </>
+                      )}
                     </div>
-                  ))}
-              </div>
-            </div>
-            
-            {/* Timer (top right) */}
-            <div className="absolute top-4 right-4 bg-black/30 backdrop-blur-sm rounded-lg p-3 border border-white/10 z-10">
-              <div className="flex items-center text-white mb-2">
-                <span className="text-sm font-semibold">
-                  Time: {Math.max(0, Math.floor(countdown))}s
-                </span>
-              </div>
-              <ProgressBar 
-                value={(countdown / gameSettings.timePerQuestion) * 100} 
-                color={countdown < 5 ? "from-red-500 to-orange-500" : "from-green-500 to-emerald-500"}
-              />
-            </div>
-            
-            {/* Quiz progress (top center) */}
-            <div className="absolute top-4 left-1/2 transform -translate-x-1/2 bg-black/30 backdrop-blur-sm rounded-lg p-3 border border-white/10 z-10">
-              <div className="text-center text-white">
-                <span className="text-sm font-semibold">
-                  Question {currentQuestionIndex + 1} of {allQuestions.length}
-                </span>
-              </div>
-              <ProgressBar value={((currentQuestionIndex + 1) / allQuestions.length) * 100} />
-            </div>
-            
-            {/* Question */}
-            <div className="quiz-container">
-              <QuizQuestion
-                question={{
-                  question: currentQuestion.question,
-                  options: currentQuestion.options,
-                  correct_answer: currentQuestion.correct_answer,
-                  image: currentQuestion.image
-                }}
-                userAnswer={userAnswer}
-                answered={answered}
-                answerAnimation={showAnswerAnimation}
-                countdown={countdown}
-                handleAnswer={handleAnswer}
-              />
-            </div>
+                  </motion.div>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
         );
         

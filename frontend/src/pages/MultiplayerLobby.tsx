@@ -101,87 +101,77 @@ const MultiplayerLobby = () => {
       return;
     }
     
-    const cleanupListeners = setupSocketListeners();
+    // Setup socket handlers with improved cleanup
+    console.log("Setting up socket listeners in MultiplayerLobby");
     
-    socketService.joinRoom(urlLobbyCode, playerName, playerId);
-    
-    // Register event handlers with improved reliability
-    const cleanupGameStarted = socketService.on("game_started", handleGameStarted);
-    const cleanupNewQuestion = socketService.on("new_question", handleNewQuestion);
-    const cleanupRoomJoined = socketService.on("room_joined", fetchLobbyState);
-    const cleanupPlayerLeft = socketService.on("player_left", handlePlayerLeft);
-    
-    // Add debug logging for socket events
-    socketService.on("connect", () => {
-      console.log("Socket connected in MultiplayerLobby");
-      fetchLobbyState(); // Refresh state when reconnected
-    });
-    
-    socketService.on("disconnect", () => {
-      console.log("Socket disconnected in MultiplayerLobby");
-    });
-    
-    socketService.on("error", (data: any) => {
-      console.error("Socket error in MultiplayerLobby:", data);
-      toast({
-        title: "Connection Error",
-        description: "There was an error with the game server connection.",
-        variant: "destructive",
-      });
-    });
-    
-    fetchLobbyState();
-    
-    if (isHost) {
-      fetchCategories();
-    }
-    
-    // Handle cleanup when component unmounts or when navigation occurs
-    const cleanup = () => {
-      console.log("Cleaning up and leaving lobby...");
-      if (playerId && urlLobbyCode) {
-        socketService.leaveRoom(urlLobbyCode, playerName, playerId);
-        apiService.leaveLobby(urlLobbyCode, playerName).catch(err => 
-          console.error("Error leaving lobby on cleanup:", err)
-        );
+    const handleGameStarted = (data: any) => {
+      console.log("Game started event received:", data);
+      navigate(`/multiplayer/quiz/${urlLobbyCode}`);
+    };
+
+    const handleNewQuestion = (data: any) => {
+      console.log("New question received in lobby:", data);
+      if (urlLobbyCode) {
+        navigate(`/multiplayer/quiz/${urlLobbyCode}`);
       }
     };
     
-    // Add window beforeunload event to handle browser close/navigation
-    // But don't show the browser's "unsaved changes" prompt
-    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-      cleanup();
-      
-      // Remove the default confirmation dialog by not setting returnValue
-      // and not using preventDefault()
-      e.returnValue = '';  // Required for legacy compatibility, but empty string prevents dialog
+    const handlePlayerLeft = (data: any) => {
+      console.log("Player left event received:", data);
+      if (data.lobby_code === urlLobbyCode || data.lobbyCode === urlLobbyCode) {
+        // Refresh the lobby state to get the updated player list
+        fetchLobbyState();
+      }
     };
+
+    // Connect to socket if not already connected
+    if (!socketService.isConnected()) {
+      socketService.connect();
+    }
     
-    window.addEventListener('beforeunload', handleBeforeUnload);
+    // Register event handlers
+    const cleanupGameStarted = socketService.on("game_started", handleGameStarted);
+    const cleanupNewQuestion = socketService.on("new_question", handleNewQuestion);
+    const cleanupPlayerLeft = socketService.on("player_left", handlePlayerLeft);
     
-    // Register with React Router for navigation events (for back button)
-    // We'll use the effect cleanup function which runs when component unmounts
+    // Join the room
+    socketService.joinRoom(urlLobbyCode, playerName, playerId);
     
+    // Fetch lobby state to confirm connection
+    fetchLobbyState();
+    
+    // Debug logging for socket events
+    const cleanupConnect = socketService.on("connect", () => {
+      console.log("Socket connected in MultiplayerLobby");
+      if (isSocketConnected === false) {
+        fetchLobbyState(); // Refresh state when reconnected
+      }
+    });
+    
+    const cleanupDisconnect = socketService.on("disconnect", () => {
+      console.log("Socket disconnected in MultiplayerLobby");
+    });
+    
+    const cleanupError = socketService.on("error", (data: any) => {
+      console.error("Socket error in MultiplayerLobby:", data);
+      toast({
+        title: "Connection Error",
+        description: data.message || "There was an error connecting to the game server",
+        variant: "destructive",
+      });
+    });
+
+    // Clean up handlers when component unmounts
     return () => {
-      // First, perform cleanup of the lobby connection
-      cleanup();
-      
-      // Then clean up event listeners
-      if (cleanupListeners) cleanupListeners();
+      console.log("Cleaning up socket event listeners in MultiplayerLobby");
       cleanupGameStarted();
       cleanupNewQuestion();
-      cleanupRoomJoined();
       cleanupPlayerLeft();
-      
-      socketService.removeAllListeners("game_started");
-      socketService.removeAllListeners("room_joined");
-      socketService.removeAllListeners("new_question");
-      socketService.removeAllListeners("player_left");
-      
-      // Remove event listener
-      window.removeEventListener('beforeunload', handleBeforeUnload);
+      cleanupConnect();
+      cleanupDisconnect();
+      cleanupError();
     };
-  }, [urlLobbyCode, playerName, playerId, navigate, isHost, handleGameStarted, handleNewQuestion, handlePlayerLeft]);
+  }, [playerName, playerId, urlLobbyCode, contextLobbyCode, navigate, isSocketConnected]);
   
   const fetchLobbyState = async () => {
     try {

@@ -194,6 +194,9 @@ class ApiService {
     try {
       console.log(`Starting game for lobby: ${lobbyCode}`);
       
+      // Add delay to ensure socket connection is ready
+      await new Promise(resolve => setTimeout(resolve, 300));
+      
       const response = await fetch(`${API_BASE_URL}/start`, {
         method: "POST",
         headers: {
@@ -205,6 +208,9 @@ class ApiService {
       });
 
       if (!response.ok) {
+        console.error(`Failed to start game: Server responded with ${response.status}`);
+        const errorText = await response.text();
+        console.error(`Error response: ${errorText}`);
         throw new Error(`Failed to start game: ${response.status}`);
       }
 
@@ -218,13 +224,37 @@ class ApiService {
   // Get the current game state including questions
   public async getGameState(lobbyCode: string): Promise<GameStateInfo> {
     try {
-      const response = await fetch(`${API_BASE_URL}/game/${lobbyCode}`);
-
-      if (!response.ok) {
-        if (response.status === 404) {
-          throw new Error("Game not found");
+      console.log(`Fetching game state for lobby: ${lobbyCode}`);
+      
+      // Add retry logic
+      let retries = 3;
+      let response;
+      let lastError;
+      
+      while (retries > 0) {
+        try {
+          response = await fetch(`${API_BASE_URL}/game/${lobbyCode}`);
+          if (response.ok) break;
+          
+          // If not found on first try, wait a bit and try again
+          if (response.status === 404 && retries > 1) {
+            console.log("Game not found, retrying in 1 second...");
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            retries--;
+            continue;
+          }
+          
+          throw new Error(`Failed to fetch game state: ${response.status}`);
+        } catch (e) {
+          lastError = e;
+          retries--;
+          if (retries === 0) throw e;
+          await new Promise(resolve => setTimeout(resolve, 1000));
         }
-        throw new Error("Failed to fetch game state");
+      }
+
+      if (!response || !response.ok) {
+        throw lastError || new Error("Failed to fetch game state");
       }
 
       const data = await response.json();
@@ -314,6 +344,8 @@ class ApiService {
   // Leave a lobby
   public async leaveLobby(lobbyCode: string, playerName: string): Promise<{success: boolean}> {
     try {
+      console.log(`Leaving lobby ${lobbyCode} for player ${playerName}`);
+      
       const response = await fetch(`${API_BASE_URL}/leave`, {
         method: "POST",
         headers: {
@@ -325,14 +357,17 @@ class ApiService {
         }),
       });
 
+      // Handle both success and failure cases gracefully
       if (!response.ok) {
-        throw new Error("Failed to leave lobby");
+        console.warn(`Failed to properly leave lobby: ${response.status}`);
+        return { success: false };
       }
 
       return await response.json();
     } catch (error) {
       console.error("Error leaving lobby:", error);
-      throw error;
+      // Return success even on error to avoid blocking UI
+      return { success: false };
     }
   }
 

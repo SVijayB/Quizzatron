@@ -2,21 +2,32 @@ import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { motion } from "framer-motion";
 import { useToast } from "@/components/ui/use-toast";
-import { Trophy, ArrowLeft, HomeIcon, RefreshCw, Repeat, Share2, UserCheck } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Trophy, ArrowLeft, CheckCircle2, XCircle, RefreshCw, Clock, Users } from "lucide-react";
+import confetti from "canvas-confetti";
 import QuizLogo from "@/components/QuizLogo";
-import EmojiAvatar from "@/components/EmojiAvatar";
 import CursorEffect from "@/components/CursorEffect";
-import { apiService } from "@/services/apiService";
 import { useMultiplayer } from "@/contexts/MultiplayerContext";
 
 interface MultiplayerResult {
-  player_id: string;
+  id?: string;
+  player_id?: string;
   name: string;
   avatar: string;
   score: number;
-  correct_answers: number;
-  incorrect_answers: number;
-  rank: number;
+  correctAnswers?: number;
+  correct_answers?: number;
+  totalQuestions?: number;
+  incorrect_answers?: number;
+  answers?: {
+    question: string;
+    userAnswer: string;
+    correctAnswer: string;
+    isCorrect: boolean;
+    score: number;
+  }[];
+  rank?: number;
 }
 
 interface ResultsData {
@@ -49,16 +60,61 @@ const MultiplayerResults = () => {
   });
   const [isLoading, setIsLoading] = useState(true);
   const [quizId, setQuizId] = useState<string>("");
-  const { playerId } = useMultiplayer();
+  const { setGameSettings, setPlayers } = useMultiplayer();
 
   useEffect(() => {
     const fetchResults = async () => {
       setIsLoading(true);
       try {
-        const storedResults = localStorage.getItem("multiplayerResults");
+        const storedResults = localStorage.getItem(`quiz_results_${lobbyCode}`);
         if (storedResults) {
-          const parsedResults = JSON.parse(storedResults);
-          setResults(parsedResults);
+          const parsedData = JSON.parse(storedResults);
+          console.log("Loaded multiplayer results:", parsedData);
+          
+          // Process the results data
+          if (parsedData.players) {
+            setResults(parsedData.players.map((player: any) => ({
+              id: player.id,
+              name: player.name,
+              avatar: player.avatar || "👤",
+              score: player.score || 0,
+              correctAnswers: player.correctAnswers || 0,
+              totalQuestions: player.totalQuestions || 0,
+              answers: player.answers || []
+            })));
+          } else if (Array.isArray(parsedData)) {
+            setResults(parsedData);
+          }
+          
+          // Show confetti effect for celebration
+          setTimeout(() => {
+            const duration = 3000;
+            const animationEnd = Date.now() + duration;
+            const defaults = { startVelocity: 30, spread: 360, ticks: 60, zIndex: 0 };
+
+            const randomInRange = (min: number, max: number) => Math.random() * (max - min) + min;
+
+            const interval: any = setInterval(() => {
+              const timeLeft = animationEnd - Date.now();
+              if (timeLeft <= 0) {
+                return clearInterval(interval);
+              }
+              
+              const particleCount = 50 * (timeLeft / duration);
+              
+              // Trigger confetti from both sides
+              confetti({
+                ...defaults,
+                particleCount,
+                origin: { x: randomInRange(0.1, 0.3), y: Math.random() - 0.2 }
+              });
+              confetti({
+                ...defaults,
+                particleCount,
+                origin: { x: randomInRange(0.7, 0.9), y: Math.random() - 0.2 }
+              });
+            }, 250);
+          }, 500);
         } else {
           toast({
             title: "No Results Found",
@@ -189,32 +245,96 @@ const MultiplayerResults = () => {
                 </CardDescription>
               </CardHeader>
 
-              <CardContent className="space-y-4 relative z-10">
+              <CardContent className="space-y-6 relative z-10">
                 {isLoading ? (
-                  <div className="flex items-center justify-center">
+                  <div className="flex items-center justify-center py-6">
                     <RefreshCw className="animate-spin h-6 w-6 text-white" />
                     <span className="ml-2 text-white">Loading Results...</span>
                   </div>
                 ) : (
-                  <div className="space-y-3">
-                    {sortedResults.map((result, index) => (
-                      <div
-                        key={index}
-                        className="flex items-center justify-between bg-black/10 rounded-lg p-3"
-                      >
-                        <div className="flex items-center">
-                          <span className="text-lg font-semibold text-white mr-3">
-                            {index + 1}.
-                          </span>
-                          <span className="text-white text-xl mr-3">{result.avatar}</span>
-                          <span className="text-white font-medium">{result.name}</span>
+                  <>
+                    {/* Player Rankings */}
+                    <div className="space-y-3">
+                      <h3 className="text-white font-medium text-lg mb-2">Player Rankings</h3>
+                      {sortedResults.map((result, index) => {
+                        // Determine if this player is 1st, 2nd, or 3rd
+                        const rankClass = index === 0 
+                          ? "bg-gradient-to-r from-amber-500/20 to-yellow-500/20 border-yellow-500/30" 
+                          : index === 1 
+                            ? "bg-gradient-to-r from-slate-300/20 to-slate-400/20 border-slate-400/30"
+                            : index === 2 
+                              ? "bg-gradient-to-r from-amber-700/20 to-yellow-700/20 border-amber-700/30"
+                              : "bg-black/10";
+                        
+                        const correctAnswers = result.correctAnswers || result.correct_answers || 0;
+                        const totalQuestions = result.totalQuestions || (result.incorrect_answers ? correctAnswers + result.incorrect_answers : 10);
+                        
+                        return (
+                          <div
+                            key={index}
+                            className={`flex items-center justify-between rounded-lg p-4 border ${rankClass}`}
+                          >
+                            <div className="flex items-center">
+                              <div className="w-8 h-8 flex items-center justify-center mr-3 text-xl">
+                                {index === 0 ? "🥇" : index === 1 ? "🥈" : index === 2 ? "🥉" : `${index + 1}`}
+                              </div>
+                              <div className="w-12 h-12 flex items-center justify-center text-2xl rounded-full bg-white/10 mr-3">
+                                {result.avatar}
+                              </div>
+                              <div>
+                                <span className="text-white font-medium block">{result.name}</span>
+                                <div className="flex items-center mt-1">
+                                  <CheckCircle2 className="w-3.5 h-3.5 text-green-500 mr-1" />
+                                  <span className="text-xs text-white/70 mr-2">{correctAnswers}/{totalQuestions} correct</span>
+                                  
+                                  <Trophy className="w-3.5 h-3.5 text-amber-400 mr-1" />
+                                  <span className="text-xs text-white/70">{result.score} pts</span>
+                                </div>
+                              </div>
+                            </div>
+                            <div className="text-2xl font-bold text-white bg-clip-text text-transparent bg-gradient-to-r from-purple-300 to-indigo-300">
+                              {result.score}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                    
+                    {/* Quiz Statistics */}
+                    <div>
+                      <h3 className="text-white font-medium text-lg mb-3">Quiz Statistics</h3>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="bg-white/5 border border-white/10 rounded-lg p-3">
+                          <div className="flex items-center text-violet-300 mb-1">
+                            <Users className="w-4 h-4 mr-1" />
+                            <span className="text-sm font-medium">Players</span>
+                          </div>
+                          <p className="text-2xl font-bold text-white">{results.length}</p>
                         </div>
-                        <div className="text-white font-bold text-lg">
-                          {result.score} Points
+                        <div className="bg-white/5 border border-white/10 rounded-lg p-3">
+                          <div className="flex items-center text-amber-300 mb-1">
+                            <Trophy className="w-4 h-4 mr-1" />
+                            <span className="text-sm font-medium">Top Score</span>
+                          </div>
+                          <p className="text-2xl font-bold text-white">{sortedResults[0]?.score || 0}</p>
+                        </div>
+                        <div className="bg-white/5 border border-white/10 rounded-lg p-3">
+                          <div className="flex items-center text-emerald-300 mb-1">
+                            <CheckCircle2 className="w-4 h-4 mr-1" />
+                            <span className="text-sm font-medium">Total Questions</span>
+                          </div>
+                          <p className="text-2xl font-bold text-white">{sortedResults[0]?.totalQuestions || 10}</p>
+                        </div>
+                        <div className="bg-white/5 border border-white/10 rounded-lg p-3">
+                          <div className="flex items-center text-purple-300 mb-1">
+                            <Clock className="w-4 h-4 mr-1" />
+                            <span className="text-sm font-medium">Time per Question</span>
+                          </div>
+                          <p className="text-2xl font-bold text-white">{settings.timePerQuestion}s</p>
                         </div>
                       </div>
-                    ))}
-                  </div>
+                    </div>
+                  </>
                 )}
               </CardContent>
 
