@@ -39,7 +39,8 @@ const defaultSettings: MultiplayerGameSettings = {
   timePerQuestion: 15,
   allowSkipping: false,
   topic: null,
-  model: "gemini"
+  model: "gemini",
+  includeImages: false
 };
 
 const MultiplayerContext = createContext<MultiplayerContextProps | undefined>(undefined);

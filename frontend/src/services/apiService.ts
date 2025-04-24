@@ -40,6 +40,7 @@ export interface MultiplayerGameSettings {
   allowSkipping: boolean;
   topic: string | null;
   model: string;
+  includeImages?: boolean;
 }
 
 export interface LobbyInfo {

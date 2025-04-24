@@ -7,6 +7,7 @@ import {
   Dices, Hash, Heart, User, BookOpen
 } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
+import { Slider } from "@/components/ui/slider";
 import CursorEffect from "@/components/CursorEffect";
 import QuizLogo from "@/components/QuizLogo";
 import EmojiAvatar from "@/components/EmojiAvatar";
@@ -16,9 +17,9 @@ import { socketService } from "@/services/socketService";
 import "./MultiplayerLobby.css";
 
 const debounce = (func: Function, wait: number) => {
-  let timeout: NodeJS.Timeout;
+  let timeout: NodeJS.Timeout | null = null;
   return function(...args: any[]) {
-    clearTimeout(timeout);
+    if (timeout) clearTimeout(timeout);
     timeout = setTimeout(() => func(...args), wait);
   };
 };
@@ -46,6 +47,21 @@ const MultiplayerLobby = () => {
   const [topicInput, setTopicInput] = useState(gameSettings.topic || "");
   
   const topicUpdateTimer = useRef<NodeJS.Timeout | null>(null);
+  const lastSliderValue = useRef<number>(gameSettings.numQuestions);
+
+  // Add a local state for the slider value to prevent animation issues
+  const [localQuestionCount, setLocalQuestionCount] = useState<number>(gameSettings.numQuestions);
+  const isSliderDragging = useRef(false);
+  
+  // Add a reference for the slider timeout
+  const sliderUpdateTimeout = useRef<NodeJS.Timeout | null>(null);
+  
+  // Update local slider value when gameSettings changes from server
+  useEffect(() => {
+    if (!isSliderDragging.current) {
+      setLocalQuestionCount(gameSettings.numQuestions);
+    }
+  }, [gameSettings.numQuestions]);
 
   // Handle game started event from socket
   const handleGameStarted = useCallback((data: any) => {
@@ -64,6 +80,15 @@ const MultiplayerLobby = () => {
       navigate(`/multiplayer/quiz/${urlLobbyCode}`);
     }
   }, [navigate, urlLobbyCode]);
+  
+  // Handle player leave event from socket
+  const handlePlayerLeft = useCallback((data: any) => {
+    console.log("Player left event received:", data);
+    if (data.lobbyCode === urlLobbyCode) {
+      // Refresh the lobby state to get the updated player list
+      fetchLobbyState();
+    }
+  }, [urlLobbyCode]);
   
   useEffect(() => {
     if (!playerName || !playerId || !urlLobbyCode) {
@@ -84,6 +109,7 @@ const MultiplayerLobby = () => {
     const cleanupGameStarted = socketService.on("game_started", handleGameStarted);
     const cleanupNewQuestion = socketService.on("new_question", handleNewQuestion);
     const cleanupRoomJoined = socketService.on("room_joined", fetchLobbyState);
+    const cleanupPlayerLeft = socketService.on("player_left", handlePlayerLeft);
     
     // Add debug logging for socket events
     socketService.on("connect", () => {
@@ -110,17 +136,39 @@ const MultiplayerLobby = () => {
       fetchCategories();
     }
     
+    // Add window beforeunload event to handle browser close/navigation
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      // Send leave lobby event to server
+      if (playerId && urlLobbyCode) {
+        socketService.leaveRoom(urlLobbyCode, playerName, playerId);
+        apiService.leaveLobby(urlLobbyCode, playerName).catch(err => 
+          console.error("Error leaving lobby on page unload:", err)
+        );
+      }
+      
+      // Modern browsers require returnValue to be set
+      e.preventDefault();
+      e.returnValue = '';
+    };
+    
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    
     return () => {
       if (cleanupListeners) cleanupListeners();
       cleanupGameStarted();
       cleanupNewQuestion();
       cleanupRoomJoined();
+      cleanupPlayerLeft();
       
       socketService.removeAllListeners("game_started");
       socketService.removeAllListeners("room_joined");
       socketService.removeAllListeners("new_question");
+      socketService.removeAllListeners("player_left");
+      
+      // Remove event listener
+      window.removeEventListener('beforeunload', handleBeforeUnload);
     };
-  }, [urlLobbyCode, playerName, playerId, navigate, isHost, handleGameStarted, handleNewQuestion]);
+  }, [urlLobbyCode, playerName, playerId, navigate, isHost, handleGameStarted, handleNewQuestion, handlePlayerLeft]);
   
   const fetchLobbyState = async () => {
     try {
@@ -215,7 +263,7 @@ const MultiplayerLobby = () => {
   const debouncedHandleUpdateSettings = useCallback(
     debounce((settings: Partial<typeof gameSettings>) => {
       handleUpdateSettings(settings);
-    }, 300),
+    }, 1000), // Increase to 1000ms (1 second) for better animation handling
     [gameSettings, urlLobbyCode]
   );
   
@@ -485,7 +533,7 @@ const MultiplayerLobby = () => {
                                     </>
                                   ) : (
                                     <>
-                                      <RefreshCw className="badge-icon" />
+                                      <RefreshCw className="badge-icon spinning" />
                                       Not Ready
                                     </>
                                   )}
@@ -527,27 +575,65 @@ const MultiplayerLobby = () => {
                         <div className="card-content">
                           <div className="settings-container">
                             <div className="settings-item">
+                              <div className="settings-label">
+                                <BookOpen className="settings-label-icon text-purple-400" />
+                                <label>Topic</label>
+                              </div>
+                              <input
+                                type="text"
+                                value={topicInput}
+                                onChange={(e) => handleTopicChange(e.target.value)}
+                                placeholder="Enter a topic (optional)"
+                                className={`settings-input ${!isHost ? 'disabled' : ''}`}
+                                disabled={!isHost}
+                              />
+                            </div>
+                            
+                            <div className="settings-item">
                               <div className="settings-label-container">
                                 <div className="settings-label">
                                   <AlertCircle className="settings-label-icon text-blue-400" />
                                   <label>Number of Questions</label>
                                 </div>
-                                <span className="settings-value">{gameSettings.numQuestions}</span>
+                                <span className="settings-value">{localQuestionCount}</span>
                               </div>
-                              <input
-                                type="range"
-                                min={5}
-                                max={20}
-                                step={5}
-                                value={gameSettings.numQuestions}
-                                onChange={(e) => {
-                                  const value = parseInt(e.target.value);
-                                  if (isHost) debouncedHandleUpdateSettings({ numQuestions: value });
-                                }}
-                                disabled={!isHost}
-                                className="settings-slider"
-                              />
+                              <div className="py-4">
+                                <Slider
+                                  value={[localQuestionCount]}
+                                  onValueChange={(values) => {
+                                    if (isHost) {
+                                      const newValue = values[0];
+                                      
+                                      // Update local state for immediate UI feedback
+                                      setLocalQuestionCount(newValue);
+                                      isSliderDragging.current = true;
+                                      
+                                      // Clear any previous timeout
+                                      if (sliderUpdateTimeout.current) {
+                                        clearTimeout(sliderUpdateTimeout.current);
+                                      }
+                                      
+                                      // Set a timeout to update the server after user stops dragging
+                                      sliderUpdateTimeout.current = setTimeout(() => {
+                                        isSliderDragging.current = false;
+                                        
+                                        // Send to server if value has changed
+                                        if (newValue !== gameSettings.numQuestions) {
+                                          console.log("Updating server with new question count:", newValue);
+                                          handleUpdateSettings({ numQuestions: newValue });
+                                        }
+                                      }, 500);
+                                    }
+                                  }}
+                                  max={20}
+                                  min={1}
+                                  step={1}
+                                  disabled={!isHost}
+                                  className="w-full"
+                                />
+                              </div>
                               <div className="settings-slider-marks">
+                                <span>1</span>
                                 <span>5</span>
                                 <span>10</span>
                                 <span>15</span>
@@ -597,18 +683,30 @@ const MultiplayerLobby = () => {
                             </div>
 
                             <div className="settings-item">
-                              <div className="settings-label">
-                                <BookOpen className="settings-label-icon text-purple-400" />
-                                <label>Topic</label>
+                              <div className="settings-label-container">
+                                <div className="settings-label">
+                                  <AlertCircle className="settings-label-icon text-violet-400" />
+                                  <label>Include Images</label>
+                                </div>
+                                <div className="settings-toggle-container">
+                                  <input
+                                    type="checkbox"
+                                    id="include-images"
+                                    checked={gameSettings.includeImages}
+                                    onChange={(e) => {
+                                      if (isHost) debouncedHandleUpdateSettings({ includeImages: e.target.checked });
+                                    }}
+                                    disabled={!isHost}
+                                    className="settings-toggle-checkbox"
+                                  />
+                                  <label 
+                                    htmlFor="include-images" 
+                                    className={`settings-toggle ${gameSettings.includeImages ? 'active' : ''} ${!isHost ? 'disabled' : ''}`}
+                                  >
+                                    <span className="settings-toggle-slider"></span>
+                                  </label>
+                                </div>
                               </div>
-                              <input
-                                type="text"
-                                value={topicInput}
-                                onChange={(e) => handleTopicChange(e.target.value)}
-                                placeholder="Enter a topic (optional)"
-                                className={`settings-input ${!isHost ? 'disabled' : ''}`}
-                                disabled={!isHost}
-                              />
                             </div>
                           </div>
                         </div>

@@ -292,33 +292,14 @@
     display: flex;
     flex-direction: column;
     gap: 0.5rem;
-    max-height: 200px;
-    overflow-y: auto;
+    /* Removing the max-height and overflow properties to let it expand */
     padding-right: 0.5rem;
-    scrollbar-width: thin;
-    scrollbar-color: rgba(255, 255, 255, 0.4) rgba(255, 255, 255, 0.1);
 }
 
-/* Custom scrollbar styling for webkit browsers */
-.player-list::-webkit-scrollbar {
-    width: 6px;
-    background: rgba(255, 255, 255, 0.1);
-}
+/* Custom scrollbar styling is no longer needed since we're removing the scrollbar */
+/* Keeping other player list styles unchanged */
 
-.player-list::-webkit-scrollbar-track {
-    background: rgba(255, 255, 255, 0.05);
-    border-radius: 3px;
-}
-
-.player-list::-webkit-scrollbar-thumb {
-    background: rgba(255, 255, 255, 0.3);
-    border-radius: 6px;
-}
-
-.player-list::-webkit-scrollbar-thumb:hover {
-    background: rgba(255, 255, 255, 0.5);
-}
-
+/* Player item styling */
 .player-item {
     display: flex;
     align-items: center;
@@ -514,6 +495,54 @@
     cursor: not-allowed;
 }
 
+/* Settings toggle switch styling */
+.settings-toggle-container {
+    display: flex;
+    align-items: center;
+}
+
+.settings-toggle-checkbox {
+    position: absolute;
+    opacity: 0;
+    height: 0;
+    width: 0;
+}
+
+.settings-toggle {
+    display: inline-block;
+    position: relative;
+    cursor: pointer;
+    width: 40px;
+    height: 20px;
+    background-color: rgba(255, 255, 255, 0.1);
+    border-radius: 20px;
+    transition: 0.3s;
+}
+
+.settings-toggle.active {
+    background-color: rgba(124, 58, 237, 0.6);
+}
+
+.settings-toggle.disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.settings-toggle-slider {
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background-color: white;
+    transition: 0.3s;
+}
+
+.settings-toggle.active .settings-toggle-slider {
+    left: calc(100% - 18px);
+}
+
 /* Status card styling */
 .player-avatar-container {
     display: flex;
@@ -693,4 +722,65 @@
 .copy-notification-icon {
     height: 1rem;
     width: 1rem;
+}
+
+/* Additional styling for shadcn slider to match theme */
+.slider {
+    touch-action: none;
+    user-select: none;
+    display: flex;
+    align-items: center;
+    position: relative;
+    width: 100%;
+}
+
+:where(.slider) {
+    height: 20px;
+    width: 100%;
+    max-width: none;
+}
+
+.slider-track {
+    height: 3px;
+    width: 100%;
+    background-color: rgba(255, 255, 255, 0.1);
+    position: relative;
+    border-radius: 9999px;
+    overflow: hidden;
+}
+
+.slider-range {
+    position: absolute;
+    height: 100%;
+    background: linear-gradient(to right, #6366f1, #8b5cf6);
+}
+
+.slider-thumb {
+    display: block;
+    width: 15px;
+    height: 15px;
+    background-color: white;
+    border-radius: 9999px;
+    cursor: pointer;
+    transition: all 0.1s;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+.slider-thumb:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 4px rgba(139, 92, 246, 0.3);
+}
+
+.slider-thumb:hover {
+    background-color: #f3f4f6;
+    transform: scale(1.1);
+}
+
+/* Fix host's not-ready badge spacing */
+.player-item .player-ready-badge {
+    padding: 0.125rem 0.375rem;
+    height: 22px;
+    display: flex;
+    align-items: center;
+    gap: 3px;
 }

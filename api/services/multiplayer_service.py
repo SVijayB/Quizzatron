@@ -8,14 +8,6 @@ import logging
 import json
 from flask import jsonify
 from api.services.quiz_gen_service import generate_quiz
-from api.socket_server import (
-    broadcast_lobby_update,
-    broadcast_question,
-    broadcast_player_answered,
-    broadcast_all_answers_in,
-    broadcast_scoreboard,
-    broadcast_game_over,
-)
 
 # Game states
 GAME_STATE = {
@@ -421,25 +413,53 @@ def leave_lobby(lobby_code, player_name):
             and lobby["game_state"] == GAME_STATE["LOBBY"]
         ):
             del active_lobbies[lobby_code]
+
+            # Need to broadcast to everyone else that lobby is closing
+            from api.socket_server import socketio
+
+            if socketio:
+                socketio.emit(
+                    "lobby_closed",
+                    {
+                        "message": "The host has closed the lobby",
+                        "lobby_code": lobby_code,
+                    },
+                    room=lobby_code,
+                )
         else:
             # Otherwise just remove the player
-            lobby["players"].pop(player_index)
+            removed_player = lobby["players"].pop(player_index)
+            logging.info(f"Removed player {player_name} from lobby {lobby_code}")
 
             # If no players left, remove the lobby
             if not lobby["players"]:
+                logging.info(f"No players left in lobby {lobby_code}, removing it")
                 del active_lobbies[lobby_code]
             else:
                 # Update last activity
                 lobby["last_activity"] = time.time()
 
-                # Broadcast player left via WebSocket
-                broadcast_lobby_update(
-                    lobby_code,
-                    {
-                        "players": lobby["players"],
-                        "player_left": {"name": player_name, "id": player_id},
-                    },
-                )
+                # Explicitly broadcast player_left event for immediate UI updates
+                from api.socket_server import socketio
+
+                if socketio:
+                    # First emit specific player_left event
+                    socketio.emit(
+                        "player_left",
+                        {"name": player_name, "id": player_id, "lobbyCode": lobby_code},
+                        room=lobby_code,
+                    )
+
+                    # Then emit a complete lobby update for synchronization
+                    socketio.emit(
+                        "lobby_update",
+                        {"players": lobby["players"], "settings": lobby["settings"]},
+                        room=lobby_code,
+                    )
+
+                    logging.info(
+                        f"Broadcasted player_left and lobby_update for {player_name} in {lobby_code}"
+                    )
 
     return {"success": True}, 200
 
@@ -852,3 +872,52 @@ def update_player_avatar(lobby_code, player_name, avatar):
         broadcast_lobby_update(lobby_code, {"players": lobby["players"]})
 
     return {"success": True, "avatar": avatar}, 200
+
+
+# Broadcasting functions that use delayed imports to avoid circular references
+def broadcast_lobby_update(lobby_code, data):
+    """Broadcast a lobby update to all clients in the room."""
+    from api.socket_server import (
+        broadcast_lobby_update as socket_broadcast_lobby_update,
+    )
+
+    socket_broadcast_lobby_update(lobby_code, data)
+
+
+def broadcast_question(lobby_code, question, question_index):
+    """Broadcast a new question to all clients in the room."""
+    from api.socket_server import broadcast_question as socket_broadcast_question
+
+    socket_broadcast_question(lobby_code, question, question_index)
+
+
+def broadcast_player_answered(lobby_code, player_id, player_name, question_index):
+    """Broadcast that a player has answered to all clients in the room."""
+    from api.socket_server import (
+        broadcast_player_answered as socket_broadcast_player_answered,
+    )
+
+    socket_broadcast_player_answered(lobby_code, player_id, player_name, question_index)
+
+
+def broadcast_all_answers_in(lobby_code):
+    """Broadcast that all players have answered to all clients in the room."""
+    from api.socket_server import (
+        broadcast_all_answers_in as socket_broadcast_all_answers_in,
+    )
+
+    socket_broadcast_all_answers_in(lobby_code)
+
+
+def broadcast_scoreboard(lobby_code, scoreboard_data):
+    """Broadcast scoreboard data to all clients in the room."""
+    from api.socket_server import broadcast_scoreboard as socket_broadcast_scoreboard
+
+    socket_broadcast_scoreboard(lobby_code, scoreboard_data)
+
+
+def broadcast_game_over(lobby_code, final_results):
+    """Broadcast game over and final results to all clients in the room."""
+    from api.socket_server import broadcast_game_over as socket_broadcast_game_over
+
+    socket_broadcast_game_over(lobby_code, final_results)

@@ -34,6 +34,49 @@ def setup_socket_handlers(sio):
         """Handle client disconnection."""
         logging.info(f"Client disconnected: {request.sid}")
 
+        # Import here to avoid circular imports
+        from api.services.multiplayer_service import (
+            active_lobbies,
+            lobbies_lock,
+            leave_lobby,
+        )
+
+        disconnected_player_found = False
+        # Identify the player and lobby based on the session ID
+        with lobbies_lock:
+            for lobby_code, lobby in active_lobbies.items():
+                for player in lobby["players"]:
+                    if player.get("session_id") == request.sid:
+                        player_name = player["name"]
+                        disconnected_player_found = True
+
+                        logging.info(
+                            f"Player {player_name} disconnected from lobby {lobby_code}"
+                        )
+
+                        # Call leave_lobby to remove the player and update the lobby
+                        result, status_code = leave_lobby(lobby_code, player_name)
+
+                        if status_code == 200:
+                            logging.info(
+                                f"Player {player_name} removed from lobby {lobby_code} due to disconnection."
+                            )
+                        else:
+                            logging.error(
+                                f"Failed to remove player {player_name} from lobby {lobby_code}: {result}"
+                            )
+
+                        # Exit the loops after finding and handling the disconnection
+                        break
+
+                if disconnected_player_found:
+                    break
+
+        if not disconnected_player_found:
+            logging.warning(
+                f"Disconnected client {request.sid} not found in any lobby."
+            )
+
     @sio.on("join_room")
     def handle_join_lobby(data):
         """Handle client joining a lobby room."""
@@ -49,6 +92,17 @@ def setup_socket_handlers(sio):
         # Join the room
         join_room(lobby_code)
         logging.info(f"Player {player_name} ({request.sid}) joined lobby {lobby_code}")
+
+        # Import here to avoid circular imports
+        from api.services.multiplayer_service import active_lobbies, lobbies_lock
+
+        # Store the session ID in the player's record for disconnect handling
+        with lobbies_lock:
+            if lobby_code in active_lobbies:
+                for player in active_lobbies[lobby_code]["players"]:
+                    if player["name"] == player_name:
+                        player["session_id"] = request.sid
+                        break
 
         # Notify other clients in the room
         emit(

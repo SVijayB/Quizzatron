@@ -46,6 +46,7 @@ export interface MultiplayerGameSettings {
   allowSkipping: boolean;
   topic: string | null;
   model: string;
+  includeImages: boolean;
 }
 
 // Base API URL
