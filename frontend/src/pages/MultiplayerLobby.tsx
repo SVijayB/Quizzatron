@@ -4,7 +4,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import { 
   Users, Check, Copy, ArrowLeft, Share2, Play, 
   Timer, RefreshCw, Settings, AlertCircle, 
-  Dices, Hash, Heart, User, BookOpen
+  Dices, Hash, Heart, User, BookOpen,
+  ChevronDown, Search, X
 } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import { Slider } from "@/components/ui/slider";
@@ -14,6 +15,7 @@ import EmojiAvatar from "@/components/EmojiAvatar";
 import { useMultiplayer } from "@/contexts/MultiplayerContext";
 import { apiService } from "@/services/apiService";
 import { socketService } from "@/services/socketService";
+import CategorySuggestions from "@/components/CategorySuggestions";
 import "./MultiplayerLobby.css";
 
 const debounce = (func: Function, wait: number) => {
@@ -44,7 +46,9 @@ const MultiplayerLobby = () => {
   const [showSettings, setShowSettings] = useState(true);
   const [copySuccess, setCopySuccess] = useState(false);
   const [allCategories, setAllCategories] = useState<string[]>([]);
+  const [categoryData, setCategoryData] = useState<{[key: string]: number | string}>({});
   const [topicInput, setTopicInput] = useState(gameSettings.topic || "");
+  const [showCategorySuggestions, setShowCategorySuggestions] = useState(false);
   
   const topicUpdateTimer = useRef<NodeJS.Timeout | null>(null);
   const lastSliderValue = useRef<number>(gameSettings.numQuestions);
@@ -221,12 +225,33 @@ const MultiplayerLobby = () => {
   
   const fetchCategories = async () => {
     try {
-      const data = await apiService.getCategories();
-      setAllCategories(data.categories);
+      const response = await fetch('http://127.0.0.1:5000/api/categories/get');
+      if (!response.ok) {
+        throw new Error('Failed to fetch categories');
+      }
+      
+      const data: {[key: string]: number | string} = await response.json();
+      setCategoryData(data);
+      
+      // Include all categories
+      const categoryList = Object.keys(data);
+      setAllCategories(categoryList);
+      
+      console.log("Loaded categories data:", data);
     } catch (error) {
       console.error("Error fetching categories:", error);
+      toast({
+        title: "Error",
+        description: "Failed to fetch categories. Please try again.",
+        variant: "destructive",
+      });
     }
   };
+  
+  // Load categories when component mounts
+  useEffect(() => {
+    fetchCategories();
+  }, []);
   
   const toggleReady = async () => {
     try {
@@ -582,14 +607,64 @@ const MultiplayerLobby = () => {
                                 <BookOpen className="settings-label-icon text-purple-400" />
                                 <label>Topic</label>
                               </div>
-                              <input
-                                type="text"
-                                value={topicInput}
-                                onChange={(e) => handleTopicChange(e.target.value)}
-                                placeholder="Enter a topic"
-                                className={`settings-input ${!isHost ? 'disabled' : ''}`}
-                                disabled={!isHost}
-                              />
+                              <div className="relative">
+                                <div className="flex items-center">
+                                  <div className="relative flex-1">
+                                    <div className="flex items-center relative">
+                                      <Search className="absolute left-2 w-4 h-4 text-white/50" />
+                                      <input
+                                        type="text"
+                                        value={topicInput}
+                                        onChange={(e) => {
+                                          handleTopicChange(e.target.value);
+                                          // Show suggestions when user types
+                                          setShowCategorySuggestions(true);
+                                        }}
+                                        onFocus={() => setShowCategorySuggestions(true)}
+                                        placeholder="Enter a topic or select a category"
+                                        className={`settings-input pl-8 pr-8 ${!isHost ? 'disabled' : ''}`}
+                                        disabled={!isHost}
+                                      />
+                                      {topicInput && (
+                                        <button
+                                          className="absolute right-8 text-white/50 hover:text-white/80"
+                                          onClick={() => {
+                                            if (isHost) {
+                                              handleTopicChange("");
+                                            }
+                                          }}
+                                          disabled={!isHost}
+                                        >
+                                          <X className="w-4 h-4" />
+                                        </button>
+                                      )}
+                                      <button
+                                        className="absolute right-2 text-white/50 hover:text-white/80"
+                                        onClick={() => setShowCategorySuggestions(!showCategorySuggestions)}
+                                        disabled={!isHost}
+                                      >
+                                        <ChevronDown className="w-4 h-4" />
+                                      </button>
+                                    </div>
+                                  </div>
+                                </div>
+                                
+                                {/* Category Suggestions Dropdown */}
+                                {isHost && showCategorySuggestions && (
+                                  <div className="relative">
+                                    <div className="absolute z-50 w-full mt-1 category-suggestions-container">
+                                      <CategorySuggestions
+                                        query={topicInput}
+                                        onSelectCategory={(category) => {
+                                          handleTopicChange(category);
+                                          setShowCategorySuggestions(false);
+                                        }}
+                                        categoryData={categoryData}
+                                      />
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
                             </div>
                             
                             <div className="settings-item">

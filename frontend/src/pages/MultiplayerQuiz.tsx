@@ -622,10 +622,10 @@ const MultiplayerQuiz = () => {
             
             {/* Main question card with scoreboard */}
             <div className="flex min-h-[calc(100vh-220px)] px-4 py-4 md:py-8 relative">
-              {/* Center container for question and scoreboard */}
-              <div className="mx-auto w-full max-w-6xl flex flex-col md:flex-row justify-center items-start gap-6">
-                {/* Live Scoreboard - aligned with center */}
-                <div className="w-full md:w-64 mb-4 md:mb-0 md:sticky md:top-6 order-2 md:order-1">
+              {/* Center container for question and scoreboard - modified layout for centering */}
+              <div className="mx-auto w-full max-w-6xl flex flex-col md:flex-row justify-center items-center gap-6">
+                {/* Live Scoreboard - reshaped and better positioned */}
+                <div className="w-full md:w-72 mb-4 md:mb-0 md:sticky md:top-6 order-2 md:order-1">
                   <div className="bg-indigo-900/40 backdrop-blur-sm rounded-xl p-4 border border-indigo-400/20 shadow-lg">
                     <div className="flex items-center text-white mb-3">
                       <Trophy className="h-5 w-5 text-amber-400 mr-2" />
@@ -659,9 +659,6 @@ const MultiplayerQuiz = () => {
                                   <span className="font-medium text-white text-sm">
                                     {player.name}
                                   </span>
-                                  {player.name === playerName && (
-                                    <span className="ml-1.5 text-xs bg-indigo-500/20 px-1 py-0.5 rounded-full text-white/80">You</span>
-                                  )}
                                 </div>
                               </div>
                               <div className="flex items-center">
@@ -679,8 +676,8 @@ const MultiplayerQuiz = () => {
                   </div>
                 </div>
 
-                {/* Question content */}
-                <div className="w-full md:max-w-4xl order-1 md:order-2">
+                {/* Question content - centered both horizontally and vertically */}
+                <div className="w-full md:max-w-4xl order-1 md:order-2 flex items-center justify-center">
                   <motion.div
                     key={`question-${currentQuestionIndex}`}
                     className="relative z-10 w-full" 
@@ -1065,12 +1062,22 @@ const MultiplayerQuiz = () => {
                       .sort((a, b) => b.score - a.score)
                       .map((player, index) => {
                         const scorePercentage = calculateScorePercentage(player.score);
+                        const isAnswered = player.currentQuestion > currentQuestionIndex;
                         return (
-                          <div 
+                          <motion.div 
                             key={player.id} 
                             className={`flex items-center p-2 rounded-lg ${
                               player.name === playerName ? "bg-indigo-500/30" : "bg-white/10"
                             } transition-all duration-300`}
+                            layout
+                            animate={{ y: 0, opacity: 1 }}
+                            initial={{ opacity: 0.8 }}
+                            transition={{ 
+                              type: "spring", 
+                              stiffness: 500, 
+                              damping: 30,
+                              opacity: { duration: 0.2 }
+                            }}
                           >
                             <div className="w-5 h-5 flex items-center justify-center mr-1.5 text-white/80">
                               {index + 1}
@@ -1081,15 +1088,25 @@ const MultiplayerQuiz = () => {
                             <div className="flex-grow mr-2">
                               <span className="font-medium text-white text-xs">
                                 {player.name}
-                                {player.name === playerName && (
-                                  <span className="ml-1 text-[10px] bg-indigo-500/30 px-1 py-0.5 rounded-full text-white">You</span>
-                                )}
                               </span>
                             </div>
-                            <span className="text-sm font-bold text-indigo-300">
-                              {player.score}
-                            </span>
-                          </div>
+                            <div className="flex items-center gap-1">
+                              {isAnswered ? (
+                                <div className="flex items-center text-[10px] bg-green-500/20 text-green-400 px-1 py-0.5 rounded-full">
+                                  <Check className="w-3 h-3 mr-0.5" />
+                                  <span>Done</span>
+                                </div>
+                              ) : (
+                                <div className="flex items-center text-[10px] bg-amber-500/20 text-amber-400 px-1 py-0.5 rounded-full">
+                                  <div className="w-2 h-2 border-t-amber-400 border-r-amber-400/40 border-b-amber-400/20 border-l-amber-400/60 border rounded-full animate-spin mr-0.5"></div>
+                                  <span>Answering</span>
+                                </div>
+                              )}
+                              <span className="text-sm font-bold text-indigo-300 ml-1">
+                                {player.score}
+                              </span>
+                            </div>
+                          </motion.div>
                         );
                       })}
                   </div>

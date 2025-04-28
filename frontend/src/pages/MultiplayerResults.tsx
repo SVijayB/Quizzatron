@@ -170,43 +170,44 @@ const MultiplayerResults = () => {
 
   // Calculate average time taken for a player
   const calculateAverageTime = (player: MultiplayerResult) => {
-    const correctAnswers = player.correctAnswers || player.correct_answers || 0;
-    const totalQuestions = player.totalQuestions || player.total_questions || 10;
-    
-    // If player has no correct answers or answers array is missing, return a default value
-    if (correctAnswers === 0 || !player.answers || player.answers.length === 0) {
+    // If player has no answers array or it's empty, return a default value
+    if (!player.answers || player.answers.length === 0) {
       return (settings.timePerQuestion / 2).toFixed(1);
     }
     
-    // If we have the answers array with actual timeTaken values, use that
-    if (player.answers && player.answers.length > 0) {
-      // Find time taken for each answer and calculate average
-      let totalTimeTaken = 0;
-      let answersWithTime = 0;
-      
-      player.answers.forEach(answer => {
-        if (answer.hasOwnProperty('timeTaken')) {
-          totalTimeTaken += answer.timeTaken;
-          answersWithTime++;
-        }
-      });
-      
-      if (answersWithTime > 0) {
-        return (totalTimeTaken / answersWithTime).toFixed(1);
+    // Filter for only correct answers if we're calculating for the winner
+    const correctAnswersArray = player.answers.filter(answer => answer.isCorrect);
+    
+    if (correctAnswersArray.length === 0) {
+      return (settings.timePerQuestion / 2).toFixed(1);
+    }
+    
+    // Calculate total time taken for all questions from the player's answers
+    let totalTimeTaken = 0;
+    let answersWithTime = 0;
+    
+    // First try to use the explicit timeTaken property if available
+    correctAnswersArray.forEach(answer => {
+      if (answer.hasOwnProperty('timeTaken') && typeof answer.timeTaken === 'number') {
+        totalTimeTaken += answer.timeTaken;
+        answersWithTime++;
       }
+    });
+    
+    if (answersWithTime > 0) {
+      return (totalTimeTaken / answersWithTime).toFixed(1);
     }
     
-    // Fallback calculation: We know the score equals remaining time for correct answers
-    // So time taken = timePerQuestion - score/correctAnswers (average remaining time)
-    if (correctAnswers > 0) {
-      // Average remaining time per correct answer
-      const avgRemainingTime = player.score / correctAnswers;
-      // Average time taken = total time - remaining time
-      return (settings.timePerQuestion - avgRemainingTime).toFixed(1);
-    }
+    // If no timeTaken available, calculate based on the time per question and scores
+    // For correct answers, score = remaining time, so timeTaken = timePerQuestion - score
+    let totalTimeEstimated = 0;
+    correctAnswersArray.forEach(answer => {
+      // Estimated time taken = total time - score (remaining time)
+      const estimatedTime = settings.timePerQuestion - (answer.score || 0);
+      totalTimeEstimated += estimatedTime > 0 ? estimatedTime : settings.timePerQuestion / 2;
+    });
     
-    // Last fallback
-    return (settings.timePerQuestion / 2).toFixed(1);
+    return (totalTimeEstimated / correctAnswersArray.length).toFixed(1);
   };
 
   const sortedResults = [...results].sort((a, b) => b.score - a.score);
