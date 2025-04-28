@@ -608,61 +608,31 @@ const MultiplayerLobby = () => {
                                 <label>Topic</label>
                               </div>
                               <div className="relative">
-                                <div className="flex items-center">
-                                  <div className="relative flex-1">
-                                    <div className="flex items-center relative">
-                                      <Search className="absolute left-2 w-4 h-4 text-white/50" />
-                                      <input
-                                        type="text"
-                                        value={topicInput}
-                                        onChange={(e) => {
-                                          handleTopicChange(e.target.value);
-                                          // Show suggestions when user types
-                                          setShowCategorySuggestions(true);
-                                        }}
-                                        onFocus={() => setShowCategorySuggestions(true)}
-                                        placeholder="Enter a topic or select a category"
-                                        className={`settings-input pl-8 pr-8 ${!isHost ? 'disabled' : ''}`}
-                                        disabled={!isHost}
-                                      />
-                                      {topicInput && (
-                                        <button
-                                          className="absolute right-8 text-white/50 hover:text-white/80"
-                                          onClick={() => {
-                                            if (isHost) {
-                                              handleTopicChange("");
-                                            }
-                                          }}
-                                          disabled={!isHost}
-                                        >
-                                          <X className="w-4 h-4" />
-                                        </button>
-                                      )}
-                                      <button
-                                        className="absolute right-2 text-white/50 hover:text-white/80"
-                                        onClick={() => setShowCategorySuggestions(!showCategorySuggestions)}
-                                        disabled={!isHost}
-                                      >
-                                        <ChevronDown className="w-4 h-4" />
-                                      </button>
-                                    </div>
-                                  </div>
-                                </div>
+                                <input
+                                  type="text"
+                                  value={topicInput}
+                                  onChange={(e) => {
+                                    handleTopicChange(e.target.value);
+                                    setShowCategorySuggestions(true);
+                                  }}
+                                  placeholder="Enter a topic"
+                                  className={`settings-input ${!isHost ? 'disabled' : ''}`}
+                                  disabled={!isHost}
+                                  onFocus={() => setShowCategorySuggestions(true)}
+                                  onBlur={() => setTimeout(() => setShowCategorySuggestions(false), 200)}
+                                />
                                 
-                                {/* Category Suggestions Dropdown */}
                                 {isHost && showCategorySuggestions && (
-                                  <div className="relative">
-                                    <div className="absolute z-50 w-full mt-1 category-suggestions-container">
-                                      <CategorySuggestions
-                                        query={topicInput}
-                                        onSelectCategory={(category) => {
-                                          handleTopicChange(category);
-                                          setShowCategorySuggestions(false);
-                                        }}
-                                        categoryData={categoryData}
-                                      />
-                                    </div>
-                                  </div>
+                                  <CategorySuggestions
+                                    categories={allCategories}
+                                    searchQuery={topicInput}
+                                    visible={showCategorySuggestions}
+                                    onSelectCategory={(category) => {
+                                      handleTopicChange(category);
+                                      setShowCategorySuggestions(false);
+                                    }}
+                                    categoryData={categoryData}
+                                  />
                                 )}
                               </div>
                             </div>
