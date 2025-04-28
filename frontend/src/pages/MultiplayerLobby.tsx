@@ -742,7 +742,11 @@ const MultiplayerLobby = () => {
                                     id="include-images"
                                     checked={gameSettings.includeImages}
                                     onChange={(e) => {
-                                      if (isHost) debouncedHandleUpdateSettings({ includeImages: e.target.checked });
+                                      if (isHost) {
+                                        const newValue = e.target.checked;
+                                        // Update both local state and server settings
+                                        handleUpdateSettings({ includeImages: newValue });
+                                      }
                                     }}
                                     disabled={!isHost}
                                     className="settings-toggle-checkbox"

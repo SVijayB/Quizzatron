@@ -693,8 +693,10 @@ const MultiplayerQuiz = () => {
                         dangerouslySetInnerHTML={{ __html: currentQuestion.question }}
                       />
 
-                      {/* Optional image - only show when image exists and is not undefined/empty */}
-                      {currentQuestion.image && currentQuestion.image !== "undefined" && (
+                      {/* Optional image - only show when image exists, is not undefined/empty, and images are enabled */}
+                      {gameSettings.includeImages && currentQuestion.image && 
+                       currentQuestion.image !== "undefined" && 
+                       currentQuestion.image !== "" && (
                         <div className="mb-8 flex justify-center">
                           <img 
                             src={currentQuestion.image} 
@@ -702,7 +704,10 @@ const MultiplayerQuiz = () => {
                             className="max-h-60 rounded-lg shadow-md"
                             onError={(e) => {
                               // Hide image container if image fails to load
-                              (e.target as HTMLElement).parentElement?.classList.add('hidden');
+                              const targetElement = e.target as HTMLElement;
+                              if (targetElement.parentElement) {
+                                targetElement.parentElement.classList.add('hidden');
+                              }
                             }}
                           />
                         </div>
@@ -881,7 +886,7 @@ const MultiplayerQuiz = () => {
                         </div>
                       </div>
                       
-                      <div className="space-y-3 max-h-[350px] overflow-y-auto pr-1 custom-scrollbar">
+                      <div className="space-y-3">
                         {players
                           .sort((a, b) => b.score - a.score)
                           .map((player, index) => {

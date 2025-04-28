@@ -295,6 +295,7 @@ def start_game(lobby_code):
             ),
             "model": settings["model"],
             "topic": settings["topic"],
+            "image": settings.get("includeImages", False),
         }
 
         # Remove None values to prevent errors
