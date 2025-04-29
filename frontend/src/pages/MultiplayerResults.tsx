@@ -394,15 +394,11 @@ const MultiplayerResults = () => {
                         <div className="bg-white/5 border border-white/10 rounded-lg p-3">
                           <div className="flex items-center text-purple-300 mb-1">
                             <Clock className="w-4 h-4 mr-1" />
-                            <span className="text-sm font-medium">Avg. Answer Time</span>
+                            <span className="text-sm font-medium">Time per Question</span>
                           </div>
-                          {sortedResults.length > 0 ? (
-                            <p className="text-2xl font-bold text-white">
-                              {calculateAverageTime(sortedResults[0])}s
-                            </p>
-                          ) : (
-                            <p className="text-2xl font-bold text-white">--</p>
-                          )}
+                          <p className="text-2xl font-bold text-white">
+                            {settings.timePerQuestion}s
+                          </p>
                         </div>
                       </div>
                     </div>
