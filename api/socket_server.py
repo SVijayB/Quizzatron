@@ -38,7 +38,6 @@ def setup_socket_handlers(sio):
             active_lobbies,
             lobbies_lock,
             leave_lobby,
-            destroy_lobby,
         )
 
         disconnected_player_found = False
@@ -52,31 +51,6 @@ def setup_socket_handlers(sio):
                         logging.info(
                             f"Player {player_name} disconnected from lobby {lobby_code}"
                         )
-
-                        if player_name == lobby["host"]:
-                            # Host disconnected, destroy the lobby
-                            destroy_lobby(lobby_code)
-                            emit(
-                                "host_left",
-                                {"message": "Host left. Lobby closed."},
-                                room=lobby_code,
-                            )
-                            logging.info(
-                                f"Lobby {lobby_code} destroyed as host disconnected."
-                            )
-                        else:
-                            # Non-host player disconnected
-                            result, status_code = leave_lobby(lobby_code, player_name)
-
-                            if status_code == 200:
-                                logging.info(
-                                    f"Player {player_name} removed from lobby {lobby_code} due to disconnection."
-                                )
-                            else:
-                                logging.error(
-                                    f"Failed to remove player {player_name} from lobby {lobby_code}: {result}"
-                                )
-
                         break
 
                 if disconnected_player_found:
