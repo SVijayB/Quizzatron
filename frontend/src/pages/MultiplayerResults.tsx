@@ -438,9 +438,6 @@ const MultiplayerResults = () => {
                           <p className="text-2xl font-bold text-white">
                             {settings.timePerQuestion}s
                           </p>
-                          <p className="text-2xl font-bold text-white">
-                            {settings.timePerQuestion}s
-                          </p>
                         </div>
                       </div>
                     </div>
