@@ -168,46 +168,85 @@ const MultiplayerResults = () => {
     navigate("/multiplayer");
   };
 
-  // Calculate average time taken for a player
-  const calculateAverageTime = (player: MultiplayerResult) => {
+  // Calculate total time taken to complete the quiz
+  const calculateTotalQuizTime = (player: MultiplayerResult) => {
+    // If player has no answers array or it's empty, use a default calculation
+    if (!player.answers || player.answers.length === 0) {
+      const totalQuestions = player.totalQuestions || player.total_questions || 10;
+      return `${Math.round(totalQuestions * settings.timePerQuestion / 2)}s`;
+    }
+    
+    // Sum up all time taken values for each answer
+    let totalTimeTaken = 0;
+    
+    // Check if timeTaken property exists directly in the answer objects
+    const hasTimeTakenProperty = player.answers.some(answer => 
+      answer.hasOwnProperty('timeTaken') && typeof answer.timeTaken === 'number');
+    
+    if (hasTimeTakenProperty) {
+      // If timeTaken property is available, sum all actual times
+      player.answers.forEach(answer => {
+        if (typeof answer.timeTaken === 'number') {
+          totalTimeTaken += answer.timeTaken;
+        } else {
+          // If a question somehow doesn't have timeTaken, estimate it
+          totalTimeTaken += answer.isCorrect ? 
+            (settings.timePerQuestion - (answer.score || 0)) : 
+            settings.timePerQuestion;
+        }
+      });
+    } else {
+      // If timeTaken is not available, estimate based on score for correct answers
+      // and assume the full time was used for incorrect answers
+      player.answers.forEach(answer => {
+        if (answer.isCorrect && typeof answer.score === 'number') {
+          // For correct answers: time taken = time per question - time remaining (score)
+          totalTimeTaken += settings.timePerQuestion - answer.score;
+        } else {
+          // For incorrect answers: assume the full time was used
+          totalTimeTaken += settings.timePerQuestion;
+        }
+      });
+    }
+    
+    // Format with appropriate units
+    if (totalTimeTaken >= 60) {
+      const minutes = Math.floor(totalTimeTaken / 60);
+      const seconds = Math.round(totalTimeTaken % 60);
+      return `${minutes}m ${seconds}s`;
+    } else {
+      return `${Math.round(totalTimeTaken)}s`;
+    }
+  };
+
+  // Calculate average answer time exactly like the single player mode
+  const calculateAverageAnswerTime = (player: MultiplayerResult) => {
     // If player has no answers array or it's empty, return a default value
     if (!player.answers || player.answers.length === 0) {
-      return (settings.timePerQuestion / 2).toFixed(1);
+      return "0.0";
     }
     
-    // Filter for only correct answers if we're calculating for the winner
-    const correctAnswersArray = player.answers.filter(answer => answer.isCorrect);
+    // Filter for correct answers
+    const correctAnswers = player.answers.filter(answer => answer.isCorrect);
     
-    if (correctAnswersArray.length === 0) {
-      return (settings.timePerQuestion / 2).toFixed(1);
+    if (correctAnswers.length === 0) {
+      return "0.0";
     }
     
-    // Calculate total time taken for all questions from the player's answers
-    let totalTimeTaken = 0;
-    let answersWithTime = 0;
+    // For each correct answer, calculate time used: timePerQuestion - score
+    // (since score = time remaining, just like in single player mode)
+    let totalTimeUsed = 0;
     
-    // First try to use the explicit timeTaken property if available
-    correctAnswersArray.forEach(answer => {
-      if (answer.hasOwnProperty('timeTaken') && typeof answer.timeTaken === 'number') {
-        totalTimeTaken += answer.timeTaken;
-        answersWithTime++;
+    correctAnswers.forEach(answer => {
+      if (typeof answer.score === 'number') {
+        const timeUsed = settings.timePerQuestion - answer.score;
+        totalTimeUsed += timeUsed > 0 ? timeUsed : 0;
       }
     });
     
-    if (answersWithTime > 0) {
-      return (totalTimeTaken / answersWithTime).toFixed(1);
-    }
-    
-    // If no timeTaken available, calculate based on the time per question and scores
-    // For correct answers, score = remaining time, so timeTaken = timePerQuestion - score
-    let totalTimeEstimated = 0;
-    correctAnswersArray.forEach(answer => {
-      // Estimated time taken = total time - score (remaining time)
-      const estimatedTime = settings.timePerQuestion - (answer.score || 0);
-      totalTimeEstimated += estimatedTime > 0 ? estimatedTime : settings.timePerQuestion / 2;
-    });
-    
-    return (totalTimeEstimated / correctAnswersArray.length).toFixed(1);
+    // Calculate average
+    const avgTime = totalTimeUsed / correctAnswers.length;
+    return avgTime.toFixed(1);
   };
 
   const sortedResults = [...results].sort((a, b) => b.score - a.score);
@@ -396,6 +435,9 @@ const MultiplayerResults = () => {
                             <Clock className="w-4 h-4 mr-1" />
                             <span className="text-sm font-medium">Time per Question</span>
                           </div>
+                          <p className="text-2xl font-bold text-white">
+                            {settings.timePerQuestion}s
+                          </p>
                           <p className="text-2xl font-bold text-white">
                             {settings.timePerQuestion}s
                           </p>
