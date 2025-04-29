@@ -7,7 +7,7 @@ from api.app import create_app
 @pytest.fixture(name="app")
 def fixture_app():
     """Create and configure a test Flask app."""
-    test_app = create_app("testing")
+    test_app, _ = create_app("testing")  # Extract only the app instance
     test_app.config.update({"TESTING": True})
     yield test_app
 

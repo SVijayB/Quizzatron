@@ -1,5 +1,6 @@
 import { io, Socket } from "socket.io-client";
 import { useToast } from "@/components/ui/use-toast";
+import { useLocation } from "react-router-dom";
 
 // Define event callback type
 type EventCallback = (...args: any[]) => void;
@@ -255,6 +256,12 @@ class SocketService {
         this.socket?.disconnect();
       }
     });
+
+    this.socket.on("host_left", () => {
+      console.log("🔌 Host left. Lobby closed.");
+      alert("Host left. Lobby closed. Please create a new game.");
+      this.disconnect();
+    });
   }
   
   // Notify all callbacks registered for an event
@@ -271,6 +278,32 @@ class SocketService {
         callback(...args);
       } catch (error) {
         console.error(`🔌 Error in callback for ${event}:`, error);
+      }
+    });
+  }
+
+  // Add logic to connect socket only on /multiplayer page and disconnect otherwise
+  public initializeSocketBasedOnRoute(): void {
+    const location = useLocation();
+
+    if (location.pathname === "/multiplayer") {
+      this.connect();
+    } else {
+      this.disconnect();
+    }
+  }
+
+  // Add validation logic for lobby on reconnect
+  public validateLobby(lobbyCode: string): void {
+    if (!this.socket) {
+      this.connect();
+    }
+
+    this.socket?.emit("validate_lobby", { lobby_code: lobbyCode }, (response: { valid: boolean }) => {
+      if (!response.valid) {
+        console.log("🔌 Lobby is invalid. Clearing session.");
+        sessionStorage.clear();
+        alert("Lobby is invalid. Please create or join a new lobby.");
       }
     });
   }

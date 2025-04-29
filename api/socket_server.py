@@ -34,15 +34,14 @@ def setup_socket_handlers(sio):
         """Handle client disconnection."""
         logging.info(f"Client disconnected: {request.sid}")
 
-        # Import here to avoid circular imports
         from api.services.multiplayer_service import (
             active_lobbies,
             lobbies_lock,
             leave_lobby,
+            destroy_lobby,
         )
 
         disconnected_player_found = False
-        # Identify the player and lobby based on the session ID
         with lobbies_lock:
             for lobby_code, lobby in active_lobbies.items():
                 for player in lobby["players"]:
@@ -54,19 +53,30 @@ def setup_socket_handlers(sio):
                             f"Player {player_name} disconnected from lobby {lobby_code}"
                         )
 
-                        # Call leave_lobby to remove the player and update the lobby
-                        result, status_code = leave_lobby(lobby_code, player_name)
-
-                        if status_code == 200:
+                        if player_name == lobby["host"]:
+                            # Host disconnected, destroy the lobby
+                            destroy_lobby(lobby_code)
+                            emit(
+                                "host_left",
+                                {"message": "Host left. Lobby closed."},
+                                room=lobby_code,
+                            )
                             logging.info(
-                                f"Player {player_name} removed from lobby {lobby_code} due to disconnection."
+                                f"Lobby {lobby_code} destroyed as host disconnected."
                             )
                         else:
-                            logging.error(
-                                f"Failed to remove player {player_name} from lobby {lobby_code}: {result}"
-                            )
+                            # Non-host player disconnected
+                            result, status_code = leave_lobby(lobby_code, player_name)
 
-                        # Exit the loops after finding and handling the disconnection
+                            if status_code == 200:
+                                logging.info(
+                                    f"Player {player_name} removed from lobby {lobby_code} due to disconnection."
+                                )
+                            else:
+                                logging.error(
+                                    f"Failed to remove player {player_name} from lobby {lobby_code}: {result}"
+                                )
+
                         break
 
                 if disconnected_player_found:
@@ -303,6 +313,23 @@ def setup_socket_handlers(sio):
         # If game is over, notify client
         if result.get("game_over", False):
             emit("game_over_acknowledged", {"status": "success"})
+
+    @sio.on("validate_lobby")
+    def handle_validate_lobby(data):
+        """Validate if a lobby is still active."""
+        if not data or "lobby_code" not in data:
+            emit("error", {"message": "Invalid data for lobby validation"})
+            return
+
+        lobby_code = data["lobby_code"]
+
+        from api.services.multiplayer_service import active_lobbies, lobbies_lock
+
+        with lobbies_lock:
+            if lobby_code in active_lobbies:
+                emit("validate_lobby_response", {"valid": True})
+            else:
+                emit("validate_lobby_response", {"valid": False})
 
 
 # Broadcast functions used by the multiplayer service
