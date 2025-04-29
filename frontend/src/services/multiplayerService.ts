@@ -50,7 +50,7 @@ export interface MultiplayerGameSettings {
 }
 
 // Base API URL
-const API_BASE_URL = "http://127.0.0.1:5000//api/multiplayer";
+const API_BASE_URL = "https://quizzatron.onrender.com/api/multiplayer";
 
 /**
  * Create a new multiplayer lobby
