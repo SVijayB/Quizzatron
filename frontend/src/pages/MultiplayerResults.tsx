@@ -1,14 +1,17 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { motion } from "framer-motion";
 import { useToast } from "@/components/ui/use-toast";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Trophy, ArrowLeft, CheckCircle2, XCircle, RefreshCw, Clock, Users } from "lucide-react";
+import { 
+  Trophy, ArrowLeft, CheckCircle2, Crown, 
+  User, Users, Clock, BarChart
+} from "lucide-react";
 import confetti from "canvas-confetti";
 import QuizLogo from "@/components/QuizLogo";
 import CursorEffect from "@/components/CursorEffect";
 import { useMultiplayer } from "@/contexts/MultiplayerContext";
+import "../styles/MultiplayerResults.css";
 
 interface MultiplayerResult {
   id?: string;
@@ -33,19 +36,60 @@ interface MultiplayerResult {
   rank?: number;
 }
 
-interface ResultsData {
-  results: MultiplayerResult[];
-  settings: {
-    numQuestions: number;
-    timePerQuestion: number;
-    difficulty: string;
-    topic: string | null;
-    categories?: string[];
-    allowSkipping?: boolean;
-    model?: string;
-  };
-  quiz_id: string;
-}
+// Firework component for animated effects
+const FireworkEffect = () => {
+  const fireworkContainerRef = useRef<HTMLDivElement>(null);
+  
+  useEffect(() => {
+    if (!fireworkContainerRef.current) return;
+    
+    // Function to create a firework
+    const createFirework = () => {
+      if (!fireworkContainerRef.current) return;
+      
+      const container = fireworkContainerRef.current;
+      const colors = ['red', 'blue', 'green', 'gold', 'purple'];
+      const firework = document.createElement('div');
+      
+      firework.className = `firework ${colors[Math.floor(Math.random() * colors.length)]}`;
+      firework.style.left = `${Math.random() * 100}%`;
+      firework.style.top = `${Math.random() * 60 + 20}%`;
+      
+      container.appendChild(firework);
+      
+      // Remove the firework element after animation completes
+      setTimeout(() => {
+        if (container.contains(firework)) {
+          container.removeChild(firework);
+        }
+      }, 2000);
+    };
+    
+    // Create fireworks at random intervals
+    const fireworkInterval = setInterval(() => {
+      createFirework();
+    }, 1000);
+    
+    return () => {
+      clearInterval(fireworkInterval);
+    };
+  }, []);
+  
+  return <div className="firework-container" ref={fireworkContainerRef}></div>;
+};
+
+// Sparkle component for podium
+const Sparkles = ({ color }: { color: 'gold' | 'silver' | 'bronze' }) => {
+  return (
+    <>
+      <div className={`sparkle sparkle1 ${color}`}></div>
+      <div className={`sparkle sparkle2 ${color}`}></div>
+      <div className={`sparkle sparkle3 ${color}`}></div>
+      <div className={`sparkle sparkle4 ${color}`}></div>
+      <div className={`sparkle sparkle5 ${color}`}></div>
+    </>
+  );
+};
 
 const MultiplayerResults = () => {
   const { lobbyCode } = useParams<{ lobbyCode: string }>();
@@ -62,8 +106,8 @@ const MultiplayerResults = () => {
     model: "default"
   });
   const [isLoading, setIsLoading] = useState(true);
-  const [quizId, setQuizId] = useState<string>("");
   const { setGameSettings, setPlayers } = useMultiplayer();
+  const [showConfetti, setShowConfetti] = useState(false);
 
   useEffect(() => {
     const fetchResults = async () => {
@@ -102,35 +146,10 @@ const MultiplayerResults = () => {
             })));
           }
           
-          // Show confetti effect for celebration
           setTimeout(() => {
-            const duration = 3000;
-            const animationEnd = Date.now() + duration;
-            const defaults = { startVelocity: 30, spread: 360, ticks: 60, zIndex: 0 };
-
-            const randomInRange = (min: number, max: number) => Math.random() * (max - min) + min;
-
-            const interval: any = setInterval(() => {
-              const timeLeft = animationEnd - Date.now();
-              if (timeLeft <= 0) {
-                return clearInterval(interval);
-              }
-              
-              const particleCount = 50 * (timeLeft / duration);
-              
-              // Trigger confetti from both sides
-              confetti({
-                ...defaults,
-                particleCount,
-                origin: { x: randomInRange(0.1, 0.3), y: Math.random() - 0.2 }
-              });
-              confetti({
-                ...defaults,
-                particleCount,
-                origin: { x: randomInRange(0.7, 0.9), y: Math.random() - 0.2 }
-              });
-            }, 250);
+            setShowConfetti(true);
           }, 500);
+          
         } else {
           toast({
             title: "No Results Found",
@@ -153,6 +172,40 @@ const MultiplayerResults = () => {
     fetchResults();
   }, [lobbyCode, toast]);
 
+  // Trigger confetti animation when results are shown
+  useEffect(() => {
+    if (showConfetti) {
+      const duration = 5000;
+      const animationEnd = Date.now() + duration;
+      const defaults = { startVelocity: 30, spread: 360, ticks: 60, zIndex: 0 };
+
+      const randomInRange = (min: number, max: number) => Math.random() * (max - min) + min;
+
+      const interval: any = setInterval(() => {
+        const timeLeft = animationEnd - Date.now();
+        if (timeLeft <= 0) {
+          return clearInterval(interval);
+        }
+        
+        const particleCount = 50 * (timeLeft / duration);
+        
+        // Trigger confetti from both sides
+        confetti({
+          ...defaults,
+          particleCount,
+          origin: { x: randomInRange(0.1, 0.3), y: Math.random() - 0.2 }
+        });
+        confetti({
+          ...defaults,
+          particleCount,
+          origin: { x: randomInRange(0.7, 0.9), y: Math.random() - 0.2 }
+        });
+      }, 250);
+
+      return () => clearInterval(interval);
+    }
+  }, [showConfetti]);
+
   const handleReturnToLobby = () => {
     setGameSettings({
       numQuestions: 10,
@@ -168,294 +221,298 @@ const MultiplayerResults = () => {
     navigate("/multiplayer");
   };
 
-  // Calculate total time taken to complete the quiz
-  const calculateTotalQuizTime = (player: MultiplayerResult) => {
-    // If player has no answers array or it's empty, use a default calculation
-    if (!player.answers || player.answers.length === 0) {
-      const totalQuestions = player.totalQuestions || player.total_questions || 10;
-      return `${Math.round(totalQuestions * settings.timePerQuestion / 2)}s`;
-    }
-    
-    // Sum up all time taken values for each answer
-    let totalTimeTaken = 0;
-    
-    // Check if timeTaken property exists directly in the answer objects
-    const hasTimeTakenProperty = player.answers.some(answer => 
-      answer.hasOwnProperty('timeTaken') && typeof answer.timeTaken === 'number');
-    
-    if (hasTimeTakenProperty) {
-      // If timeTaken property is available, sum all actual times
-      player.answers.forEach(answer => {
-        if (typeof answer.timeTaken === 'number') {
-          totalTimeTaken += answer.timeTaken;
-        } else {
-          // If a question somehow doesn't have timeTaken, estimate it
-          totalTimeTaken += answer.isCorrect ? 
-            (settings.timePerQuestion - (answer.score || 0)) : 
-            settings.timePerQuestion;
-        }
-      });
-    } else {
-      // If timeTaken is not available, estimate based on score for correct answers
-      // and assume the full time was used for incorrect answers
-      player.answers.forEach(answer => {
-        if (answer.isCorrect && typeof answer.score === 'number') {
-          // For correct answers: time taken = time per question - time remaining (score)
-          totalTimeTaken += settings.timePerQuestion - answer.score;
-        } else {
-          // For incorrect answers: assume the full time was used
-          totalTimeTaken += settings.timePerQuestion;
-        }
-      });
-    }
-    
-    // Format with appropriate units
-    if (totalTimeTaken >= 60) {
-      const minutes = Math.floor(totalTimeTaken / 60);
-      const seconds = Math.round(totalTimeTaken % 60);
-      return `${minutes}m ${seconds}s`;
-    } else {
-      return `${Math.round(totalTimeTaken)}s`;
-    }
-  };
-
-  // Calculate average answer time exactly like the single player mode
-  const calculateAverageAnswerTime = (player: MultiplayerResult) => {
-    // If player has no answers array or it's empty, return a default value
-    if (!player.answers || player.answers.length === 0) {
-      return "0.0";
-    }
-    
-    // Filter for correct answers
-    const correctAnswers = player.answers.filter(answer => answer.isCorrect);
-    
-    if (correctAnswers.length === 0) {
-      return "0.0";
-    }
-    
-    // For each correct answer, calculate time used: timePerQuestion - score
-    // (since score = time remaining, just like in single player mode)
-    let totalTimeUsed = 0;
-    
-    correctAnswers.forEach(answer => {
-      if (typeof answer.score === 'number') {
-        const timeUsed = settings.timePerQuestion - answer.score;
-        totalTimeUsed += timeUsed > 0 ? timeUsed : 0;
-      }
-    });
-    
-    // Calculate average
-    const avgTime = totalTimeUsed / correctAnswers.length;
-    return avgTime.toFixed(1);
-  };
-
   const sortedResults = [...results].sort((a, b) => b.score - a.score);
-
-  const containerVariants = {
-    hidden: { opacity: 0 },
-    visible: {
-      opacity: 1,
-      transition: {
-        staggerChildren: 0.1,
-        delayChildren: 0.2,
-      },
-    },
-    exit: {
-      opacity: 0,
-      transition: { duration: 0.2 },
-    },
-  };
-
-  const itemVariants = {
-    hidden: { y: 20, opacity: 0 },
-    visible: {
-      y: 0,
-      opacity: 1,
-      transition: { duration: 0.4 },
-    },
-  };
+  
+  // Get top 3 players for podium
+  const topThreePlayers = sortedResults.slice(0, 3);
+  // Get remaining players for list
+  const otherPlayers = sortedResults.slice(3);
 
   return (
-    <div className="min-h-screen relative overflow-hidden bg-[#1a1a2e]">
-      <CursorEffect />
-
-      <div className="absolute inset-0">
-        <div className="absolute inset-0 bg-[linear-gradient(to_right,#4f3ed0,#8b5cf6)] opacity-50" />
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_0%,#1a1a2e_100%)]" />
-        <div className="absolute inset-0 bg-[radial-gradient(circle_800px_at_100%_200px,#4f3ed0,transparent)]" />
-        <div className="absolute inset-0 bg-[radial-gradient(circle_800px_at_0%_300px,#8b5cf6,transparent)]" />
-        <div className="absolute inset-0 bg-grid-white/[0.02] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_0%,black,transparent)]" />
+    <div className="results-page">
+      <div className="results-background">
+        <div className="results-gradient-overlay"></div>
+        <div className="results-grid-overlay"></div>
+        <div className="results-glow-1"></div>
+        <div className="results-glow-2"></div>
       </div>
-
-      <div className="relative min-h-screen flex flex-col items-center justify-center p-4 z-10">
+      
+      <CursorEffect />
+      
+      {showConfetti && <FireworkEffect />}
+      
+      <div className="results-content">
         <Button
-          onClick={() => navigate("/multiplayer")}
+          onClick={handleReturnToLobby}
           variant="ghost"
-          className="absolute top-4 left-4 text-white hover:bg-white/10"
+          className="back-button"
         >
-          <ArrowLeft className="mr-2 h-4 w-4" />
+          <ArrowLeft className="w-4 h-4 mr-2" />
           Back to Multiplayer
         </Button>
-
+        
         <motion.div
-          variants={containerVariants}
-          initial="hidden"
-          animate="visible"
-          exit="exit"
-          className="w-full max-w-2xl"
+          className="results-header"
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6 }}
         >
           <motion.div
-            variants={itemVariants}
-            className="flex items-center justify-center mb-8"
+            animate={{
+              y: [0, -8, 0],
+              rotate: [0, -3, 0, 3, 0],
+            }}
+            transition={{
+              duration: 5,
+              repeat: Infinity,
+              repeatType: "mirror",
+            }}
           >
-            <motion.div
-              animate={{
-                y: [0, -10, 0],
-                rotate: [0, -5, 0, 5, 0],
-              }}
-              transition={{
-                duration: 5,
-                repeat: Infinity,
-                repeatType: "mirror",
-              }}
-            >
-              <QuizLogo size={60} color="white" className="mr-2" />
-            </motion.div>
-            <div>
-              <h1 className="text-4xl font-bold text-white bg-clip-text text-transparent bg-gradient-to-r from-white via-purple-200 to-white">
-                Multiplayer Results
-              </h1>
-              <div className="flex items-center gap-1 text-white/70">
-                <Users className="h-3.5 w-3.5 text-purple-300" />
-                <p>See how you stack up against your friends!</p>
-              </div>
-            </div>
+            <QuizLogo size={60} color="white" className="mr-4" />
           </motion.div>
-
-          <motion.div variants={itemVariants}>
-            <Card className="bg-white/10 backdrop-blur-sm border-white/20 shadow-[0_0_15px_rgba(139,92,246,0.15)] overflow-hidden">
-              <div className="absolute top-0 right-0 bg-gradient-to-bl from-violet-500/30 via-transparent to-transparent w-40 h-40 rounded-bl-full"></div>
-
-              <CardHeader className="pb-4 relative z-10">
-                <CardTitle className="text-2xl text-white flex items-center">
-                  <Trophy className="w-5 h-5 mr-2 text-yellow-400" />
-                  Final Standings
-                </CardTitle>
-                <CardDescription className="text-white/70">
-                  Congratulations to the winners!
-                </CardDescription>
-              </CardHeader>
-
-              <CardContent className="space-y-6 relative z-10">
-                {isLoading ? (
-                  <div className="flex items-center justify-center py-6">
-                    <RefreshCw className="animate-spin h-6 w-6 text-white" />
-                    <span className="ml-2 text-white">Loading Results...</span>
-                  </div>
-                ) : (
-                  <>
-                    {/* Player Rankings */}
-                    <div className="space-y-3">
-                      <h3 className="text-white font-medium text-lg mb-2">Player Rankings</h3>
-                      {sortedResults.map((result, index) => {
-                        // Determine if this player is 1st, 2nd, or 3rd
-                        const rankClass = index === 0 
-                          ? "bg-gradient-to-r from-amber-500/20 to-yellow-500/20 border-yellow-500/30" 
-                          : index === 1 
-                            ? "bg-gradient-to-r from-slate-300/20 to-slate-400/20 border-slate-400/30"
-                            : index === 2 
-                              ? "bg-gradient-to-r from-amber-700/20 to-yellow-700/20 border-amber-700/30"
-                              : "bg-black/10";
-                        
-                        const correctAnswers = result.correctAnswers || result.correct_answers || 0;
-                        const totalQuestions = result.totalQuestions || result.total_questions || 
-                                              (result.incorrectAnswers || result.incorrect_answers ? 
-                                               correctAnswers + (result.incorrectAnswers || result.incorrect_answers || 0) : 10);
-                        
-                        return (
-                          <div
-                            key={index}
-                            className={`flex items-center justify-between rounded-lg p-4 border ${rankClass}`}
-                          >
-                            <div className="flex items-center">
-                              <div className="w-8 h-8 flex items-center justify-center mr-3 text-xl">
-                                {index === 0 ? "🥇" : index === 1 ? "🥈" : index === 2 ? "🥉" : `${index + 1}`}
-                              </div>
-                              <div className="w-12 h-12 flex items-center justify-center text-2xl rounded-full bg-white/10 mr-3">
-                                {result.avatar}
-                              </div>
-                              <div>
-                                <span className="text-white font-medium block">{result.name}</span>
-                                <div className="flex items-center mt-1">
-                                  <CheckCircle2 className="w-3.5 h-3.5 text-green-500 mr-1" />
-                                  <span className="text-xs text-white/70 mr-2">{correctAnswers}/{totalQuestions} correct</span>
-                                  
-                                  <Trophy className="w-3.5 h-3.5 text-amber-400 mr-1" />
-                                  <span className="text-xs text-white/70">{result.score} pts</span>
-                                </div>
-                              </div>
-                            </div>
-                            <div className="text-2xl font-bold text-white bg-clip-text text-transparent bg-gradient-to-r from-purple-300 to-indigo-300">
-                              {result.score}
+          
+          <div>
+            <h1 className="results-title">Multiplayer Results</h1>
+            <p className="results-subtitle">
+              <Users className="w-4 h-4 mr-1" />
+              See how you stack up against your friends!
+            </p>
+          </div>
+        </motion.div>
+        
+        {isLoading ? (
+          <div className="results-loading">
+            <motion.div
+              animate={{ rotate: 360 }}
+              transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+              className="loading-icon"
+            >
+              <Trophy className="w-8 h-8" />
+            </motion.div>
+            <p>Loading Results...</p>
+          </div>
+        ) : (
+          <motion.div
+            className="results-container"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.6 }}
+          >
+            <motion.div 
+              className="results-card"
+              initial={{ y: 20, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              transition={{ duration: 0.6, delay: 0.2 }}
+            >
+              <div className="results-card-header">
+                <Trophy className="w-6 h-6 text-yellow-300 mr-2" />
+                <h2 className="text-2xl font-bold">Final Standings</h2>
+              </div>
+              
+              <div className="results-card-content">
+                {/* Podium section for top 3 players */}
+                {topThreePlayers.length > 0 && (
+                  <div className="podium-container">
+                    {/* Arrange players in the correct podium order: 2nd, 1st, 3rd */}
+                    <div className="podium-layout">
+                      {/* Second Place */}
+                      {topThreePlayers.length > 1 && (
+                        <motion.div 
+                          className="podium-place podium-second"
+                          initial={{ opacity: 0, y: 20 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ delay: 0.4, duration: 0.6 }}
+                        >
+                          <div className="podium-avatar-container">
+                            <Sparkles color="silver" />
+                            <div className="podium-medal">🥈</div>
+                            <div className="podium-avatar">
+                              {topThreePlayers[1].avatar}
                             </div>
                           </div>
+                          <motion.div 
+                            className="podium-block second-place-block"
+                            initial={{ height: 0 }}
+                            animate={{ height: "auto" }}
+                            transition={{ delay: 0.4, duration: 0.6 }}
+                          >
+                            <p className="podium-name">{topThreePlayers[1].name}</p>
+                            <p className="podium-score">{topThreePlayers[1].score} pts</p>
+                          </motion.div>
+                        </motion.div>
+                      )}
+                      
+                      {/* First Place */}
+                      <motion.div 
+                        className="podium-place podium-first"
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.2, duration: 0.6 }}
+                      >
+                        <div className="podium-avatar-container">
+                          <Sparkles color="gold" />
+                          <div className="podium-crown">
+                            <Crown className="w-6 h-6 text-yellow-300" />
+                          </div>
+                          <div className="podium-medal">🥇</div>
+                          <div className="podium-avatar winner">
+                            {topThreePlayers[0].avatar}
+                          </div>
+                        </div>
+                        <motion.div 
+                          className="podium-block first-place-block"
+                          initial={{ height: 0 }}
+                          animate={{ height: "auto" }}
+                          transition={{ delay: 0.2, duration: 0.8 }}
+                        >
+                          <p className="podium-name">{topThreePlayers[0].name}</p>
+                          <p className="podium-score">{topThreePlayers[0].score} pts</p>
+                        </motion.div>
+                      </motion.div>
+                      
+                      {/* Third Place */}
+                      {topThreePlayers.length > 2 && (
+                        <motion.div 
+                          className="podium-place podium-third"
+                          initial={{ opacity: 0, y: 20 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ delay: 0.6, duration: 0.6 }}
+                        >
+                          <div className="podium-avatar-container">
+                            <Sparkles color="bronze" />
+                            <div className="podium-medal">🥉</div>
+                            <div className="podium-avatar">
+                              {topThreePlayers[2].avatar}
+                            </div>
+                          </div>
+                          <motion.div 
+                            className="podium-block third-place-block"
+                            initial={{ height: 0 }}
+                            animate={{ height: "auto" }}
+                            transition={{ delay: 0.6, duration: 0.4 }}
+                          >
+                            <p className="podium-name">{topThreePlayers[2].name}</p>
+                            <p className="podium-score">{topThreePlayers[2].score} pts</p>
+                          </motion.div>
+                        </motion.div>
+                      )}
+                    </div>
+                  </div>
+                )}
+                
+                {/* Other players list */}
+                {otherPlayers.length > 0 && (
+                  <div className="other-players">
+                    <h3 className="other-players-title">Other Rankings</h3>
+                    <div className="other-players-list">
+                      {otherPlayers.map((player, index) => {
+                        const correctAnswers = player.correctAnswers || player.correct_answers || 0;
+                        const totalQuestions = player.totalQuestions || player.total_questions || 10;
+                        
+                        return (
+                          <motion.div
+                            key={player.id || index}
+                            className="player-rank-item"
+                            initial={{ opacity: 0, x: -20 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            transition={{ delay: 0.8 + index * 0.1 }}
+                          >
+                            <div className="player-rank">
+                              {index + 4}
+                            </div>
+                            <div className="player-avatar">
+                              {player.avatar}
+                            </div>
+                            <div className="player-info">
+                              <p className="player-name">{player.name}</p>
+                              <div className="player-stats">
+                                <span className="player-correct">
+                                  <CheckCircle2 className="w-3 h-3 mr-1" />
+                                  {correctAnswers}/{totalQuestions}
+                                </span>
+                                <span className="player-points">
+                                  <Trophy className="w-3 h-3 mr-1" />
+                                  {player.score} pts
+                                </span>
+                              </div>
+                            </div>
+                            <div className="player-score">
+                              {player.score}
+                            </div>
+                          </motion.div>
                         );
                       })}
                     </div>
+                  </div>
+                )}
+                
+                {/* Stats cards */}
+                <motion.div 
+                  className="stats-container"
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 1.2 }}
+                >
+                  <h3 className="stats-title">Quiz Statistics</h3>
+                  <div className="stats-grid">
+                    <div className="stat-card">
+                      <div className="stat-icon">
+                        <Users className="w-5 h-5" />
+                      </div>
+                      <div className="stat-label">Players</div>
+                      <div className="stat-value">{results.length}</div>
+                    </div>
                     
-                    {/* Quiz Statistics */}
-                    <div>
-                      <h3 className="text-white font-medium text-lg mb-3">Quiz Statistics</h3>
-                      <div className="grid grid-cols-2 gap-3">
-                        <div className="bg-white/5 border border-white/10 rounded-lg p-3">
-                          <div className="flex items-center text-violet-300 mb-1">
-                            <Users className="w-4 h-4 mr-1" />
-                            <span className="text-sm font-medium">Players</span>
-                          </div>
-                          <p className="text-2xl font-bold text-white">{results.length}</p>
-                        </div>
-                        <div className="bg-white/5 border border-white/10 rounded-lg p-3">
-                          <div className="flex items-center text-amber-300 mb-1">
-                            <Trophy className="w-4 h-4 mr-1" />
-                            <span className="text-sm font-medium">Top Score</span>
-                          </div>
-                          <p className="text-2xl font-bold text-white">{sortedResults[0]?.score || 0}</p>
-                        </div>
-                        <div className="bg-white/5 border border-white/10 rounded-lg p-3">
-                          <div className="flex items-center text-emerald-300 mb-1">
-                            <CheckCircle2 className="w-4 h-4 mr-1" />
-                            <span className="text-sm font-medium">Total Questions</span>
-                          </div>
-                          <p className="text-2xl font-bold text-white">
-                            {sortedResults[0]?.totalQuestions || sortedResults[0]?.total_questions || 10}
-                          </p>
-                        </div>
-                        <div className="bg-white/5 border border-white/10 rounded-lg p-3">
-                          <div className="flex items-center text-purple-300 mb-1">
-                            <Clock className="w-4 h-4 mr-1" />
-                            <span className="text-sm font-medium">Time per Question</span>
-                          </div>
-                          <p className="text-2xl font-bold text-white">
-                            {settings.timePerQuestion}s
-                          </p>
-                        </div>
+                    <div className="stat-card">
+                      <div className="stat-icon">
+                        <Trophy className="w-5 h-5" />
+                      </div>
+                      <div className="stat-label">Top Score</div>
+                      <div className="stat-value">
+                        {sortedResults[0]?.score || 0}
                       </div>
                     </div>
-                  </>
-                )}
-              </CardContent>
-
-              <div className="p-4 relative z-10">
+                    
+                    <div className="stat-card">
+                      <div className="stat-icon">
+                        <BarChart className="w-5 h-5" />
+                      </div>
+                      <div className="stat-label">Total Questions</div>
+                      <div className="stat-value">
+                        {sortedResults[0]?.totalQuestions || 
+                         sortedResults[0]?.total_questions || 10}
+                      </div>
+                    </div>
+                    
+                    <div className="stat-card">
+                      <div className="stat-icon">
+                        <Clock className="w-5 h-5" />
+                      </div>
+                      <div className="stat-label">Time per Question</div>
+                      <div className="stat-value">
+                        {settings.timePerQuestion}s
+                      </div>
+                    </div>
+                  </div>
+                </motion.div>
+              </div>
+              
+              <motion.div 
+                className="results-footer"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 1.4 }}
+              >
                 <Button
                   onClick={handleReturnToLobby}
-                  className="w-full bg-gradient-to-r from-violet-500 to-indigo-500 hover:from-violet-600 hover:to-indigo-600 text-white font-medium py-3 transition-all duration-300 hover:scale-[1.02] hover:shadow-lg hover:shadow-indigo-500/25"
+                  className="return-button"
                 >
                   Return to Multiplayer Menu
                 </Button>
-              </div>
-            </Card>
+              </motion.div>
+            </motion.div>
           </motion.div>
-        </motion.div>
+        )}
       </div>
     </div>
   );

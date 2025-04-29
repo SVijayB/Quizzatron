@@ -329,6 +329,13 @@ const MultiplayerLobby = () => {
     } catch (error) {
       console.error("Error starting game:", error);
       setIsStartingGame(false);
+
+      // Suppress toast if the error is about the game already being started
+      if (error instanceof Error && error.message.includes("already started")) {
+        console.warn("Game already started, suppressing error toast.");
+        return;
+      }
+
       toast({
         title: "Error",
         description: "Failed to start the game",
