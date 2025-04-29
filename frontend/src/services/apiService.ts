@@ -1,7 +1,7 @@
 import { toast } from "@/components/ui/use-toast";
 
 // Base API URL
-const API_BASE_URL = "https://quizzatron.onrender.com/api/multiplayer";
+const API_BASE_URL = "http://127.0.0.1:5000//api/multiplayer";
 
 // Common interfaces
 export interface MultiplayerPlayer {
@@ -400,7 +400,7 @@ class ApiService {
   // Get available categories
   public async getCategories(): Promise<{categories: string[]}> {
     try {
-      const response = await fetch("https://quizzatron.onrender.com/api/categories");
+      const response = await fetch("http://127.0.0.1:5000//api/categories");
       
       if (!response.ok) {
         throw new Error("Failed to fetch categories");

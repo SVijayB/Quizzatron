@@ -5,7 +5,7 @@ interface CategoryResponse {
 
 export const fetchCategories = async (): Promise<string[]> => {
   try {
-    const response = await fetch('https://quizzatron.onrender.com/api/categories/get');
+    const response = await fetch('http://127.0.0.1:5000//api/categories/get');
     if (!response.ok) {
       throw new Error(`Failed to fetch categories: ${response.status} ${response.statusText}`);
     }
@@ -52,7 +52,7 @@ export const fetchQuizByCategory = async (
     
     // Use the local API endpoint until the deployed one is fixed
     const response = await fetch(
-      `https://quizzatron.onrender.com/api/questions/get?${queryParams}`
+      `http://127.0.0.1:5000//api/questions/get?${queryParams}`
     );
 
     if (!response.ok) {

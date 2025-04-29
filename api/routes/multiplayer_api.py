@@ -1,7 +1,7 @@
 """Enhanced multiplayer quiz API routes with WebSocket support."""
 
 from flask import Blueprint, request, jsonify
-from flask_socketio import SocketIO, emit, join_room, leave_room
+from flask_socketio import emit, join_room, leave_room
 from api.services.multiplayer_service import (
     create_new_lobby,
     join_existing_lobby,
@@ -20,163 +20,87 @@ from api.services.multiplayer_service import (
 # Create blueprint - use 'multiplayer' as the endpoint for simplicity
 multiplayer_bp = Blueprint("multiplayer", __name__, url_prefix="/multiplayer")
 
-# SocketIO instance must be initialized in app.py and passed here
-socketio = None
 
+class SocketIOHandler:
+    """Handler for socket.io events in the multiplayer API."""
 
-def init_socketio(socketio_instance):
-    """Initialize the SocketIO instance."""
-    global socketio
-    socketio = socketio_instance
-    setup_socket_events()
+    # Class variable to store the socketio instance
+    _instance = None
 
+    @classmethod
+    def init_socketio(cls, socketio_instance):
+        """Initialize the SocketIO instance."""
+        cls._instance = socketio_instance
+        cls.setup_socket_events()
 
-def setup_socket_events():
-    """Set up all WebSocket event handlers."""
+    @classmethod
+    def setup_socket_events(cls):
+        """Set up all WebSocket event handlers."""
+        # pylint: disable=too-many-statements
 
-    @socketio.on("connect")
-    def handle_connect():
-        """Handle client connection."""
-        emit("connection_response", {"status": "connected"})
-
-    @socketio.on("disconnect")
-    def handle_disconnect():
-        """Handle client disconnection."""
-        pass  # Additional cleanup logic can be added here
-
-    @socketio.on("join_room")
-    def handle_join_room(data):
-        """Add a player to a specific lobby room."""
-        lobby_code = data.get("lobby_code")
-        player_name = data.get("player_name")
-
-        if not lobby_code:
-            emit("error", {"message": "Lobby code is required"})
+        if not cls._instance:
             return
 
-        join_room(lobby_code)
-        emit(
-            "room_joined",
-            {"lobby_code": lobby_code, "player": player_name},
-            room=lobby_code,
-        )
+        @cls._instance.on("connect")
+        def handle_connect():
+            """Handle client connection."""
+            emit("connection_response", {"status": "connected"})
 
-        # Update all clients with new lobby information
-        result, _ = get_lobby_info(lobby_code)
-        emit("lobby_update", result, room=lobby_code)
+        @cls._instance.on("disconnect")
+        def handle_disconnect():
+            """Handle client disconnection."""
+            # Leaving blank as cleanup logic is handled in socket_server.py
 
-    @socketio.on("leave_room")
-    def handle_leave_room(data):
-        """Remove a player from a specific lobby room."""
-        lobby_code = data.get("lobby_code")
-        player_name = data.get("player_name")
+        @cls._instance.on("join_room")
+        def handle_join_room(data):
+            """Add a player to a specific lobby room."""
+            lobby_code = data.get("lobby_code")
+            player_name = data.get("player_name")
 
-        if lobby_code:
-            leave_room(lobby_code)
-            emit("player_left", {"player": player_name}, room=lobby_code)
+            if not lobby_code:
+                emit("error", {"message": "Lobby code is required"})
+                return
+
+            join_room(lobby_code)
+            emit(
+                "room_joined",
+                {"lobby_code": lobby_code, "player": player_name},
+                room=lobby_code,
+            )
 
             # Update all clients with new lobby information
             result, _ = get_lobby_info(lobby_code)
             emit("lobby_update", result, room=lobby_code)
 
-    @socketio.on("start_game")
-    def handle_start_game(data):
-        """Start a game and broadcast the first question."""
-        lobby_code = data.get("lobby_code")
+        @cls._instance.on("leave_room")
+        def handle_leave_room(data):
+            """Remove a player from a specific lobby room."""
+            lobby_code = data.get("lobby_code")
+            player_name = data.get("player_name")
 
-        if not lobby_code:
-            emit("error", {"message": "Lobby code is required"})
-            return
+            if lobby_code:
+                leave_room(lobby_code)
+                emit("player_left", {"player": player_name}, room=lobby_code)
 
-        result, status_code = start_game(lobby_code)
+                # Update all clients with new lobby information
+                result, _ = get_lobby_info(lobby_code)
+                emit("lobby_update", result, room=lobby_code)
 
-        if status_code == 200:
-            # Send the first question to all players
-            game_state, _ = get_game_state(lobby_code)
-            emit("game_started", game_state, room=lobby_code)
-            emit(
-                "new_question",
-                {
-                    "question": game_state["current_question"],
-                    "question_index": game_state["current_question_index"],
-                },
-                room=lobby_code,
-            )
-        else:
-            emit("error", result, room=lobby_code)
+        @cls._instance.on("start_game")
+        def handle_start_game(data):
+            """Start a game and broadcast the first question."""
+            lobby_code = data.get("lobby_code")
 
-    @socketio.on("submit_answer")
-    def handle_submit_answer(data):
-        """Handle a player submitting an answer."""
-        lobby_code = data.get("lobby_code")
-        player_name = data.get("player_name")
-        question_index = data.get("question_index", 0)
-        answer = data.get("answer", "")
-        time_taken = data.get("time_taken", 0)
-        is_correct = data.get("is_correct", False)
-        score = data.get("score", 0)
+            if not lobby_code:
+                emit("error", {"message": "Lobby code is required"})
+                return
 
-        if not lobby_code or not player_name:
-            emit("error", {"message": "Lobby code and player name are required"})
-            return
+            result, status_code = start_game(lobby_code)
 
-        result, status_code = submit_player_answer(
-            lobby_code,
-            player_name,
-            question_index,
-            answer,
-            time_taken,
-            is_correct,
-            score,
-        )
-
-        # Acknowledge the answer submission to the player
-        emit(
-            "answer_submitted",
-            {
-                "player": player_name,
-                "question_index": question_index,
-                "is_correct": is_correct,
-            },
-            room=request.sid,
-        )
-
-        # Get updated game state to check if all players have answered
-        game_state, _ = get_game_state(lobby_code)
-
-        if game_state.get("all_players_answered", False):
-            # If all players have answered, show mini-scoreboard
-            emit(
-                "mini_scoreboard",
-                {
-                    "results": game_state.get("current_question_results", []),
-                    "scores": game_state.get("player_scores", {}),
-                },
-                room=lobby_code,
-            )
-
-            # After a delay (this should be handled by the client), move to next question
-            # The client will emit 'request_next_question' after showing the mini-scoreboard
-
-    @socketio.on("request_next_question")
-    def handle_next_question(data):
-        """Move to the next question after mini-scoreboard is displayed."""
-        lobby_code = data.get("lobby_code")
-
-        if not lobby_code:
-            emit("error", {"message": "Lobby code is required"})
-            return
-
-        result, status_code = advance_to_next_question(lobby_code)
-
-        if status_code == 200:
-            if result.get("game_complete", False):
-                # Game is complete, show final results
-                final_results, _ = get_game_results(lobby_code)
-                emit("game_complete", final_results, room=lobby_code)
-            else:
-                # Send the next question
+            if status_code == 200:
+                # Send the first question to all players
                 game_state, _ = get_game_state(lobby_code)
+                emit("game_started", game_state, room=lobby_code)
                 emit(
                     "new_question",
                     {
@@ -185,8 +109,92 @@ def setup_socket_events():
                     },
                     room=lobby_code,
                 )
-        else:
-            emit("error", result, room=lobby_code)
+            else:
+                emit("error", result, room=lobby_code)
+
+        @cls._instance.on("submit_answer")
+        def handle_submit_answer(data):
+            """Handle a player submitting an answer."""
+            lobby_code = data.get("lobby_code")
+            player_name = data.get("player_name")
+            question_index = data.get("question_index", 0)
+            answer = data.get("answer", "")
+            time_taken = data.get("time_taken", 0)
+            is_correct = data.get("is_correct", False)
+            score = data.get("score", 0)
+
+            if not lobby_code or not player_name:
+                emit("error", {"message": "Lobby code and player name are required"})
+                return
+
+            # Call service but don't need to use return values here
+            submit_player_answer(
+                lobby_code,
+                player_name,
+                question_index,
+                answer,
+                time_taken,
+                is_correct,
+                score,
+            )
+
+            # Acknowledge the answer submission to the player
+            emit(
+                "answer_submitted",
+                {
+                    "player": player_name,
+                    "question_index": question_index,
+                    "is_correct": is_correct,
+                },
+                room=request.sid,
+            )
+
+            # Get updated game state to check if all players have answered
+            game_state, _ = get_game_state(lobby_code)
+
+            if game_state.get("all_players_answered", False):
+                # If all players have answered, show mini-scoreboard
+                emit(
+                    "mini_scoreboard",
+                    {
+                        "results": game_state.get("current_question_results", []),
+                        "scores": game_state.get("player_scores", {}),
+                    },
+                    room=lobby_code,
+                )
+
+                # After a delay (this should be handled by the client), move to next question
+                # The client will emit 'request_next_question' after showing the mini-scoreboard
+
+        @cls._instance.on("request_next_question")
+        def handle_next_question(data):
+            """Move to the next question after mini-scoreboard is displayed."""
+            lobby_code = data.get("lobby_code")
+
+            if not lobby_code:
+                emit("error", {"message": "Lobby code is required"})
+                return
+
+            result, status_code = advance_to_next_question(lobby_code)
+
+            if status_code == 200:
+                if result.get("game_complete", False):
+                    # Game is complete, show final results
+                    final_results, _ = get_game_results(lobby_code)
+                    emit("game_complete", final_results, room=lobby_code)
+                else:
+                    # Send the next question
+                    game_state, _ = get_game_state(lobby_code)
+                    emit(
+                        "new_question",
+                        {
+                            "question": game_state["current_question"],
+                            "question_index": game_state["current_question_index"],
+                        },
+                        room=lobby_code,
+                    )
+            else:
+                emit("error", result, room=lobby_code)
 
 
 # Route to create a new lobby

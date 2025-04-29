@@ -9,7 +9,8 @@ from flask import Flask, request, render_template, send_from_directory
 from flask_cors import CORS
 
 from api.routes import api_blueprint
-from api.socket_server import init_socketio
+from api.socket_server import SocketServer
+from api.routes.multiplayer_api import SocketIOHandler
 
 
 def setup_logging():
@@ -78,7 +79,10 @@ def create_app(env):
     app.register_blueprint(api_blueprint)
     app.json.sort_keys = False
 
-    # Initialize SocketIO
-    socketio = init_socketio(app)
+    # Initialize SocketIO using the new class-based approach
+    socketio = SocketServer.init_socketio(app)
+
+    # Initialize the socket handlers for multiplayer API
+    SocketIOHandler.init_socketio(socketio)
 
     return app, socketio

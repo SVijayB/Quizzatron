@@ -460,15 +460,55 @@ def get_game_results(lobby_code):
         # Update last activity
         lobby["last_activity"] = time.time()
 
-        # Return results
+        # Create a more robust results object that will work with the frontend
+        final_results = []
+
+        # Use final_results if available, otherwise build from players
         if "final_results" in lobby and lobby["final_results"]:
-            return {
-                "lobby_code": lobby["lobby_code"],
-                "players": lobby["final_results"],
-            }, 200
+            # Use the existing final_results but ensure they have all required fields
+            for player in lobby["final_results"]:
+                final_results.append(
+                    {
+                        "name": player["name"],
+                        "score": player["score"],
+                        "correctAnswers": player.get("correctAnswers", 0),
+                        "avatar": player.get("avatar", "👤"),
+                        "isHost": player.get("isHost", False),
+                    }
+                )
         else:
-            # Fallback to returning players if final_results is missing
-            return {"lobby_code": lobby["lobby_code"], "players": lobby["players"]}, 200
+            # Build from players if final_results is missing
+            for player in lobby["players"]:
+                final_results.append(
+                    {
+                        "name": player["name"],
+                        "score": player["score"],
+                        "correctAnswers": player.get("correctAnswers", 0),
+                        "avatar": player.get("avatar", "👤"),
+                        "isHost": player.get("isHost", False),
+                    }
+                )
+
+        # Sort players by score (highest first)
+        final_results = sorted(final_results, key=lambda p: p["score"], reverse=True)
+
+        # Store the processed results back in the lobby
+        lobby["final_results"] = final_results
+
+        # Calculate statistics for the frontend
+        stats = {
+            "playerCount": len(final_results),
+            "topScore": final_results[0]["score"] if final_results else 0,
+            "totalQuestions": (
+                lobby["players"][0]["totalQuestions"] if lobby["players"] else 0
+            ),
+        }
+
+        return {
+            "lobby_code": lobby["lobby_code"],
+            "players": final_results,
+            "stats": stats,
+        }, 200
 
 
 def update_player_avatar(lobby_code, player_name, avatar):

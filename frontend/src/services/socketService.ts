@@ -8,7 +8,7 @@ type EventCallback = (...args: any[]) => void;
 // Socket service singleton class
 class SocketService {
   private socket: Socket | null = null;
-  private serverUrl = "https://quizzatron.onrender.com";
+  private serverUrl = "http://127.0.0.1:5000/";
   private registeredEvents: Map<string, EventCallback[]> = new Map();
   private connectedLobbyCode: string | null = null;
   private reconnectAttempts = 0;
