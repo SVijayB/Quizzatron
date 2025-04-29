@@ -53,7 +53,7 @@ const Index = () => {
   useEffect(() => {
     const loadCategories = async () => {
       try {
-        const response = await fetch('http://127.0.0.1:5000/api/categories/get');
+        const response = await fetch('https://quizzatron.onrender.com/api/categories/get');
         if (!response.ok) {
           throw new Error('Failed to fetch categories');
         }
@@ -137,7 +137,7 @@ const Index = () => {
         // If a PDF file is selected, use generate_pdf endpoint
         requestData.append('pdf', selectedFile);
         
-        const response = await fetch('http://127.0.0.1:5000/api/quiz/generate_pdf', {
+        const response = await fetch('https://quizzatron.onrender.com/api/quiz/generate_pdf', {
           method: 'POST',
           body: requestData
         });
@@ -164,7 +164,7 @@ const Index = () => {
         }
       } else {
         // Regular topic-based generation
-        const response = await fetch('http://127.0.0.1:5000/api/quiz/generate', {
+        const response = await fetch('https://quizzatron.onrender.com/api/quiz/generate', {
           method: 'POST',
           body: requestData
         });
