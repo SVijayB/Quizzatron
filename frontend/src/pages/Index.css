@@ -1,0 +1,17 @@
+
+/* Additional CSS to make homepage illustration smaller on mobile */
+
+@media (max-width: 640px) {
+  .homepage-illustration {
+    width: 70%;
+    height: auto;
+    margin: 1rem auto;
+  }
+}
+
+@media (max-width: 480px) {
+  .homepage-illustration {
+    width: 60%;
+    margin: 0.5rem auto;
+  }
+}

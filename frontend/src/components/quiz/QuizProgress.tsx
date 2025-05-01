@@ -1,9 +1,7 @@
 
-import { motion } from "framer-motion";
 import { Progress } from "@/components/ui/progress";
-import { Trophy } from "lucide-react";
 
-interface QuizProgressProps {
+export interface QuizProgressProps {
   currentQuestion: number;
   totalQuestions: number;
   timeLeft: number;
@@ -11,45 +9,28 @@ interface QuizProgressProps {
   totalScore: number;
 }
 
-export function QuizProgress({
+export const QuizProgress: React.FC<QuizProgressProps> = ({
   currentQuestion,
   totalQuestions,
   timeLeft,
   totalTime,
   totalScore,
-}: QuizProgressProps) {
+}) => {
+  const progressValue = (currentQuestion / totalQuestions) * 100;
+  const timeProgress = (timeLeft / totalTime) * 100;
+
   return (
-    <div className="w-full mb-12">
-      <div className="flex justify-between items-center mb-2">
-        <motion.span 
-          className="text-3xl font-bold text-white/90"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-        >
-          Question {currentQuestion + 1}/{totalQuestions}
-        </motion.span>
-        <div className="flex items-center gap-4">
-          <motion.div
-            className="flex items-center gap-2 bg-white/10 px-4 py-2 rounded-lg"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-          >
-            <Trophy className="w-5 h-5 text-yellow-400" />
-            <span className="text-xl font-bold text-white/90">{totalScore}</span>
-          </motion.div>
-          <motion.span 
-            className="text-3xl font-bold text-white/90"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-          >
-            {timeLeft}s
-          </motion.span>
-        </div>
+    <div className="space-y-4 mt-6">
+      <div className="flex justify-between text-sm text-white/70">
+        <span>Question {currentQuestion} of {totalQuestions}</span>
+        <span>Score: {totalScore}</span>
       </div>
-      <Progress 
-        value={(timeLeft / totalTime) * 100} 
-        className="h-4 bg-white/10" 
-      />
+      <Progress value={progressValue} className="h-2" />
+      <div className="flex justify-between text-sm text-white/70">
+        <span>Time Left: {Math.ceil(timeLeft)}s</span>
+        <span>{Math.round(timeProgress)}%</span>
+      </div>
+      <Progress value={timeProgress} className="h-2" />
     </div>
   );
-}
+};
