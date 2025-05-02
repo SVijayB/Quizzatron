@@ -5,7 +5,7 @@ import { useToast } from "@/components/ui/use-toast";
 import { Button } from "@/components/ui/button";
 import { 
   Trophy, ArrowLeft, CheckCircle2, Crown, 
-  User, Users, Clock, BarChart
+  User, Users, Clock, BarChart, Timer, Zap, Gamepad2, Heart, Share2
 } from "lucide-react";
 import confetti from "canvas-confetti";
 import QuizLogo from "@/components/QuizLogo";
@@ -108,6 +108,20 @@ const MultiplayerResults = () => {
   const [isLoading, setIsLoading] = useState(true);
   const { setGameSettings, setPlayers } = useMultiplayer();
   const [showConfetti, setShowConfetti] = useState(false);
+
+  // Floating icon variants for animation
+  const floatingIconVariants = {
+    animate: (custom: number) => ({
+      y: [0, -15, 0],
+      x: custom % 2 === 0 ? [0, 5, 0] : [0, -5, 0],
+      rotate: custom % 3 === 0 ? [0, 5, 0] : [0, -5, 0],
+      transition: {
+        duration: 3 + (custom % 3),
+        repeat: Infinity,
+        repeatType: "mirror" as const,
+      }
+    })
+  };
 
   useEffect(() => {
     const fetchResults = async () => {
@@ -230,11 +244,66 @@ const MultiplayerResults = () => {
 
   return (
     <div className="results-page">
-      <div className="results-background">
-        <div className="results-gradient-overlay"></div>
-        <div className="results-grid-overlay"></div>
-        <div className="results-glow-1"></div>
-        <div className="results-glow-2"></div>
+      {/* Updated background to match the lobby background */}
+      <div className="absolute inset-0">
+        <div className="absolute inset-0 bg-[linear-gradient(145deg,#2a2a42_0%,#1a1a2e_100%)]" />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(90,71,192,0.5)_0%,rgba(50,29,115,0.7)_100%)] opacity-70" />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_0%,rgba(58,31,128,0.2)_100%)]" />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_800px_at_100%_200px,#4f3ed0,transparent)]" />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_800px_at_0%_300px,#8b5cf6,transparent)]" />
+        <div className="absolute inset-0 bg-grid-white/[0.02] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_0%,black,transparent)]" />
+        
+        {/* Floating icons to match lobby */}
+        <div className="absolute inset-0 overflow-hidden pointer-events-none">
+          <motion.div 
+            custom={1}
+            variants={floatingIconVariants}
+            animate="animate"
+            className="absolute left-[15%] top-[20%] text-white/20 text-4xl"
+          >
+            <Trophy className="w-10 h-10" />
+          </motion.div>
+          <motion.div 
+            custom={2}
+            variants={floatingIconVariants}
+            animate="animate"
+            className="absolute right-[20%] top-[15%] text-white/20 text-4xl"
+          >
+            <Gamepad2 className="w-12 h-12" />
+          </motion.div>
+          <motion.div 
+            custom={3}
+            variants={floatingIconVariants}
+            animate="animate"
+            className="absolute left-[10%] bottom-[20%] text-white/20 text-4xl"
+          >
+            <Zap className="w-8 h-8" />
+          </motion.div>
+          <motion.div 
+            custom={4}
+            variants={floatingIconVariants}
+            animate="animate"
+            className="absolute right-[15%] bottom-[25%] text-white/20 text-4xl"
+          >
+            <Timer className="w-9 h-9" />
+          </motion.div>
+          <motion.div 
+            custom={5}
+            variants={floatingIconVariants}
+            animate="animate"
+            className="absolute left-[25%] top-[50%] text-white/20 text-4xl"
+          >
+            <Crown className="w-7 h-7" />
+          </motion.div>
+          <motion.div 
+            custom={6}
+            variants={floatingIconVariants}
+            animate="animate"
+            className="absolute right-[25%] top-[40%] text-white/20 text-4xl"
+          >
+            <Heart className="w-6 h-6" />
+          </motion.div>
+        </div>
       </div>
       
       <CursorEffect />
