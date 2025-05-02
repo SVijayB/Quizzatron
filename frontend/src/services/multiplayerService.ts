@@ -50,7 +50,7 @@ export interface MultiplayerGameSettings {
 }
 
 // Base API URL
-const API_BASE_URL = "https://quizzatron.onrender.com/api/multiplayer";
+const API_BASE_URL = "http://127.0.0.1:5000/api/multiplayer";
 
 /**
  * Create a new multiplayer lobby
@@ -404,7 +404,7 @@ const eventCallbacks: Record<string, CallbackFunction[]> = {
 export const initializeSocket = () => {
   if (!socket) {
     console.log("Initializing socket connection");
-    socket = io("https://quizzatron.onrender.com", {
+    socket = io("http://127.0.0.1:5000", {
       transports: ['polling', 'websocket'], // Start with polling for reliability
       reconnection: true,
       reconnectionAttempts: 10,

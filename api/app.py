@@ -14,17 +14,52 @@ from api.socket_server import init_socketio
 
 def setup_logging():
     """Configure logging handlers and formatters."""
+    # Create both file and console handlers
     file_handler = logging.FileHandler("app.log", mode="a", encoding="utf-8")
-    stream_handler = logging.StreamHandler(sys.stdout)
+    console_handler = logging.StreamHandler(sys.stdout)
 
+    # Create a formatter that includes timestamp for both handlers
     formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
     file_handler.setFormatter(formatter)
-    stream_handler.setFormatter(formatter)
+    console_handler.setFormatter(formatter)
 
+    # Filter to exclude socketio ping/pong messages
+    class SocketIOFilter(logging.Filter):
+        def filter(self, record):
+            if record.getMessage().startswith(
+                "Sending packet PING"
+            ) or record.getMessage().startswith("Received packet PONG"):
+                return False
+            return True
+
+    # Add the filter to both handlers
+    socket_filter = SocketIOFilter()
+    file_handler.addFilter(socket_filter)
+    console_handler.addFilter(socket_filter)
+
+    # For hosting on Render, ensure important logs go to stdout (console)
+    # This makes logs visible in Render's log viewer
+    file_handler.setLevel(logging.INFO)
+    console_handler.setLevel(
+        logging.INFO
+    )  # Changed from WARNING to INFO for Render visibility
+
+    # Configure root logger
     root_logger = logging.getLogger()
     root_logger.setLevel(logging.INFO)
+
+    # Remove any existing handlers to avoid duplicate logs
+    for handler in root_logger.handlers[:]:
+        root_logger.removeHandler(handler)
+
+    # Add our configured handlers
     root_logger.addHandler(file_handler)
-    root_logger.addHandler(stream_handler)
+    root_logger.addHandler(console_handler)
+
+    # Set specific engine loggers to higher levels to reduce noise
+    logging.getLogger("engineio").setLevel(logging.WARNING)
+    logging.getLogger("socketio").setLevel(logging.WARNING)
+    logging.getLogger("werkzeug").setLevel(logging.WARNING)
 
 
 def create_app(env):

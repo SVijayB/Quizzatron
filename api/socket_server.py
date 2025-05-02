@@ -13,7 +13,7 @@ def init_socketio(app):
     """Initialize SocketIO with the Flask app."""
     global socketio
     socketio = SocketIO(
-        app, cors_allowed_origins="*", logger=True, engineio_logger=True
+        app, cors_allowed_origins="*", logger=False, engineio_logger=False
     )
 
     setup_socket_handlers(socketio)

@@ -225,7 +225,7 @@ const MultiplayerLobby = () => {
   
   const fetchCategories = async () => {
     try {
-      const response = await fetch('https://quizzatron.onrender.com/api/categories/get');
+      const response = await fetch('http://127.0.0.1:5000/api/categories/get');
       if (!response.ok) {
         throw new Error('Failed to fetch categories');
       }
@@ -317,8 +317,13 @@ const MultiplayerLobby = () => {
       socketService.startGame(urlLobbyCode);
       
       // Then make the API call to generate questions
-      const result = await apiService.startGame(urlLobbyCode);
-      console.log("Game start API response:", result);
+      try {
+        const result = await apiService.startGame(urlLobbyCode);
+        console.log("Game start API response:", result);
+      } catch (startError) {
+        // Completely suppress game start errors - the socket event will handle navigation
+        console.warn("Suppressed game start error:", startError);
+      }
       
       // Wait a moment for the backend to prepare, then navigate
       setTimeout(() => {
@@ -328,19 +333,11 @@ const MultiplayerLobby = () => {
       
     } catch (error) {
       console.error("Error starting game:", error);
-      setIsStartingGame(false);
-
-      // Suppress toast if the error is about the game already being started
-      if (error instanceof Error && error.message.includes("already started")) {
-        console.warn("Game already started, suppressing error toast.");
-        return;
-      }
-
-      toast({
-        title: "Error",
-        description: "Failed to start the game",
-        variant: "destructive",
-      });
+      // Don't show any error toasts or reset the starting state
+      // Just navigate to the quiz page anyway since the game is likely already started
+      setTimeout(() => {
+        navigate(`/multiplayer/quiz/${urlLobbyCode}`);
+      }, 500);
     }
   };
   

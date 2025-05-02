@@ -183,7 +183,16 @@ def update_lobby_settings(lobby_code, new_settings):
     Returns:
         tuple: A tuple containing success message and status code, or error message and status code
     """
-    logging.info(f"Updating settings for lobby {lobby_code}: {new_settings}")
+    # Only log essential settings info - not every update
+    important_setting_changes = {}
+    for key in ["numQuestions", "difficulty", "topic"]:
+        if key in new_settings:
+            important_setting_changes[key] = new_settings[key]
+
+    if important_setting_changes:
+        logging.info(
+            f"Updating key settings for lobby {lobby_code}: {important_setting_changes}"
+        )
 
     with lobbies_lock:
         # Check if lobby exists
@@ -200,15 +209,9 @@ def update_lobby_settings(lobby_code, new_settings):
             )
             return {"error": "Game has already started"}, 400
 
-        # Print current settings before update
-        logging.info(f"Current settings before update: {lobby['settings']}")
-
-        # Update settings
+        # Update settings without excessive logging
         for key, value in new_settings.items():
             lobby["settings"][key] = value
-
-        # Print settings after update
-        logging.info(f"Updated settings: {lobby['settings']}")
 
         # Update last activity
         lobby["last_activity"] = time.time()
@@ -248,6 +251,15 @@ def start_game(lobby_code):
         # Generate quiz questions based on settings
         settings = lobby["settings"]
 
+        # Log important game start information
+        logging.info(
+            f"Starting multiplayer game in lobby {lobby_code} with settings: "
+            + f"{settings['numQuestions']} questions, "
+            + f"difficulty: {settings['difficulty']}, "
+            + f"topic: {settings['topic'] or 'random'}, "
+            + f"players: {len(lobby['players'])}"
+        )
+
         # Use the existing quiz generation service with proper parameters
         quiz_params = {
             "num_questions": settings["numQuestions"],
@@ -266,9 +278,6 @@ def start_game(lobby_code):
 
         try:
             # Generate the quiz using the existing service
-            logging.info(f"⏳ Generating multiplayer quiz with params: {quiz_params}")
-
-            # Call generate_quiz which returns a response
             response = generate_quiz(**quiz_params)
 
             # The response from generate_quiz is actually a Flask Response object
@@ -291,7 +300,7 @@ def start_game(lobby_code):
 
                     if not questions_list or not isinstance(questions_list, list):
                         logging.error(
-                            f"❌ Invalid questions format: {type(questions_list)}"
+                            f"Failed to generate valid quiz questions: {type(questions_list)}"
                         )
                         return {"error": "Failed to generate valid quiz questions"}, 500
 
@@ -314,7 +323,7 @@ def start_game(lobby_code):
                     lobby["game_over"] = False
 
                     logging.info(
-                        f"✅ Multiplayer game started successfully with {len(questions_list)} questions"
+                        f"Game started successfully in lobby {lobby_code} with {len(questions_list)} questions"
                     )
 
                     # Start the game by broadcasting the first question
@@ -322,20 +331,22 @@ def start_game(lobby_code):
                     broadcast_question(lobby_code, first_question, 0)
 
                 else:
-                    logging.error(f"❌ Unexpected response format: {parsed_data}")
+                    logging.error(
+                        f"Unexpected response format from quiz generator: {parsed_data}"
+                    )
                     return {
                         "error": "Unexpected response format from quiz generator"
                     }, 500
 
             except Exception as e:
-                logging.error(f"❌ Failed to parse response data: {str(e)}")
+                logging.error(f"Failed to parse response data: {str(e)}")
                 return {"error": f"Failed to process quiz: {str(e)}"}, 500
 
             # Update last activity timestamp
             lobby["last_activity"] = time.time()
 
         except Exception as e:
-            logging.error(f"❌ Failed to generate multiplayer quiz: {str(e)}")
+            logging.error(f"Failed to generate multiplayer quiz: {str(e)}")
             return {"error": f"Failed to generate quiz: {str(e)}"}, 500
 
     return {"success": True}, 200

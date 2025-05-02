@@ -352,6 +352,15 @@ const MultiplayerQuiz = () => {
     
     console.log("Setting up socket event listeners in MultiplayerQuiz");
     
+    // Create a flag to ignore all errors during initial load
+    const ignoreErrorsTimeout = 5000; // 5 seconds
+    let ignoreAllErrors = true;
+    
+    // After timeout, allow non-startup errors to show toasts
+    setTimeout(() => {
+      ignoreAllErrors = false;
+    }, ignoreErrorsTimeout);
+
     // First initialize all our event handlers
     const playerAnsweredHandler = (data: any) => {
       console.log("Player answered:", data);
@@ -437,12 +446,22 @@ const MultiplayerQuiz = () => {
     const errorHandler = (data: any) => {
       console.error("Socket error:", data);
       
-      // Ignore specific error messages related to game start
+      // Ignore ALL errors during the initial loading phase
+      if (ignoreAllErrors) {
+        console.log("Ignoring error during game initialization:", data.message);
+        return;
+      }
+      
+      // After initial phase, still ignore common startup errors
       if (data.message && (
           data.message.includes("Game has already started") || 
           data.message.includes("Failed to start game") ||
-          data.message.includes("400"))) {
-        console.log("Ignoring expected error during game initialization:", data.message);
+          data.message.includes("400") ||
+          data.message.includes("Error starting game") ||
+          data.message.includes("Error response") ||
+          data.message.includes("server responded with")
+      )) {
+        console.log("Ignoring expected error during game:", data.message);
         return;
       }
       

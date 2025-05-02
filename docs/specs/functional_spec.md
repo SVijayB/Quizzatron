@@ -129,7 +129,7 @@ This is the JSON formatted quiz structure for a quiz - either retrieved from the
 1. **Developer sends a GET request** to the API with the following JSON payload: (Example)
 
 ```plaintext
-https://quizzatron.onrender.com/api/quiz/generate?model=gemini&topic=science&difficulty=medium&num_questions=5&image=true
+http://127.0.0.1:5000/api/quiz/generate?model=gemini&topic=science&difficulty=medium&num_questions=5&image=true
 ```
 
 2. The Flask API processes the request and forwards it to the appropriate LLM (DeepSeek/Gemini).
@@ -159,7 +159,7 @@ Hence, the student learns about the chapter in the PDF by playing the quiz
 **User (Developer):** Sends a **GET request** to Quizzatron’s Flask API using query parameters: (Example)
 
 ```plaintext
-https://quizzatron.onrender.com/api/quiz/generate?model=gemini&topic=science&difficulty=medium&num_questions=5&image=true
+http://127.0.0.1:5000/api/quiz/generate?model=gemini&topic=science&difficulty=medium&num_questions=5&image=true
 ```
 
 **System**: Processes the request and forwards it to the appropriate LLM (Gemini/DeepSeek).
