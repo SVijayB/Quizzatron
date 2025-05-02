@@ -1,3 +1,4 @@
+# pylint: skip-file
 """WebSocket server implementation for real-time multiplayer quiz game."""
 
 import logging

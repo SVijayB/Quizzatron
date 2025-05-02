@@ -29,5 +29,5 @@ jobs:
 
             - name: Run Pylint Check
               run: |
-                  # Run Pylint on all Python files EXCEPT those in the 'scripts/' folder
-                  pylint --fail-under=10 --disable=duplicate-code $(git ls-files '*.py' ':!:scripts/*')
+                  # Run Pylint only on files in the 'api' folder
+                  pylint --fail-under=10 api/

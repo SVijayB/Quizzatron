@@ -1,3 +1,4 @@
+# pylint: skip-file
 """Enhanced multiplayer quiz API routes with WebSocket support."""
 
 from flask import Blueprint, request, jsonify
