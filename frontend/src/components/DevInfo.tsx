@@ -24,14 +24,14 @@ const developers = [
   },
   {
     "name": "Akshay Ravi",
-    "desc": "UwU 👉🏻👈🏻",
+    "desc": "UwU",
     "email": "akshayravi13@gmail.com",
     "linkedin": "https://www.linkedin.com/in/akshayravi13/",
     "image": "/dev_imgs/akshay.jpeg",
   },
   {
     "name": "Hariharan sureshkumar",
-    "desc": "slay 💅",
+    "desc": "slay",
     "email": "harisureshkumar1910@gmail.com",
     "linkedin": "https://www.linkedin.com/in/hariharan-sureshkumar-4994a2254/",
     "image": "/dev_imgs/hari.jpeg",
