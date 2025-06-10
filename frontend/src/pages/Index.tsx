@@ -137,7 +137,7 @@ const Index = () => {
         // If a PDF file is selected, use generate_pdf endpoint
         requestData.append('pdf', selectedFile);
         
-        const response = await fetch('https://quizzatron.onrender.com/api/quiz/generate_pdf', {
+        const response = await fetch('https://quizzatron.onrender.com/api/quiz/generate', {
           method: 'POST',
           body: requestData
         });
