@@ -190,7 +190,7 @@ npm run dev
 
 ![Project demo](https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExMTJlODMxMDg0ZWJjOGFmNTdjYzczZTMwZTIyNzM3YTExZWMxMzM2OCZjdD1n/wwg1suUiTbCY8H8vIA/giphy-downsized-large.gif)
 
-You can also test out the project yourself [here]([https://www.youtube.com/watch?v=dQw4w9WgXcQ](https://quizzatron.netlify.app/)).
+You can also test out the project yourself [here](https://quizzatron.netlify.app/).
 
 ## Contributing
 
