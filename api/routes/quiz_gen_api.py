@@ -41,7 +41,7 @@ def generate():
     Generate a quiz based on provided parameters or a PDF file.
 
     GET:
-        - model: str, AI model to use (e.g., 'deepseek', 'gemini', or 'gemma').
+        - model: str, AI model to use (e.g., 'deepseek', 'gemini', 'gemma', or 'mistral').
         - topic: str, topic for quiz questions.
         - difficulty: str, difficulty level ('easy', 'medium', 'hard').
         - num_questions: int, number of questions (default is 5).
@@ -82,7 +82,7 @@ def generate():
                             "Missing required parameters. Provide model, difficulty, "
                             "and either topic or pdf."
                         ),
-                        "model": "deepseek, gemini, or gemma",
+                        "model": "deepseek, gemini, gemma, or mistral",
                         "difficulty": "easy, medium, or hard",
                         "topic": "Topic for quiz questions",
                         "num_questions": "Number of questions (default is 5)",

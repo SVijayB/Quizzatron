@@ -5,14 +5,14 @@ import logging
 import os
 from dotenv import load_dotenv
 import pypdf
-import ollama
-from google import genai
+import litellm
 from api.utils.extract_img import download_images
 
 load_dotenv()
 
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
-client = genai.Client(api_key=GOOGLE_API_KEY)
+NVIDIA_KEY = os.getenv("NVIDIA_KEY")
+MISTRAL_KEY = os.getenv("MISTRAL_KEY")
 
 
 def extract_text_from_pdf(pdf_path):
@@ -41,25 +41,42 @@ def generate_questions(topic, num_questions, difficulty, model, image, pdf):
             topic=topic, num_questions=num_questions, difficulty=difficulty, image=image
         )
 
+    messages = [{"role": "user", "content": prompt}]
+    
     if model == "deepseek":
-        response = ollama.chat(
-            model="deepseek-r1", messages=[{"role": "user", "content": prompt}]
+        response = litellm.completion(
+            model="openai/deepseek-ai/deepseek-v3.2",
+            api_base="https://integrate.api.nvidia.com/v1",
+            api_key=NVIDIA_KEY,
+            messages=messages
         )
-        return response["message"]["content"]
+        return response.choices[0].message.content.strip()
         
-    # NEW: Added Gemma integration using the Google GenAI client
+    # NEW: Added Gemma integration using the Google GenAI client via litellm
     if model == "gemma":
-        response = client.models.generate_content(
-            model="gemma-4-31b-it", contents=prompt
+        response = litellm.completion(
+            model="gemini/gemma-4-31b-it",
+            api_key=GOOGLE_API_KEY,
+            messages=messages
         )
-        return response.text.strip()
+        return response.choices[0].message.content.strip()
         
-    # UPDATED: Using the latest stable Gemini flash model
+    # UPDATED: Using the latest stable Gemini flash model via litellm
     if model == "gemini":
-        response = client.models.generate_content(
-            model="gemini-2.5-flash", contents=prompt
+        response = litellm.completion(
+            model="gemini/gemini-2.5-flash",
+            api_key=GOOGLE_API_KEY,
+            messages=messages
         )
-        return response.text.strip()
+        return response.choices[0].message.content.strip()
+
+    if model == "mistral":
+        response = litellm.completion(
+            model="mistral/mistral-large-2411",
+            api_key=MISTRAL_KEY,
+            messages=messages
+        )
+        return response.choices[0].message.content.strip()
 
     return None
 

@@ -35,8 +35,8 @@ def generate_quiz(
             400,
         )
 
-    if model.lower() not in ["deepseek", "gemini", "gemma"]:
-        return jsonify({"error": "Invalid model. Choose one: [deepseek, gemini, gemma]."}), 400
+    if model.lower() not in ["deepseek", "gemini", "gemma", "mistral"]:
+        return jsonify({"error": "Invalid model. Choose one: [deepseek, gemini, gemma, mistral]."}), 400
 
     if num_questions is not None:
         try:

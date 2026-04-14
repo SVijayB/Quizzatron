@@ -612,6 +612,7 @@ const Index = () => {
                       <SelectItem value="gemini">Gemini</SelectItem>
                       <SelectItem value="gemma">Gemma</SelectItem>
                       <SelectItem value="deepseek">DeepSeek</SelectItem>
+                      <SelectItem value="mistral">Mistral</SelectItem>
                     </SelectContent>
                   </Select>
                 </motion.div>
