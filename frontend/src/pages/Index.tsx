@@ -22,6 +22,7 @@ import LoadingSpinner from "@/components/LoadingSpinner";
 import CategorySuggestions from "@/components/CategorySuggestions";
 import QuizLogo from "@/components/QuizLogo";
 import { fetchCategories, fetchQuizByCategory } from "@/services/categoryService";
+import { API_BASE_URL } from "@/services/config";
 import {
   Dialog,
   DialogContent,
@@ -53,7 +54,7 @@ const Index = () => {
   useEffect(() => {
     const loadCategories = async () => {
       try {
-        const response = await fetch('https://quizzatron.onrender.com/api/categories/get');
+        const response = await fetch(`${API_BASE_URL}/categories/get`);
         if (!response.ok) {
           throw new Error('Failed to fetch categories');
         }
@@ -137,7 +138,7 @@ const Index = () => {
         // If a PDF file is selected, use generate_pdf endpoint
         requestData.append('pdf', selectedFile);
         
-        const response = await fetch('https://quizzatron.onrender.com/api/quiz/generate', {
+        const response = await fetch(`${API_BASE_URL}/quiz/generate`, {
           method: 'POST',
           body: requestData
         });
@@ -164,7 +165,7 @@ const Index = () => {
         }
       } else {
         // Regular topic-based generation
-        const response = await fetch('https://quizzatron.onrender.com/api/quiz/generate', {
+        const response = await fetch(`${API_BASE_URL}/quiz/generate`, {
           method: 'POST',
           body: requestData
         });

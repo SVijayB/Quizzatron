@@ -15,6 +15,7 @@ import EmojiAvatar from "@/components/EmojiAvatar";
 import { useMultiplayer } from "@/contexts/MultiplayerContext";
 import { apiService } from "@/services/apiService";
 import { socketService } from "@/services/socketService";
+import { API_BASE_URL } from "@/services/config";
 import CategorySuggestions from "@/components/CategorySuggestions";
 import "./MultiplayerLobby.css";
 
@@ -225,7 +226,7 @@ const MultiplayerLobby = () => {
   
   const fetchCategories = async () => {
     try {
-      const response = await fetch('https://quizzatron.onrender.com/api/categories/get');
+      const response = await fetch(`${API_BASE_URL}/categories/get`);
       if (!response.ok) {
         throw new Error('Failed to fetch categories');
       }

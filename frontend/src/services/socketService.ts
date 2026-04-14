@@ -1,4 +1,5 @@
 import { io, Socket } from "socket.io-client";
+import { BASE_URL } from "./config";
 import { useToast } from "@/components/ui/use-toast";
 import { useLocation } from "react-router-dom";
 
@@ -8,7 +9,7 @@ type EventCallback = (...args: any[]) => void;
 // Socket service singleton class
 class SocketService {
   private socket: Socket | null = null;
-  private serverUrl = "https://quizzatron.onrender.com";
+  private serverUrl = BASE_URL;
   private registeredEvents: Map<string, EventCallback[]> = new Map();
   private connectedLobbyCode: string | null = null;
   private reconnectAttempts = 0;

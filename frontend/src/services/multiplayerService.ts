@@ -1,5 +1,6 @@
 import { toast } from "@/components/ui/use-toast";
 import { io, Socket } from "socket.io-client";
+import { MULTIPLAYER_API_URL, BASE_URL } from "./config";
 
 /**
  * Interface for multiplayer quiz question
@@ -50,7 +51,7 @@ export interface MultiplayerGameSettings {
 }
 
 // Base API URL
-const API_BASE_URL = "https://quizzatron.onrender.com/api/multiplayer";
+const API_BASE_URL = MULTIPLAYER_API_URL;
 
 /**
  * Create a new multiplayer lobby
@@ -404,7 +405,7 @@ const eventCallbacks: Record<string, CallbackFunction[]> = {
 export const initializeSocket = () => {
   if (!socket) {
     console.log("Initializing socket connection");
-    socket = io("https://quizzatron.onrender.com", {
+    socket = io(BASE_URL, {
       transports: ['polling', 'websocket'], // Start with polling for reliability
       reconnection: true,
       reconnectionAttempts: 10,

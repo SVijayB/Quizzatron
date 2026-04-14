@@ -1,3 +1,4 @@
+import { API_BASE_URL } from "./config";
 
 interface Developer {
   name: string;
@@ -9,7 +10,7 @@ interface Developer {
 
 export const fetchDevInfo = async (): Promise<Developer[]> => {
   try {
-    const response = await fetch('https://quizzatron.onrender.com/api/dev-info');
+    const response = await fetch(`${API_BASE_URL}/dev-info`);
     
     if (!response.ok) {
       throw new Error(`Failed to fetch developer information: ${response.status} ${response.statusText}`);

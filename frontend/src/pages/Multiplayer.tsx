@@ -11,6 +11,7 @@ import CursorEffect from "@/components/CursorEffect";
 import QuizLogo from "@/components/QuizLogo";
 import EmojiAvatar, { getRandomEmoji } from "@/components/EmojiAvatar";
 import { useMultiplayer } from "@/contexts/MultiplayerContext";
+import { MULTIPLAYER_API_URL } from "@/services/config";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 const Multiplayer = () => {
@@ -96,7 +97,7 @@ const Multiplayer = () => {
     setIsCreatingLobby(true);
 
     try {
-      const response = await fetch("https://quizzatron.onrender.com/api/multiplayer/create", {
+      const response = await fetch(`${MULTIPLAYER_API_URL}/create`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -151,7 +152,7 @@ const Multiplayer = () => {
     setIsJoiningLobby(true);
 
     try {
-      const response = await fetch("https://quizzatron.onrender.com/api/multiplayer/join", {
+      const response = await fetch(`${MULTIPLAYER_API_URL}/join`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

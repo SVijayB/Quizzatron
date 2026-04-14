@@ -69,9 +69,6 @@ def setup_virtual_environment():
         else os.path.join(venv_dir, "bin", "activate")
     )
 
-    # Set environment flag for venv
-    os.environ["QUIZZATRON_IN_VENV"] = "true"
-
     print(f"Activating virtual environment using {activate_script}")
 
     # If not already in venv, restart the script with venv python
