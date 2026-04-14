@@ -609,6 +609,7 @@ const Index = () => {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="gemini">Gemini</SelectItem>
+                      <SelectItem value="gemma">Gemma</SelectItem>
                       <SelectItem value="deepseek">DeepSeek</SelectItem>
                     </SelectContent>
                   </Select>

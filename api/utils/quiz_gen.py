@@ -46,9 +46,18 @@ def generate_questions(topic, num_questions, difficulty, model, image, pdf):
             model="deepseek-r1", messages=[{"role": "user", "content": prompt}]
         )
         return response["message"]["content"]
+        
+    # NEW: Added Gemma integration using the Google GenAI client
+    if model == "gemma":
+        response = client.models.generate_content(
+            model="gemma-4-31b-it", contents=prompt
+        )
+        return response.text.strip()
+        
+    # UPDATED: Using the latest stable Gemini flash model
     if model == "gemini":
         response = client.models.generate_content(
-            model="gemini-2.0-flash-lite", contents=prompt
+            model="gemini-2.5-flash", contents=prompt
         )
         return response.text.strip()
 
