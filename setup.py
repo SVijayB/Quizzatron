@@ -42,51 +42,31 @@ def check_python_version():
 
 def setup_virtual_environment():
     """
-    Create and activate a virtual environment if one doesn't exist.
+    Check for uv and restart the script within the uv environment.
 
     Returns:
-        bool: True if venv is set up and activated successfully, False otherwise
+        bool: True if uv is available and script is restarted, False otherwise
     """
-    venv_dir = "venv"
+    try:
+        # Check if uv is installed
+        subprocess.run(["uv", "--version"], capture_output=True, check=True)
+    except (FileNotFoundError, subprocess.CalledProcessError):
+        print("=" * 60)
+        print("ERROR: uv is not installed on your system.")
+        print("Please install uv using: curl -LsSf https://astral.sh/uv/install.sh | sh")
+        print("Reference: https://docs.astral.sh/uv/getting-started/installation/")
+        print("=" * 60)
+        return False
 
-    # Check if virtual environment already exists
-    if os.path.exists(venv_dir):
-        print(f"Virtual environment already exists at {venv_dir}")
-    else:
-        print("Creating virtual environment...")
-        try:
-            subprocess.check_call([sys.executable, "-m", "venv", venv_dir])
-            print(f"Virtual environment created at {venv_dir}")
-        except subprocess.CalledProcessError:
-            print("Failed to create virtual environment. Please create it manually:")
-            print(f"  {sys.executable} -m venv {venv_dir}")
-            return False
-
-    # Get the appropriate activation script based on platform
-    activate_script = (
-        os.path.join(venv_dir, "Scripts", "activate")
-        if sys.platform == "win32"
-        else os.path.join(venv_dir, "bin", "activate")
-    )
-
-    print(f"Activating virtual environment using {activate_script}")
-
-    # If not already in venv, restart the script with venv python
+    # If not already running within the uv context, restart the script with uv run
     if not os.environ.get("QUIZZATRON_IN_VENV"):
-        print("Restarting script within virtual environment...")
-
-        # Get the appropriate python executable based on platform
-        venv_python = (
-            os.path.join(os.path.abspath(venv_dir), "Scripts", "python.exe")
-            if sys.platform == "win32"
-            else os.path.join(os.path.abspath(venv_dir), "bin", "python")
-        )
+        print("Restarting script using 'uv run'...")
 
         current_script = os.path.abspath(__file__)
         os.environ["QUIZZATRON_IN_VENV"] = "true"
 
-        # Start new process with venv python
-        with subprocess.Popen([venv_python, current_script], env=os.environ) as process:
+        # Start new process with uv run
+        with subprocess.Popen(["uv", "run", "python", current_script], env=os.environ) as process:
             process.wait()
         sys.exit(0)
 
@@ -167,13 +147,11 @@ def install_requirements():
 
     This ensures all required packages are available before running the app.
     """
-    print("Installing backend dependencies...")
+    print("Installing backend dependencies using uv...")
 
-    # Install Python dependencies
-    subprocess.check_call(
-        [sys.executable, "-m", "pip", "install", "-r", "requirements.txt"]
-    )
-    print("Backend dependencies installed successfully!")
+    # Install Python dependencies using uv sync
+    subprocess.check_call(["uv", "sync"])
+    print("Backend dependencies synced successfully!")
 
     # Check and install frontend dependencies if directory exists
     if os.path.exists("frontend"):

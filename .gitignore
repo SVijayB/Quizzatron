@@ -12,3 +12,5 @@ frontend/node_modules/
 app.log
 uploads/.DS_Store
 .pylintrc
+.venv
+.DS_Store
