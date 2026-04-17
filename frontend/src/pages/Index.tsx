@@ -40,34 +40,29 @@ const Index = () => {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [categories, setCategories] = useState<string[]>([]);
   const [categoryData, setCategoryData] = useState<{[key: string]: number | string}>({});
+  const [models, setModels] = useState<{[key: string]: {name: string, key_env: string}}>({});
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [isCategorySelected, setIsCategorySelected] = useState(false);
   const [showInfoDialog, setShowInfoDialog] = useState(false);
   const [formData, setFormData] = useState({
     topic: "",
-    model: "gemini",
+    model: "",
     difficulty: "medium",
     numQuestions: 10,
     image: false,
   });
 
   useEffect(() => {
-    const loadCategories = async () => {
+    const loadInitialData = async () => {
       try {
-        const response = await fetch(`${API_BASE_URL}/categories/get`);
-        if (!response.ok) {
-          throw new Error('Failed to fetch categories');
+        const catResponse = await fetch(`${API_BASE_URL}/categories/get`);
+        if (catResponse.ok) {
+          const catData: {[key: string]: number | string} = await catResponse.json();
+          setCategoryData(catData);
+          setCategories(Object.keys(catData));
+        } else {
+          console.error('Failed to fetch categories response:', catResponse.status);
         }
-        
-        const data: {[key: string]: number | string} = await response.json();
-        setCategoryData(data);
-        
-        // Include ALL categories now, not filtering out trivia-qa ones
-        const categoryList = Object.keys(data);
-        setCategories(categoryList);
-        
-        console.log("Loaded categories data:", data);
-        console.log("Complete category list:", categoryList);
       } catch (error) {
         console.error('Error fetching categories:', error);
         toast({
@@ -76,9 +71,25 @@ const Index = () => {
           variant: "destructive",
         });
       }
+        
+      try {
+        const modelsResponse = await fetch(`${API_BASE_URL}/quiz/models`);
+        if (modelsResponse.ok) {
+          const modelsData = await modelsResponse.json();
+          setModels(modelsData);
+          if (Object.keys(modelsData).length > 0) {
+            const googleModel = Object.keys(modelsData).find(key => modelsData[key].key_env === 'GOOGLE_API_KEY');
+            setFormData(prev => ({ ...prev, model: googleModel || Object.keys(modelsData)[0] }));
+          }
+        } else {
+          console.error("Failed to fetch models: ", modelsResponse.status);
+        }
+      } catch (e) {
+        console.error("Failed to fetch models", e);
+      }
     };
     
-    loadCategories();
+    loadInitialData();
   }, [toast]);
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -118,6 +129,14 @@ const Index = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!formData.model) {
+      toast({
+        title: "Model Required",
+        description: "Please select a model.",
+        variant: "destructive",
+      });
+      return;
+    }
     setLoading(true);
 
     try {
@@ -606,13 +625,16 @@ const Index = () => {
                     <SelectTrigger className={`w-full h-9 bg-gray-800 border-gray-700 text-gray-200 text-sm ${
                       isCategorySelected ? "opacity-50 cursor-not-allowed" : ""
                     }`}>
-                      <SelectValue placeholder="Select model" />
+                      <SelectValue placeholder={Object.keys(models).length > 0 ? "Select model" : "Loading models..."} />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="gemini">Gemini</SelectItem>
-                      <SelectItem value="gemma">Gemma</SelectItem>
-                      <SelectItem value="deepseek">DeepSeek</SelectItem>
-                      <SelectItem value="mistral">Mistral</SelectItem>
+                      {Object.keys(models).length > 0 ? (
+                        Object.entries(models).map(([modelId, modelData]) => (
+                          <SelectItem key={modelId} value={modelId}>{modelData.name}</SelectItem>
+                        ))
+                      ) : (
+                        <SelectItem value="loading" disabled>Loading models...</SelectItem>
+                      )}
                     </SelectContent>
                   </Select>
                 </motion.div>

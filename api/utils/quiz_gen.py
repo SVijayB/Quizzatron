@@ -9,10 +9,28 @@ import litellm
 from api.utils.extract_img import download_images
 
 load_dotenv()
+litellm.suppress_debug_info = True
+litellm.set_verbose = False
 
-GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
-NVIDIA_KEY = os.getenv("NVIDIA_KEY")
-MISTRAL_KEY = os.getenv("MISTRAL_KEY")
+AVAILABLE_MODELS = {
+    "gemini/gemini-2.5-flash": {
+        "key_env": "GOOGLE_API_KEY",
+        "name": "Gemini 2.5 Flash"
+    },
+    "gemini/gemma-4-31b-it": {
+        "key_env": "GOOGLE_API_KEY",
+        "name": "Gemma 4 31B IT"
+    },
+    "openai/deepseek-ai/deepseek-v3.2": {
+        "key_env": "NVIDIA_KEY",
+        "api_base": "https://integrate.api.nvidia.com/v1",
+        "name": "DeepSeek v3.2"
+    },
+    "mistral/mistral-large-2411": {
+        "key_env": "MISTRAL_KEY",
+        "name": "Mistral Large"
+    }
+}
 
 
 def extract_text_from_pdf(pdf_path):
@@ -43,42 +61,27 @@ def generate_questions(topic, num_questions, difficulty, model, image, pdf):
 
     messages = [{"role": "user", "content": prompt}]
     
-    if model == "deepseek":
-        response = litellm.completion(
-            model="openai/deepseek-ai/deepseek-v3.2",
-            api_base="https://integrate.api.nvidia.com/v1",
-            api_key=NVIDIA_KEY,
-            messages=messages
-        )
-        return response.choices[0].message.content.strip()
-        
-    # NEW: Added Gemma integration using the Google GenAI client via litellm
-    if model == "gemma":
-        response = litellm.completion(
-            model="gemini/gemma-4-31b-it",
-            api_key=GOOGLE_API_KEY,
-            messages=messages
-        )
-        return response.choices[0].message.content.strip()
-        
-    # UPDATED: Using the latest stable Gemini flash model via litellm
-    if model == "gemini":
-        response = litellm.completion(
-            model="gemini/gemini-2.5-flash",
-            api_key=GOOGLE_API_KEY,
-            messages=messages
-        )
-        return response.choices[0].message.content.strip()
+    if model not in AVAILABLE_MODELS:
+        logging.error("Model %s is not configured.", model)
+        return None
 
-    if model == "mistral":
-        response = litellm.completion(
-            model="mistral/mistral-large-2411",
-            api_key=MISTRAL_KEY,
-            messages=messages
-        )
+    model_config = AVAILABLE_MODELS[model]
+    
+    kwargs = {
+        "model": model,
+        "messages": messages,
+        "api_key": os.getenv(model_config.get("key_env", ""))
+    }
+    
+    if "api_base" in model_config:
+        kwargs["api_base"] = model_config["api_base"]
+        
+    try:
+        response = litellm.completion(**kwargs)
         return response.choices[0].message.content.strip()
-
-    return None
+    except Exception as e:
+        logging.error("Error executing model %s: %s", model, str(e))
+        return None
 
 
 def parse_questions(response_text):

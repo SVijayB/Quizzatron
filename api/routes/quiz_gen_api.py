@@ -4,6 +4,7 @@ import os
 from flask import jsonify, request, Blueprint
 from werkzeug.utils import secure_filename
 from api.services.quiz_gen_service import generate_quiz
+from api.utils.quiz_gen import AVAILABLE_MODELS
 
 # Blueprint for quiz generation API
 core_quiz_gen_bp = Blueprint("core_quiz_gen_api", __name__, url_prefix="/quiz")
@@ -33,6 +34,15 @@ def quiz():
             )
         }
     )
+
+
+@core_quiz_gen_bp.route("/models", methods=["GET"])
+def get_models():
+    """Return the list of available AI models."""
+    return jsonify({
+        k: {"name": v["name"], "key_env": v.get("key_env")} 
+        for k, v in AVAILABLE_MODELS.items()
+    })
 
 
 @core_quiz_gen_bp.route("/generate", methods=["GET", "POST"])
@@ -82,7 +92,7 @@ def generate():
                             "Missing required parameters. Provide model, difficulty, "
                             "and either topic or pdf."
                         ),
-                        "model": "deepseek, gemini, gemma, or mistral",
+                        "model": f"Choose from: {', '.join(AVAILABLE_MODELS.keys())}",
                         "difficulty": "easy, medium, or hard",
                         "topic": "Topic for quiz questions",
                         "num_questions": "Number of questions (default is 5)",

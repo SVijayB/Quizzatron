@@ -2,7 +2,7 @@
 
 import logging
 from flask import jsonify
-from api.utils.quiz_gen import generate_questions, parse_questions
+from api.utils.quiz_gen import generate_questions, parse_questions, AVAILABLE_MODELS
 from api.utils.validate_output import validate_model_output
 
 
@@ -10,7 +10,7 @@ from api.utils.validate_output import validate_model_output
 def generate_quiz(
     topic=None,
     pdf=None,
-    model="gemini",
+    model="gemini/gemini-2.5-flash",
     difficulty="medium",
     num_questions=5,
     image=False,
@@ -21,7 +21,7 @@ def generate_quiz(
     Args:
         topic (str, optional): The topic of the quiz. Defaults to None.
         pdf (str, optional): Path to a PDF file for quiz generation. Defaults to None.
-        model (str, optional): The AI model to use. Defaults to "gemini".
+        model (str, optional): The AI model to use. Defaults to "gemini/gemini-2.5-flash".
         difficulty (str, optional): The difficulty level of the quiz. Defaults to "medium".
         num_questions (int, optional): Number of questions to generate. Defaults to 5.
         image (bool, optional): Whether to include image-based questions. Defaults to False.
@@ -35,8 +35,10 @@ def generate_quiz(
             400,
         )
 
-    if model.lower() not in ["deepseek", "gemini", "gemma", "mistral"]:
-        return jsonify({"error": "Invalid model. Choose one: [deepseek, gemini, gemma, mistral]."}), 400
+    if model not in AVAILABLE_MODELS:
+        return jsonify({
+            "error": f"Invalid model. Choose one: {list(AVAILABLE_MODELS.keys())}."
+        }), 400
 
     if num_questions is not None:
         try:
