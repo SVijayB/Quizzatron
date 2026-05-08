@@ -3,7 +3,7 @@
 import logging
 import os
 import glob
-from icrawler.builtin import GoogleImageCrawler
+from icrawler.builtin import BingImageCrawler
 from flask import request
 
 logging.getLogger("icrawler").setLevel(logging.CRITICAL)
@@ -32,9 +32,8 @@ def download_images(query):
     Returns:
         str or None: The URL of the downloaded image, or None if no image was found.
     """
-    filters = {"size": "medium", "license": "noncommercial"}
-    google_crawler = GoogleImageCrawler(storage={"root_dir": TEMP_FOLDER})
-    google_crawler.crawl(keyword=query, max_num=1, filters=filters)
+    crawler = BingImageCrawler(storage={"root_dir": TEMP_FOLDER})
+    crawler.crawl(keyword=query, max_num=1)
 
     downloaded_images = glob.glob(os.path.join(TEMP_FOLDER, "000001*"))
     if not downloaded_images:

@@ -16,8 +16,8 @@ Hard: Extremely challenging, requiring specialized knowledge or deep expertise. 
 Example: What was the original name of the programming language that later became Python? → ABC
 
 **Image-based questions: {image}**
-- If true, at least 1/4 of the questions must be image-type. The "image" field should contain a short Bing image search prompt (e.g., "National flag of Japan").
-- If false, set the "image" field to false for all questions.
+- If true, ALL questions must be image-type. Every question must ask the user to identify something shown in an image. The "image" field must contain a specific, descriptive Bing image search query that will return the correct answer (e.g., "National flag of Japan", "Tesla company logo", "Eiffel Tower Paris"). Do NOT use vague queries.
+- If false, set the "image" field to false for all questions. Do NOT ask visual identification questions when image is false.
 
 **JSON Schema:**
 Return a single JSON object with this exact structure:
@@ -29,7 +29,7 @@ Return a single JSON object with this exact structure:
             "options": ["A) Option1", "B) Option2", "C) Option3", "D) Option4"],
             "correct_answer": "B",
             "difficulty": "{difficulty}",
-            "image": false
+            "image": "Eiffel Tower Paris"
         }}
     ]
 }}

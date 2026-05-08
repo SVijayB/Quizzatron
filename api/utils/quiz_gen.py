@@ -112,7 +112,7 @@ def process_images(quiz_response):
     for question in questions:
         if isinstance(question["image"], str) and question["image"]:
             image_path = download_images(question["image"])
-            question["image"] = image_path
+            question["image"] = image_path if image_path else "False"
         else:
             question["image"] = "False"
     logging.info("✅ Quiz generation completed successfully.")
