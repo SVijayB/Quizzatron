@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { 
   Users, Check, Copy, ArrowLeft, Share2, Play, 
   Timer, RefreshCw, Settings, AlertCircle, 
-  Dices, Hash, Heart, User, BookOpen,
+  Dices, Hash, Heart, User, BookOpen, Brain,
   ChevronDown, Search, X
 } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
@@ -50,6 +50,7 @@ const MultiplayerLobby = () => {
   const [categoryData, setCategoryData] = useState<{[key: string]: number | string}>({});
   const [topicInput, setTopicInput] = useState(gameSettings.topic || "");
   const [showCategorySuggestions, setShowCategorySuggestions] = useState(false);
+  const [models, setModels] = useState<{[key: string]: {name: string, key_env: string}}>({});
   
   const topicUpdateTimer = useRef<NodeJS.Timeout | null>(null);
   const lastSliderValue = useRef<number>(gameSettings.numQuestions);
@@ -249,9 +250,21 @@ const MultiplayerLobby = () => {
     }
   };
   
-  // Load categories when component mounts
   useEffect(() => {
     fetchCategories();
+    // Fetch available models
+    const fetchModels = async () => {
+      try {
+        const response = await fetch(`${API_BASE_URL}/quiz/models`);
+        if (response.ok) {
+          const data = await response.json();
+          setModels(data);
+        }
+      } catch (error) {
+        console.error("Error fetching models:", error);
+      }
+    };
+    fetchModels();
   }, []);
   
   const toggleReady = async () => {
@@ -732,6 +745,30 @@ const MultiplayerLobby = () => {
                                 <option value="easy">Easy</option>
                                 <option value="medium">Medium</option>
                                 <option value="hard">Hard</option>
+                              </select>
+                            </div>
+
+                            <div className="settings-item">
+                              <div className="settings-label">
+                                <Brain className="settings-label-icon text-cyan-400" />
+                                <label>AI Model</label>
+                              </div>
+                              <select
+                                value={gameSettings.model}
+                                onChange={(e) => {
+                                  const value = e.target.value;
+                                  if (isHost) handleUpdateSettings({ model: value });
+                                }}
+                                disabled={!isHost}
+                                className={`settings-select ${!isHost ? 'disabled' : ''}`}
+                              >
+                                {Object.keys(models).length > 0 ? (
+                                  Object.entries(models).map(([modelId, modelData]) => (
+                                    <option key={modelId} value={modelId}>{modelData.name}</option>
+                                  ))
+                                ) : (
+                                  <option value={gameSettings.model}>{gameSettings.model}</option>
+                                )}
                               </select>
                             </div>
 

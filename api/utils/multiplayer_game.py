@@ -56,7 +56,7 @@ def create_new_lobby(host_name, host_avatar):
             "timePerQuestion": 15,
             "allowSkipping": False,
             "topic": None,
-            "model": "gemini",
+            "model": "gemini/gemini-2.5-flash",
         },
         "questions": [],
         "all_answers_received": False,
@@ -280,11 +280,23 @@ def start_game(lobby_code):
             # Generate the quiz using the existing service
             response = generate_quiz(**quiz_params)
 
-            # The response from generate_quiz is actually a Flask Response object
-            # We need to convert it to the expected JSON format
+            # The response from generate_quiz can be either:
+            # - A Flask Response object (success case via jsonify)
+            # - A tuple of (Response, status_code) (error cases)
             try:
-                # Convert the response to string and parse as JSON
-                response_data = response.get_data(as_text=True)
+                # Handle tuple vs Response return
+                if isinstance(response, tuple):
+                    flask_response, status_code = response
+                    if status_code != 200:
+                        error_data = json.loads(flask_response.get_data(as_text=True))
+                        logging.error(
+                            f"Quiz generation failed with status {status_code}: {error_data}"
+                        )
+                        return {"error": error_data.get("error", "Failed to generate quiz")}, status_code
+                    response_data = flask_response.get_data(as_text=True)
+                else:
+                    response_data = response.get_data(as_text=True)
+
                 parsed_data = json.loads(response_data)
 
                 # Based on the example, we expect a list with:
