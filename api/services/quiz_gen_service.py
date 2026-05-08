@@ -1,12 +1,39 @@
 """Module for generating quizzes based on user input."""
 
+import json
 import logging
 from flask import jsonify
-from api.utils.quiz_gen import generate_questions, parse_questions, AVAILABLE_MODELS
-from api.utils.validate_output import validate_model_output
+from pydantic import ValidationError
+from tenacity import (
+    retry,
+    stop_after_attempt,
+    wait_exponential,
+    retry_if_exception_type,
+    before_sleep_log,
+)
+
+from api.models.schemas import QuizRequest, Difficulty
+from api.utils.quiz_gen import generate_questions, process_images, AVAILABLE_MODELS
+
+logger = logging.getLogger(__name__)
 
 
-# pylint: disable=too-many-arguments, too-many-positional-arguments, too-many-return-statements
+@retry(
+    stop=stop_after_attempt(3),
+    wait=wait_exponential(multiplier=1, min=1, max=10),
+    retry=retry_if_exception_type((ValidationError, json.JSONDecodeError)),
+    before_sleep=before_sleep_log(logger, logging.WARNING),
+)
+def _generate_with_retry(topic, num_questions, difficulty, model, image, pdf):
+    """Call generate_questions with automatic retry on validation/parse failures.
+
+    Retries up to 3 times with exponential backoff (1s → 2s → 4s).
+    Only retries on ValidationError or JSONDecodeError — other exceptions
+    (auth failures, network errors, etc.) propagate immediately.
+    """
+    return generate_questions(topic, num_questions, difficulty, model, image, pdf)
+
+
 def generate_quiz(
     topic=None,
     pdf=None,
@@ -29,63 +56,57 @@ def generate_quiz(
     Returns:
         tuple: A tuple containing a JSON response and an HTTP status code.
     """
-    if difficulty.lower() not in ["easy", "medium", "hard"]:
-        return (
-            jsonify({"error": "Invalid difficulty. Choose one: [easy, medium, hard]"}),
-            400,
+    # Validate input using Pydantic
+    try:
+        req = QuizRequest(
+            topic=topic,
+            pdf=pdf,
+            model=model,
+            difficulty=difficulty,
+            num_questions=num_questions,
+            image=image,
         )
+    except ValidationError as e:
+        errors = e.errors()
+        messages = [f"{err['loc'][-1]}: {err['msg']}" for err in errors]
+        return jsonify({"error": "Invalid parameters", "details": messages}), 400
 
-    if model not in AVAILABLE_MODELS:
+    if req.model not in AVAILABLE_MODELS:
         return jsonify({
             "error": f"Invalid model. Choose one: {list(AVAILABLE_MODELS.keys())}."
         }), 400
 
-    if num_questions is not None:
-        try:
-            num_questions = int(num_questions)
-            if num_questions <= 0:
-                return (  # not hit
-                    jsonify({"error": "num_questions must be a positive integer."}),
-                    400,
-                )
-        except ValueError:  # not hit
-            return (
-                jsonify({"error": "num_questions must be an integer."}),
-                400,
-            )  # not hit
-
-    if isinstance(image, str):  # Ensure `image` is a string before calling `.lower()`
-        if image.lower() not in ["true", "false"]:
-            return jsonify({"error": "image must be 'true' or 'false'."}), 400
-        image = image.lower() == "true"
-
-    if pdf is not None and not pdf.lower().endswith(".pdf"):
-        return jsonify({"error": "Invalid file format."}), 400  # not hit
-
     logging.info("🔍 Input parameters validated. Payload is ready.")
-    logging.info("⏳ Generating quiz questions on %s.", topic)
+    logging.info("⏳ Generating quiz questions on %s.", req.topic)
 
-    max_retries = 3
-    for attempt in range(max_retries):
-        try:
-            response_text = generate_questions(
-                topic, num_questions, difficulty, model, image, pdf
-            )
-            validated_response = validate_model_output(response_text)
-            if validated_response:
-                logging.info("💫 Model output validated successfully.")
-                questions = parse_questions(validated_response)
-                return jsonify(questions, 200)
-            logging.warning(  # not hit
-                "⚠️ Model output validation failed. Retrying... (%d/%d)",
-                attempt + 1,
-                max_retries,
-            )
-        except Exception as error:  # pylint: disable=broad-except #not hit
-            logging.error("❌ Quiz generation failed: %s", str(error))  # not hit
+    try:
+        quiz_response = _generate_with_retry(
+            req.topic,
+            req.num_questions,
+            req.difficulty.value,
+            req.model,
+            req.image,
+            req.pdf,
+        )
+        logging.info("💫 Model output validated successfully.")
+        questions = process_images(quiz_response)
+        return jsonify(questions, 200)
 
-    logging.error("❌ Model output validation failed after maximum retries.")  # not hit
-    return (
-        jsonify({"error": "Invalid model output after multiple attempts."}),
-        500,
-    )  # not hit
+    except ValidationError:
+        logging.error("❌ Model output validation failed after maximum retries.")
+        return (
+            jsonify({"error": "Invalid model output after multiple attempts."}),
+            500,
+        )
+    except json.JSONDecodeError:
+        logging.error("❌ Model returned non-JSON response after maximum retries.")
+        return (
+            jsonify({"error": "Invalid model output after multiple attempts."}),
+            500,
+        )
+    except ValueError as e:
+        logging.error("❌ Quiz generation failed: %s", str(e))
+        return jsonify({"error": str(e)}), 400
+    except Exception as e:  # pylint: disable=broad-except
+        logging.error("❌ Unexpected error during quiz generation: %s", str(e))
+        return jsonify({"error": "An unexpected error occurred."}), 500

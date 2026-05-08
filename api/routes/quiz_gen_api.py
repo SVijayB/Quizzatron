@@ -81,7 +81,7 @@ def generate():
         topic = request.args.get("topic")
         difficulty = request.args.get("difficulty")
         num_questions = request.args.get("num_questions", default=5, type=int)
-        image = request.args.get("image", default="false").lower() == "true"
+        image = request.args.get("image", default="false")
         pdf = request.args.get("pdf")
 
         if not model or not difficulty or (not topic and not pdf):
@@ -121,7 +121,7 @@ def generate():
         topic = request.form.get("topic")
         difficulty = request.form.get("difficulty")
         num_questions = int(request.form.get("num_questions", 5))
-        image = request.form.get("image", "false").lower() == "true"
+        image = request.form.get("image", "false")
         pdf_file = request.files.get("pdf")
 
         if not model or not difficulty or (not topic and not pdf_file):

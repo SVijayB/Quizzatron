@@ -26,14 +26,15 @@ def test_generate_quiz_missing_parameters(client):
     assert "error" in data
 
 
-def test_generate_quiz_with_all_parameters(client):
+@patch("api.routes.quiz_gen_api.generate_quiz")
+def test_generate_quiz_with_all_parameters(mock_generate_quiz, client):
     """Test quiz generation with all parameters provided."""
+    mock_generate_quiz.return_value = {"quiz": "Generated quiz data"}
     response = client.get(
-        "/quiz/generate?model=gemini&difficulty=easy&topic=animals&num_questions=3&image=true"
+        "/quiz/generate?model=gemini/gemini-2.5-flash&difficulty=easy&topic=animals&num_questions=3&image=true"
     )
     assert response.status_code == 200
-    data = response.get_json()
-    assert "error" not in data
+    mock_generate_quiz.assert_called_once()
 
 
 @patch("api.routes.quiz_gen_api.generate_quiz")
