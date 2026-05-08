@@ -3,6 +3,7 @@
 import json
 import pytest
 from unittest.mock import patch
+import litellm
 from flask import Flask
 from pydantic import ValidationError
 from api.models.schemas import QuizResponse
@@ -146,3 +147,20 @@ def test_pdf_extraction_failure(mock_generate, test_app):
 
     assert status_code == 400
     assert "Failed to extract" in response.get_json()["error"]
+
+
+@patch("api.services.quiz_gen_service._generate_with_retry")
+def test_rate_limit_error(mock_generate, test_app):
+    """Test when model returns 429 rate limit after all retries."""
+    mock_generate.side_effect = litellm.RateLimitError(
+        message="Rate limit exceeded",
+        model="mistral/mistral-large-2411",
+        llm_provider="mistral",
+    )
+
+    with test_app.app_context():
+        response, status_code = generate_quiz(topic="math", num_questions=5)
+
+    assert status_code == 429
+    assert "temporarily unavailable" in response.get_json()["error"]
+

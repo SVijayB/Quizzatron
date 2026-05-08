@@ -3,6 +3,7 @@
 import json
 import logging
 from flask import jsonify
+import litellm
 from pydantic import ValidationError
 from tenacity import (
     retry,
@@ -18,18 +19,29 @@ from api.utils.quiz_gen import generate_questions, process_images, AVAILABLE_MOD
 logger = logging.getLogger(__name__)
 
 
+# Transient errors worth retrying with backoff
+_RETRYABLE_ERRORS = (
+    ValidationError,
+    json.JSONDecodeError,
+    litellm.RateLimitError,
+    litellm.ServiceUnavailableError,
+)
+
+
 @retry(
     stop=stop_after_attempt(3),
-    wait=wait_exponential(multiplier=1, min=1, max=10),
-    retry=retry_if_exception_type((ValidationError, json.JSONDecodeError)),
+    wait=wait_exponential(multiplier=1, min=2, max=30),
+    retry=retry_if_exception_type(_RETRYABLE_ERRORS),
     before_sleep=before_sleep_log(logger, logging.WARNING),
 )
 def _generate_with_retry(topic, num_questions, difficulty, model, image, pdf):
-    """Call generate_questions with automatic retry on validation/parse failures.
+    """Call generate_questions with automatic retry on transient failures.
 
-    Retries up to 3 times with exponential backoff (1s → 2s → 4s).
-    Only retries on ValidationError or JSONDecodeError — other exceptions
-    (auth failures, network errors, etc.) propagate immediately.
+    Retries up to 3 times with exponential backoff (2s → 4s → 8s).
+    Retries on:
+        - ValidationError / JSONDecodeError: LLM returned bad data
+        - RateLimitError / ServiceUnavailableError: transient capacity issues
+    All other exceptions (auth failures, etc.) propagate immediately.
     """
     return generate_questions(topic, num_questions, difficulty, model, image, pdf)
 
@@ -92,6 +104,15 @@ def generate_quiz(
         questions = process_images(quiz_response)
         return jsonify(questions, 200)
 
+    except (litellm.RateLimitError, litellm.ServiceUnavailableError) as e:
+        logging.error(
+            "❌ Model service unavailable after %d retries: %s",
+            3, str(e)
+        )
+        return (
+            jsonify({"error": "Model service is temporarily unavailable. Please try again later."}),
+            429,
+        )
     except ValidationError:
         logging.error("❌ Model output validation failed after maximum retries.")
         return (
