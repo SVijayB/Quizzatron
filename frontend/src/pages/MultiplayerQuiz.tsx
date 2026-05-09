@@ -55,11 +55,17 @@ const MultiplayerQuiz = () => {
   const questionsRef = useRef<Question[]>([]);
   const currentQuestionIndexRef = useRef<number>(0);
   const quizStateRef = useRef<QuizState>(QuizState.LOADING);
+  const playersRef = useRef<Player[]>(players);
+  const handleAnswerRef = useRef<(ans: string) => void>(() => {});
 
   // Update refs when state changes
   useEffect(() => {
     quizStateRef.current = quizState;
   }, [quizState]);
+
+  useEffect(() => {
+    playersRef.current = players;
+  }, [players]);
 
   useEffect(() => {
     currentQuestionIndexRef.current = currentQuestionIndex;
@@ -94,11 +100,17 @@ const MultiplayerQuiz = () => {
       }, 100);
     } else if (countdown <= 0 && quizState === QuizState.QUESTION) {
       // Time's up, handle as empty answer
-      handleAnswer("");
+      handleAnswerRef.current("");
     }
 
     return () => clearInterval(intervalId);
   }, [timerRunning, countdown, quizState]);
+
+  // Keep handleAnswerRef updated with the latest handleAnswer function
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    handleAnswerRef.current = handleAnswer;
+  }, [handleAnswer]);
 
   // Effect for waiting countdown timer
   useEffect(() => {
@@ -130,7 +142,7 @@ const MultiplayerQuiz = () => {
   }, [waitingCountdown, quizState, isHost, lobbyCode]);
 
   // Fetch all quiz data at the beginning
-  const fetchQuizData = async () => {
+  const fetchQuizData = useCallback(async () => {
     try {
       console.log("Fetching quiz data for lobby:", lobbyCode);
       const gameState = await apiService.getGameState(lobbyCode);
@@ -190,10 +202,10 @@ const MultiplayerQuiz = () => {
     } catch (error) {
       console.error("Error fetching quiz data:", error);
     }
-  };
+  }, [lobbyCode, resetQuestionState]);
 
   // Reset state for a new question
-  const resetQuestionState = () => {
+  const resetQuestionState = useCallback(() => {
     setUserAnswer("");
     setAnswered(false);
     setIsCorrect(false);
@@ -204,7 +216,7 @@ const MultiplayerQuiz = () => {
     setShowAnswerAnimation(false);
     setShowFeedback(false);
     setFeedbackMessage("");
-  };
+  }, [gameSettings.timePerQuestion]);
 
   // Calculate score based on the remaining time and multiplayer settings
   const calculateScore = (correct: boolean, timeLeft: number) => {
@@ -429,11 +441,11 @@ const MultiplayerQuiz = () => {
         // Otherwise save what we have locally
         else {
           localStorage.setItem(`quiz_results_${lobbyCode}`, JSON.stringify({
-            players: players,
+            players: playersRef.current,
             lobbyCode: lobbyCode,
-            totalQuestions: allQuestions.length
+            totalQuestions: questionsRef.current.length
           }));
-          localStorage.setItem("multiplayerResults", JSON.stringify(players || []));
+          localStorage.setItem("multiplayerResults", JSON.stringify(playersRef.current || []));
         }
       } catch (e) {
         console.error("Failed to save results to local storage:", e);
@@ -493,7 +505,7 @@ const MultiplayerQuiz = () => {
       cleanupGameOver();
       cleanupError();
     };
-  }, [lobbyCode, playerName, playerId, navigate, isHost]);
+  }, [lobbyCode, playerName, playerId, navigate, isHost, fetchQuizData, resetQuestionState]);
 
   // A simple spinner component for loading states
   const Spinner = () => (
@@ -521,7 +533,7 @@ const MultiplayerQuiz = () => {
           </div>
         );
         
-      case QuizState.QUESTION:
+      case QuizState.QUESTION: {
         if (!allQuestions[currentQuestionIndex]) return null;
         
         const currentQuestion = allQuestions[currentQuestionIndex];
@@ -800,7 +812,6 @@ const MultiplayerQuiz = () => {
                 </div>
               </div>
             </div>
-            
             {/* Feedback overlay */}
             <AnimatePresence>
               {showFeedback && (
@@ -1061,6 +1072,7 @@ const MultiplayerQuiz = () => {
             </AnimatePresence>
           </div>
         );
+      }
         
       case QuizState.WAITING:
         // In case there's no question data yet, show a fallback waiting screen

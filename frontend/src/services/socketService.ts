@@ -1,7 +1,6 @@
 import { io, Socket } from "socket.io-client";
 import { BASE_URL } from "./config";
 import { useToast } from "@/components/ui/use-toast";
-import { useLocation } from "react-router-dom";
 
 // Define event callback type
 type EventCallback = (...args: any[]) => void;
@@ -283,16 +282,7 @@ class SocketService {
     });
   }
 
-  // Add logic to connect socket only on /multiplayer page and disconnect otherwise
-  public initializeSocketBasedOnRoute(): void {
-    const location = useLocation();
 
-    if (location.pathname === "/multiplayer") {
-      this.connect();
-    } else {
-      this.disconnect();
-    }
-  }
 
   // Add validation logic for lobby on reconnect
   public validateLobby(lobbyCode: string): void {
