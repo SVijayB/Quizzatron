@@ -9,7 +9,7 @@ def broadcast_lobby_update(lobby_code, data):
 
     if socketio:
         socketio.emit("lobby_update", data, room=lobby_code)
-        logging.info(f"Broadcasting lobby update to room {lobby_code}")
+        logging.debug(f"Broadcasting lobby update to room {lobby_code}")
 
 
 def broadcast_question(lobby_code, question, question_index):

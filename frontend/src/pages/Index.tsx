@@ -42,7 +42,6 @@ const Index = () => {
   const [categoryData, setCategoryData] = useState<{[key: string]: number | string}>({});
   const [models, setModels] = useState<{[key: string]: {name: string, key_env: string}}>({});
   const [showSuggestions, setShowSuggestions] = useState(false);
-  const [isCategorySelected, setIsCategorySelected] = useState(false);
   const [showInfoDialog, setShowInfoDialog] = useState(false);
   const [formData, setFormData] = useState({
     topic: "",
@@ -103,7 +102,6 @@ const Index = () => {
     if (file && file.type === "application/pdf") {
       setSelectedFile(file);
       setFormData(prev => ({ ...prev, topic: file.name }));
-      setIsCategorySelected(false);
     } else {
       toast({
         title: "Invalid file type",
@@ -124,13 +122,11 @@ const Index = () => {
     }
     setFormData(prev => ({ ...prev, topic: e.target.value }));
     setShowSuggestions(true);
-    setIsCategorySelected(false);
   };
 
   const handleCategorySelect = (category: string) => {
     setFormData(prev => ({ ...prev, topic: category }));
     setShowSuggestions(false);
-    // Don't set isCategorySelected to true anymore, so it always uses the generate API
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -327,6 +323,8 @@ const Index = () => {
       }
     }
   };
+
+  const isCategorySelected = categories.includes(formData.topic);
 
   return (
     <div className="min-h-screen relative overflow-hidden bg-[#1a1a2e]">

@@ -616,7 +616,7 @@ const MultiplayerLobby = () => {
                         animate={{ height: "auto", opacity: 1 }}
                         exit={{ height: 0, opacity: 0 }}
                         transition={{ duration: 0.3 }}
-                        className="overflow-hidden"
+                        className="relative"
                       >
                         <div className="card-content">
                           <div className="settings-container">
@@ -790,12 +790,12 @@ const MultiplayerLobby = () => {
                                         handleUpdateSettings({ includeImages: newValue });
                                       }
                                     }}
-                                    disabled={!isHost}
+                                    disabled={!isHost || allCategories.includes(gameSettings.topic || "")}
                                     className="settings-toggle-checkbox"
                                   />
                                   <label 
                                     htmlFor="include-images" 
-                                    className={`settings-toggle ${gameSettings.includeImages ? 'active' : ''} ${!isHost ? 'disabled' : ''}`}
+                                    className={`settings-toggle ${gameSettings.includeImages ? 'active' : ''} ${(!isHost || allCategories.includes(gameSettings.topic || "")) ? 'disabled' : ''}`}
                                   >
                                     <span className="settings-toggle-slider"></span>
                                   </label>

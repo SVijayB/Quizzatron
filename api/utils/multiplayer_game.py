@@ -190,7 +190,7 @@ def update_lobby_settings(lobby_code, new_settings):
             important_setting_changes[key] = new_settings[key]
 
     if important_setting_changes:
-        logging.info(
+        logging.debug(
             f"Updating key settings for lobby {lobby_code}: {important_setting_changes}"
         )
 

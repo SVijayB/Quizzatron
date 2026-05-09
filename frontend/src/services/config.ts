@@ -4,7 +4,7 @@
  */
 
 const PROD_URL = "https://quizzatron.onrender.com";
-const DEV_URL = "http://127.0.0.1:5000";
+const DEV_URL = "http://127.0.0.1:5001";
 
 export const BASE_URL = import.meta.env.DEV ? DEV_URL : PROD_URL;
 export const API_BASE_URL = `${BASE_URL}/api`;
