@@ -46,7 +46,7 @@ const Index = () => {
   const [showInfoDialog, setShowInfoDialog] = useState(false);
   const [formData, setFormData] = useState({
     topic: "",
-    model: "",
+    model: "gemini/gemini-2.5-flash",
     difficulty: "medium",
     numQuestions: 10,
     image: false,
@@ -78,8 +78,14 @@ const Index = () => {
           const modelsData = await modelsResponse.json();
           setModels(modelsData);
           if (Object.keys(modelsData).length > 0) {
-            const googleModel = Object.keys(modelsData).find(key => modelsData[key].key_env === 'GOOGLE_API_KEY');
-            setFormData(prev => ({ ...prev, model: googleModel || Object.keys(modelsData)[0] }));
+            const defaultModelKey = "gemini/gemini-2.5-flash";
+            // Check if our preferred default model exists in the fetched list
+            if (modelsData[defaultModelKey]) {
+              setFormData(prev => ({ ...prev, model: defaultModelKey }));
+            } else {
+              // Fallback to the first available model if it doesn't exist
+              setFormData(prev => ({ ...prev, model: Object.keys(modelsData)[0] }));
+            }
           }
         } else {
           console.error("Failed to fetch models: ", modelsResponse.status);
