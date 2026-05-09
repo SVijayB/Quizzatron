@@ -4,6 +4,7 @@ import logging
 import os
 from dotenv import load_dotenv
 import pypdf
+import tiktoken
 import litellm
 
 from api.models.schemas import QuizResponse
@@ -44,6 +45,34 @@ def extract_text_from_pdf(pdf_path):
     return text if text else None
 
 
+def _truncate_to_token_limit(text, max_tokens=80000):
+    """Truncate text to a maximum number of tokens using tiktoken.
+    
+    Args:
+        text (str): The raw text to truncate.
+        max_tokens (int): The maximum allowed tokens (default 80k).
+        
+    Returns:
+        str: The truncated text.
+    """
+    try:
+        # cl100k_base is the standard tokenizer for modern OpenAI models and a good generic approximation
+        encoding = tiktoken.get_encoding("cl100k_base")
+        tokens = encoding.encode(text)
+        
+        if len(tokens) <= max_tokens:
+            return text
+            
+        logging.warning("PDF exceeds %d tokens. Truncating.", max_tokens)
+        truncated_tokens = tokens[:max_tokens]
+        return encoding.decode(truncated_tokens)
+    except Exception as e:
+        logging.error("Tokenization failed: %s. Falling back to character slicing.", e)
+        # Fallback: assume average of 4 chars per token
+        char_limit = max_tokens * 4
+        return text[:char_limit]
+
+
 # pylint: disable=too-many-arguments,too-many-positional-arguments
 def generate_questions(topic, num_questions, difficulty, model, image, pdf):
     """Generate quiz questions and return a validated QuizResponse.
@@ -66,7 +95,8 @@ def generate_questions(topic, num_questions, difficulty, model, image, pdf):
     if pdf:
         pdf_text = extract_text_from_pdf(pdf)
         if pdf_text:
-            topic = pdf_text
+            truncated_text = _truncate_to_token_limit(pdf_text, max_tokens=80000)
+            topic = f"the following reference document:\n<document>\n{truncated_text}\n</document>"
         else:
             raise ValueError("Failed to extract text from the provided PDF.")
 

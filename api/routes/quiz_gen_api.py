@@ -132,12 +132,19 @@ def generate():
             pdf = os.path.join(UPLOAD_FOLDER, filename)
             pdf_file.save(pdf)
 
-    result = generate_quiz(
-        model=model,
-        topic=topic,
-        difficulty=difficulty,
-        num_questions=num_questions,
-        image=image,
-        pdf=pdf,
-    )
-    return result
+    try:
+        result = generate_quiz(
+            model=model,
+            topic=topic,
+            difficulty=difficulty,
+            num_questions=num_questions,
+            image=image,
+            pdf=pdf,
+        )
+        return result
+    finally:
+        if pdf and os.path.exists(pdf):
+            try:
+                os.remove(pdf)
+            except Exception as e:
+                pass
