@@ -183,31 +183,43 @@ const Index = () => {
           throw new Error("Invalid response format from server");
         }
       } else {
-        // Regular topic-based generation
-        const response = await fetch(`${API_BASE_URL}/quiz/generate`, {
-          method: 'POST',
-          body: requestData
-        });
+        // Check if the topic is a predefined category
+        if (categories.includes(formData.topic)) {
+          console.log("Using predefined category, fetching from MongoDB/OpenTDB API...");
+          data = await fetchQuizByCategory(
+            formData.topic, 
+            formData.difficulty, 
+            formData.numQuestions, 
+            formData.image
+          );
+        } else {
+          // Regular custom topic-based generation using LLM
+          console.log("Using custom topic, generating via LLM API...");
+          const response = await fetch(`${API_BASE_URL}/quiz/generate`, {
+            method: 'POST',
+            body: requestData
+          });
 
-        if (!response.ok) {
-          throw new Error(`Failed to generate quiz: ${response.status} ${response.statusText}`);
-        }
-
-        const responseText = await response.text();
-        console.log("Server response:", responseText);
-        
-        try {
-          const parsedData = JSON.parse(responseText);
-          
-          // Handle array response with status code [data, statusCode]
-          if (Array.isArray(parsedData) && parsedData.length === 2 && typeof parsedData[1] === 'number') {
-            data = parsedData[0]; // Extract just the quiz data part
-          } else {
-            data = parsedData;
+          if (!response.ok) {
+            throw new Error(`Failed to generate quiz: ${response.status} ${response.statusText}`);
           }
-        } catch (parseError) {
-          console.error("Error parsing JSON response:", parseError);
-          throw new Error("Invalid response format from server");
+
+          const responseText = await response.text();
+          console.log("Server response:", responseText);
+          
+          try {
+            const parsedData = JSON.parse(responseText);
+            
+            // Handle array response with status code [data, statusCode]
+            if (Array.isArray(parsedData) && parsedData.length === 2 && typeof parsedData[1] === 'number') {
+              data = parsedData[0]; // Extract just the quiz data part
+            } else {
+              data = parsedData;
+            }
+          } catch (parseError) {
+            console.error("Error parsing JSON response:", parseError);
+            throw new Error("Invalid response format from server");
+          }
         }
       }
 

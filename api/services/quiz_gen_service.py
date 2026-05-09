@@ -89,7 +89,10 @@ def generate_quiz(
         }), 400
 
     logging.info("🔍 Input parameters validated. Payload is ready.")
-    logging.info("⏳ Generating quiz questions on %s.", req.topic)
+    if req.pdf:
+        logging.info("🧠 Generating quiz dynamically using LLM (%s) from PDF document.", req.model)
+    else:
+        logging.info("🧠 Generating quiz dynamically using LLM (%s) on custom topic: %s", req.model, req.topic)
 
     try:
         quiz_response = _generate_with_retry(

@@ -42,8 +42,10 @@ def get_triviaqa(topic, num_questions, difficulty):
     """
     categories = get_categories()
     category = categories.get(topic)
+    
     if isinstance(category, int):
         # If the category is a number (ID), use the get_questions_from_api function
+        logging.info("📚 Fetching '%s' from OpenTDB API (Category ID: %s)", topic, category)
         api_question_json = get_questions_from_api(
             category=str(category),
             difficulty=difficulty,
@@ -52,11 +54,13 @@ def get_triviaqa(topic, num_questions, difficulty):
         return format_question_api_output(api_question_json)
 
     if isinstance(category, str):
+        logging.info("🗄️ Fetching '%s' from local MongoDB (Collection: %s)", topic, category)
         client = MongoClient(CONNECTION_STRING)
         result = get_mongodb_data(client, topic, num_questions, difficulty)
         if result:
             return result
         return f"Collection '{topic}' does not exist in database 'trivia-qa'."
 
+    logging.warning("⚠️ Category '%s' not found in either OpenTDB or MongoDB.", topic)
     print(f"Category '{topic}' not found")
     return None
