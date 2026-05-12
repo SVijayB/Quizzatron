@@ -5,6 +5,8 @@ import logging
 import time
 import uuid
 from api.services.quiz_gen_service import generate_quiz
+from api.services.triviaqa_api import get_triviaqa
+from api.utils.category_aggregator import get_categories
 from api.utils.multiplayer_lobby import (
     active_lobbies,
     lobbies_lock,
@@ -260,99 +262,163 @@ def start_game(lobby_code):
             + f"players: {len(lobby['players'])}"
         )
 
-        # Use the existing quiz generation service with proper parameters
-        quiz_params = {
-            "num_questions": settings["numQuestions"],
-            "difficulty": (
-                settings["difficulty"]
-                if settings["difficulty"] != "mixed"
-                else "medium"
-            ),
-            "model": settings["model"],
-            "topic": settings["topic"],
-            "image": settings.get("includeImages", False),
-        }
-
-        # Remove None values to prevent errors
-        quiz_params = {k: v for k, v in quiz_params.items() if v is not None}
+        # Check if the topic is a predefined category (DB/API) or a custom topic
+        known_categories = get_categories()
+        topic = settings.get("topic")
+        is_predefined = topic and topic in known_categories
 
         try:
-            # Generate the quiz using the existing service
-            response = generate_quiz(**quiz_params)
+            if is_predefined:
+                # ── Predefined category: fetch from OpenTDB API or MongoDB ──
+                logging.info(
+                    "📚 Multiplayer: Using predefined category '%s' from DB/API",
+                    topic,
+                )
+                difficulty = (
+                    settings["difficulty"]
+                    if settings["difficulty"] != "mixed"
+                    else "medium"
+                )
+                trivia_result = get_triviaqa(
+                    topic, settings["numQuestions"], difficulty
+                )
 
-            # The response from generate_quiz can be either:
-            # - A Flask Response object (success case via jsonify)
-            # - A tuple of (Response, status_code) (error cases)
-            try:
-                # Handle tuple vs Response return
-                if isinstance(response, tuple):
-                    flask_response, status_code = response
-                    if status_code != 200:
-                        error_data = json.loads(flask_response.get_data(as_text=True))
-                        logging.error(
-                            f"Quiz generation failed with status {status_code}: {error_data}"
-                        )
-                        return {"error": error_data.get("error", "Failed to generate quiz")}, status_code
-                    response_data = flask_response.get_data(as_text=True)
-                else:
-                    response_data = response.get_data(as_text=True)
-
-                parsed_data = json.loads(response_data)
-
-                # Based on the example, we expect a list with:
-                # - First element: list of question dictionaries
-                # - Second element: status code (200)
-
-                if isinstance(parsed_data, list) and len(parsed_data) == 2:
-                    questions_list = parsed_data[0]  # Get the questions list
-                    status_code = parsed_data[1]  # Get the status code
-
-                    if status_code != 200:
-                        return {"error": "Failed to generate quiz"}, status_code
-
-                    if not questions_list or not isinstance(questions_list, list):
-                        logging.error(
-                            f"Failed to generate valid quiz questions: {type(questions_list)}"
-                        )
-                        return {"error": "Failed to generate valid quiz questions"}, 500
-
-                    # Update player total questions count
-                    for player in lobby["players"]:
-                        player["totalQuestions"] = len(questions_list)
-
-                    # Store the questions in the lobby - save the entire parsed_data
-                    # This keeps the original structure for compatibility
-                    lobby["questions"] = parsed_data
-
-                    # Change game state to first question
-                    lobby["game_state"] = GAME_STATE["QUESTION"]
-                    lobby["current_question_idx"] = 0
-                    lobby["all_answers_received"] = False
-
-                    # Mark the game as started for backward compatibility
-                    # This can be removed in future versions
-                    lobby["game_started"] = True
-                    lobby["game_over"] = False
-
-                    logging.info(
-                        f"Game started successfully in lobby {lobby_code} with {len(questions_list)} questions"
-                    )
-
-                    # Start the game by broadcasting the first question
-                    first_question = questions_list[0]
-                    broadcast_question(lobby_code, first_question, 0)
-
+                # get_triviaqa returns {"questions": [...]} dict, a string error, or None
+                if isinstance(trivia_result, dict) and "questions" in trivia_result:
+                    questions_list = trivia_result["questions"]
+                elif isinstance(trivia_result, list):
+                    questions_list = trivia_result
                 else:
                     logging.error(
-                        f"Unexpected response format from quiz generator: {parsed_data}"
+                        "Failed to fetch predefined quiz questions for '%s': %s",
+                        topic,
+                        trivia_result,
                     )
-                    return {
-                        "error": "Unexpected response format from quiz generator"
-                    }, 500
+                    return {"error": "Failed to fetch quiz questions for this category"}, 500
 
-            except Exception as e:
-                logging.error(f"Failed to parse response data: {str(e)}")
-                return {"error": f"Failed to process quiz: {str(e)}"}, 500
+                if not questions_list:
+                    logging.error(
+                        "Empty questions list for predefined category '%s'", topic
+                    )
+                    return {"error": "No questions available for this category"}, 500
+
+                # Update player total questions count
+                for player in lobby["players"]:
+                    player["totalQuestions"] = len(questions_list)
+
+                # Store questions in the same [questions, status] format
+                lobby["questions"] = [questions_list, 200]
+
+                # Change game state to first question
+                lobby["game_state"] = GAME_STATE["QUESTION"]
+                lobby["current_question_idx"] = 0
+                lobby["all_answers_received"] = False
+                lobby["game_started"] = True
+                lobby["game_over"] = False
+
+                logging.info(
+                    "Game started successfully in lobby %s with %d questions (predefined)",
+                    lobby_code,
+                    len(questions_list),
+                )
+
+                # Broadcast the first question
+                first_question = questions_list[0]
+                broadcast_question(lobby_code, first_question, 0)
+
+            else:
+                # ── Custom topic: generate via LLM ──
+                quiz_params = {
+                    "num_questions": settings["numQuestions"],
+                    "difficulty": (
+                        settings["difficulty"]
+                        if settings["difficulty"] != "mixed"
+                        else "medium"
+                    ),
+                    "model": settings["model"],
+                    "topic": topic,
+                    "image": settings.get("includeImages", False),
+                }
+
+                # Remove None values to prevent errors
+                quiz_params = {k: v for k, v in quiz_params.items() if v is not None}
+
+                # Generate the quiz using the existing service
+                response = generate_quiz(**quiz_params)
+
+                # The response from generate_quiz can be either:
+                # - A Flask Response object (success case via jsonify)
+                # - A tuple of (Response, status_code) (error cases)
+                try:
+                    # Handle tuple vs Response return
+                    if isinstance(response, tuple):
+                        flask_response, status_code = response
+                        if status_code != 200:
+                            error_data = json.loads(flask_response.get_data(as_text=True))
+                            logging.error(
+                                f"Quiz generation failed with status {status_code}: {error_data}"
+                            )
+                            return {"error": error_data.get("error", "Failed to generate quiz")}, status_code
+                        response_data = flask_response.get_data(as_text=True)
+                    else:
+                        response_data = response.get_data(as_text=True)
+
+                    parsed_data = json.loads(response_data)
+
+                    # Based on the example, we expect a list with:
+                    # - First element: list of question dictionaries
+                    # - Second element: status code (200)
+
+                    if isinstance(parsed_data, list) and len(parsed_data) == 2:
+                        questions_list = parsed_data[0]  # Get the questions list
+                        status_code = parsed_data[1]  # Get the status code
+
+                        if status_code != 200:
+                            return {"error": "Failed to generate quiz"}, status_code
+
+                        if not questions_list or not isinstance(questions_list, list):
+                            logging.error(
+                                f"Failed to generate valid quiz questions: {type(questions_list)}"
+                            )
+                            return {"error": "Failed to generate valid quiz questions"}, 500
+
+                        # Update player total questions count
+                        for player in lobby["players"]:
+                            player["totalQuestions"] = len(questions_list)
+
+                        # Store the questions in the lobby - save the entire parsed_data
+                        # This keeps the original structure for compatibility
+                        lobby["questions"] = parsed_data
+
+                        # Change game state to first question
+                        lobby["game_state"] = GAME_STATE["QUESTION"]
+                        lobby["current_question_idx"] = 0
+                        lobby["all_answers_received"] = False
+
+                        # Mark the game as started for backward compatibility
+                        # This can be removed in future versions
+                        lobby["game_started"] = True
+                        lobby["game_over"] = False
+
+                        logging.info(
+                            f"Game started successfully in lobby {lobby_code} with {len(questions_list)} questions"
+                        )
+
+                        # Start the game by broadcasting the first question
+                        first_question = questions_list[0]
+                        broadcast_question(lobby_code, first_question, 0)
+
+                    else:
+                        logging.error(
+                            f"Unexpected response format from quiz generator: {parsed_data}"
+                        )
+                        return {
+                            "error": "Unexpected response format from quiz generator"
+                        }, 500
+
+                except Exception as e:
+                    logging.error(f"Failed to parse response data: {str(e)}")
+                    return {"error": f"Failed to process quiz: {str(e)}"}, 500
 
             # Update last activity timestamp
             lobby["last_activity"] = time.time()
