@@ -15,6 +15,7 @@ from tenacity import (
 
 from api.models.schemas import QuizRequest, Difficulty
 from api.utils.quiz_gen import generate_questions, process_images, AVAILABLE_MODELS
+from api.utils.extract_img import cleanup_temp_folder
 
 logger = logging.getLogger(__name__)
 
@@ -89,6 +90,10 @@ def generate_quiz(
         }), 400
 
     logging.info("🔍 Input parameters validated. Payload is ready.")
+
+    # Clear stale images from previous session before generating new ones
+    cleanup_temp_folder()
+
     if req.pdf:
         logging.info("🧠 Generating quiz dynamically using LLM (%s) from PDF document.", req.model)
     else:
