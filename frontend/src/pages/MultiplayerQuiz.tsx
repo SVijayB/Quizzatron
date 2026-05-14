@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { useMultiplayer } from "@/contexts/MultiplayerContext";
@@ -55,11 +55,17 @@ const MultiplayerQuiz = () => {
   const questionsRef = useRef<Question[]>([]);
   const currentQuestionIndexRef = useRef<number>(0);
   const quizStateRef = useRef<QuizState>(QuizState.LOADING);
+  const playersRef = useRef<Player[]>(players);
+  const handleAnswerRef = useRef<(ans: string) => void>(() => {});
 
   // Update refs when state changes
   useEffect(() => {
     quizStateRef.current = quizState;
   }, [quizState]);
+
+  useEffect(() => {
+    playersRef.current = players;
+  }, [players]);
 
   useEffect(() => {
     currentQuestionIndexRef.current = currentQuestionIndex;
@@ -82,6 +88,20 @@ const MultiplayerQuiz = () => {
   const [showFeedback, setShowFeedback] = useState<boolean>(false);
   const [isFinishing, setIsFinishing] = useState<boolean>(false);
   const [showMobileScoreboard, setShowMobileScoreboard] = useState<boolean>(false);
+
+  // Reset state for a new question
+  const resetQuestionState = useCallback(() => {
+    setUserAnswer("");
+    setAnswered(false);
+    setIsCorrect(false);
+    setTimeTaken(0);
+    setScore(0);
+    setCountdown(gameSettings.timePerQuestion);
+    setTimerRunning(true);
+    setShowAnswerAnimation(false);
+    setShowFeedback(false);
+    setFeedbackMessage("");
+  }, [gameSettings.timePerQuestion]);
   
   // Effect for timer
   useEffect(() => {
@@ -94,11 +114,16 @@ const MultiplayerQuiz = () => {
       }, 100);
     } else if (countdown <= 0 && quizState === QuizState.QUESTION) {
       // Time's up, handle as empty answer
-      handleAnswer("");
+      handleAnswerRef.current("");
     }
 
     return () => clearInterval(intervalId);
   }, [timerRunning, countdown, quizState]);
+
+  // Keep handleAnswerRef updated with the latest handleAnswer function
+  useEffect(() => {
+    handleAnswerRef.current = handleAnswer;
+  });
 
   // Effect for waiting countdown timer
   useEffect(() => {
@@ -130,7 +155,7 @@ const MultiplayerQuiz = () => {
   }, [waitingCountdown, quizState, isHost, lobbyCode]);
 
   // Fetch all quiz data at the beginning
-  const fetchQuizData = async () => {
+  const fetchQuizData = useCallback(async () => {
     try {
       console.log("Fetching quiz data for lobby:", lobbyCode);
       const gameState = await apiService.getGameState(lobbyCode);
@@ -190,21 +215,7 @@ const MultiplayerQuiz = () => {
     } catch (error) {
       console.error("Error fetching quiz data:", error);
     }
-  };
-
-  // Reset state for a new question
-  const resetQuestionState = () => {
-    setUserAnswer("");
-    setAnswered(false);
-    setIsCorrect(false);
-    setTimeTaken(0);
-    setScore(0);
-    setCountdown(gameSettings.timePerQuestion);
-    setTimerRunning(true);
-    setShowAnswerAnimation(false);
-    setShowFeedback(false);
-    setFeedbackMessage("");
-  };
+  }, [lobbyCode, resetQuestionState]);
 
   // Calculate score based on the remaining time and multiplayer settings
   const calculateScore = (correct: boolean, timeLeft: number) => {
@@ -241,7 +252,7 @@ const MultiplayerQuiz = () => {
   };
 
   // Handle answer selection with enhanced visual effects
-  const handleAnswer = (answer: string) => {
+  function handleAnswer(answer: string) {
     if (answered || quizState !== QuizState.QUESTION) return;
     
     setAnswered(true);
@@ -317,7 +328,7 @@ const MultiplayerQuiz = () => {
       setQuizState(QuizState.WAITING);
       // Do NOT start countdown here - we'll only start it when we get the all_answers_in event
     }, 1500);
-  };
+  }
 
   // Move to the next question
   const handleNextQuestion = () => {
@@ -429,11 +440,11 @@ const MultiplayerQuiz = () => {
         // Otherwise save what we have locally
         else {
           localStorage.setItem(`quiz_results_${lobbyCode}`, JSON.stringify({
-            players: players,
+            players: playersRef.current,
             lobbyCode: lobbyCode,
-            totalQuestions: allQuestions.length
+            totalQuestions: questionsRef.current.length
           }));
-          localStorage.setItem("multiplayerResults", JSON.stringify(players || []));
+          localStorage.setItem("multiplayerResults", JSON.stringify(playersRef.current || []));
         }
       } catch (e) {
         console.error("Failed to save results to local storage:", e);
@@ -493,7 +504,7 @@ const MultiplayerQuiz = () => {
       cleanupGameOver();
       cleanupError();
     };
-  }, [lobbyCode, playerName, playerId, navigate, isHost]);
+  }, [lobbyCode, playerName, playerId, navigate, isHost, fetchQuizData, resetQuestionState]);
 
   // A simple spinner component for loading states
   const Spinner = () => (
@@ -521,7 +532,7 @@ const MultiplayerQuiz = () => {
           </div>
         );
         
-      case QuizState.QUESTION:
+      case QuizState.QUESTION: {
         if (!allQuestions[currentQuestionIndex]) return null;
         
         const currentQuestion = allQuestions[currentQuestionIndex];
@@ -800,7 +811,6 @@ const MultiplayerQuiz = () => {
                 </div>
               </div>
             </div>
-            
             {/* Feedback overlay */}
             <AnimatePresence>
               {showFeedback && (
@@ -1061,6 +1071,7 @@ const MultiplayerQuiz = () => {
             </AnimatePresence>
           </div>
         );
+      }
         
       case QuizState.WAITING:
         // In case there's no question data yet, show a fallback waiting screen

@@ -85,7 +85,7 @@ The easiest way to get started is to use our setup script, which handles everyth
 You can run the setup script in the root directory using
 
 ```
-python setup.py
+uv run setup.py
 ```
 
 The script will:
@@ -101,22 +101,12 @@ The script will:
 
 Alternatively, you can set up manually:
 
-1. Create a virtual environment:
+1. Install `uv` on your machine (https://docs.astral.sh/uv/)
+
+2. Synchronize your dependencies and let `uv` create the virtual environment for you automatically:
 
 ```
- python -m venv venv
-```
-
-2. Activate the virtual environment:
-
-    On Windows: `venv\Scripts\activate`
-
-    On macOS/Linux: `source venv/bin/activate`
-
-3. Install dependencies:
-
-```
- pip install -r requirements.txt
+uv sync
 ```
 
 4. Install frontend dependencies:
@@ -145,7 +135,7 @@ PORT=PORT_NUMBER_HERE
 1. To start the backend server, run the following command in the root directory:
 
 ```
-flask run
+uv run flask run
 ```
 
 2. To start the frontend development server, run the following command in the `frontend` directory:

@@ -317,9 +317,9 @@ def broadcast_lobby_update(lobby_code, data):
         return
 
     try:
-        logging.info(f"Broadcasting lobby update to {lobby_code}: {data}")
+        logging.debug(f"Broadcasting lobby update to {lobby_code}: {data}")
         socketio.emit("lobby_update", data, room=lobby_code)
-        logging.info(f"Broadcast completed to {lobby_code}")
+        logging.debug(f"Broadcast completed to {lobby_code}")
     except Exception as e:
         logging.error(f"Error broadcasting lobby update: {str(e)}")
 

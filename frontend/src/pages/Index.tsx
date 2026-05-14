@@ -22,6 +22,7 @@ import LoadingSpinner from "@/components/LoadingSpinner";
 import CategorySuggestions from "@/components/CategorySuggestions";
 import QuizLogo from "@/components/QuizLogo";
 import { fetchCategories, fetchQuizByCategory } from "@/services/categoryService";
+import { API_BASE_URL } from "@/services/config";
 import {
   Dialog,
   DialogContent,
@@ -39,34 +40,28 @@ const Index = () => {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [categories, setCategories] = useState<string[]>([]);
   const [categoryData, setCategoryData] = useState<{[key: string]: number | string}>({});
+  const [models, setModels] = useState<{[key: string]: {name: string, key_env: string}}>({});
   const [showSuggestions, setShowSuggestions] = useState(false);
-  const [isCategorySelected, setIsCategorySelected] = useState(false);
   const [showInfoDialog, setShowInfoDialog] = useState(false);
   const [formData, setFormData] = useState({
     topic: "",
-    model: "gemini",
+    model: "gemini/gemini-2.5-flash",
     difficulty: "medium",
     numQuestions: 10,
     image: false,
   });
 
   useEffect(() => {
-    const loadCategories = async () => {
+    const loadInitialData = async () => {
       try {
-        const response = await fetch('https://quizzatron.onrender.com/api/categories/get');
-        if (!response.ok) {
-          throw new Error('Failed to fetch categories');
+        const catResponse = await fetch(`${API_BASE_URL}/categories/get`);
+        if (catResponse.ok) {
+          const catData: {[key: string]: number | string} = await catResponse.json();
+          setCategoryData(catData);
+          setCategories(Object.keys(catData));
+        } else {
+          console.error('Failed to fetch categories response:', catResponse.status);
         }
-        
-        const data: {[key: string]: number | string} = await response.json();
-        setCategoryData(data);
-        
-        // Include ALL categories now, not filtering out trivia-qa ones
-        const categoryList = Object.keys(data);
-        setCategories(categoryList);
-        
-        console.log("Loaded categories data:", data);
-        console.log("Complete category list:", categoryList);
       } catch (error) {
         console.error('Error fetching categories:', error);
         toast({
@@ -75,9 +70,31 @@ const Index = () => {
           variant: "destructive",
         });
       }
+        
+      try {
+        const modelsResponse = await fetch(`${API_BASE_URL}/quiz/models`);
+        if (modelsResponse.ok) {
+          const modelsData = await modelsResponse.json();
+          setModels(modelsData);
+          if (Object.keys(modelsData).length > 0) {
+            const defaultModelKey = "gemini/gemini-2.5-flash";
+            // Check if our preferred default model exists in the fetched list
+            if (modelsData[defaultModelKey]) {
+              setFormData(prev => ({ ...prev, model: defaultModelKey }));
+            } else {
+              // Fallback to the first available model if it doesn't exist
+              setFormData(prev => ({ ...prev, model: Object.keys(modelsData)[0] }));
+            }
+          }
+        } else {
+          console.error("Failed to fetch models: ", modelsResponse.status);
+        }
+      } catch (e) {
+        console.error("Failed to fetch models", e);
+      }
     };
     
-    loadCategories();
+    loadInitialData();
   }, [toast]);
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -85,7 +102,6 @@ const Index = () => {
     if (file && file.type === "application/pdf") {
       setSelectedFile(file);
       setFormData(prev => ({ ...prev, topic: file.name }));
-      setIsCategorySelected(false);
     } else {
       toast({
         title: "Invalid file type",
@@ -106,17 +122,23 @@ const Index = () => {
     }
     setFormData(prev => ({ ...prev, topic: e.target.value }));
     setShowSuggestions(true);
-    setIsCategorySelected(false);
   };
 
   const handleCategorySelect = (category: string) => {
     setFormData(prev => ({ ...prev, topic: category }));
     setShowSuggestions(false);
-    // Don't set isCategorySelected to true anymore, so it always uses the generate API
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!formData.model) {
+      toast({
+        title: "Model Required",
+        description: "Please select a model.",
+        variant: "destructive",
+      });
+      return;
+    }
     setLoading(true);
 
     try {
@@ -137,7 +159,7 @@ const Index = () => {
         // If a PDF file is selected, use generate_pdf endpoint
         requestData.append('pdf', selectedFile);
         
-        const response = await fetch('https://quizzatron.onrender.com/api/quiz/generate', {
+        const response = await fetch(`${API_BASE_URL}/quiz/generate`, {
           method: 'POST',
           body: requestData
         });
@@ -163,31 +185,43 @@ const Index = () => {
           throw new Error("Invalid response format from server");
         }
       } else {
-        // Regular topic-based generation
-        const response = await fetch('https://quizzatron.onrender.com/api/quiz/generate', {
-          method: 'POST',
-          body: requestData
-        });
+        // Check if the topic is a predefined category
+        if (categories.includes(formData.topic)) {
+          console.log("Using predefined category, fetching from MongoDB/OpenTDB API...");
+          data = await fetchQuizByCategory(
+            formData.topic, 
+            formData.difficulty, 
+            formData.numQuestions, 
+            formData.image
+          );
+        } else {
+          // Regular custom topic-based generation using LLM
+          console.log("Using custom topic, generating via LLM API...");
+          const response = await fetch(`${API_BASE_URL}/quiz/generate`, {
+            method: 'POST',
+            body: requestData
+          });
 
-        if (!response.ok) {
-          throw new Error(`Failed to generate quiz: ${response.status} ${response.statusText}`);
-        }
-
-        const responseText = await response.text();
-        console.log("Server response:", responseText);
-        
-        try {
-          const parsedData = JSON.parse(responseText);
-          
-          // Handle array response with status code [data, statusCode]
-          if (Array.isArray(parsedData) && parsedData.length === 2 && typeof parsedData[1] === 'number') {
-            data = parsedData[0]; // Extract just the quiz data part
-          } else {
-            data = parsedData;
+          if (!response.ok) {
+            throw new Error(`Failed to generate quiz: ${response.status} ${response.statusText}`);
           }
-        } catch (parseError) {
-          console.error("Error parsing JSON response:", parseError);
-          throw new Error("Invalid response format from server");
+
+          const responseText = await response.text();
+          console.log("Server response:", responseText);
+          
+          try {
+            const parsedData = JSON.parse(responseText);
+            
+            // Handle array response with status code [data, statusCode]
+            if (Array.isArray(parsedData) && parsedData.length === 2 && typeof parsedData[1] === 'number') {
+              data = parsedData[0]; // Extract just the quiz data part
+            } else {
+              data = parsedData;
+            }
+          } catch (parseError) {
+            console.error("Error parsing JSON response:", parseError);
+            throw new Error("Invalid response format from server");
+          }
         }
       }
 
@@ -289,6 +323,8 @@ const Index = () => {
       }
     }
   };
+
+  const isCategorySelected = categories.includes(formData.topic);
 
   return (
     <div className="min-h-screen relative overflow-hidden bg-[#1a1a2e]">
@@ -605,11 +641,16 @@ const Index = () => {
                     <SelectTrigger className={`w-full h-9 bg-gray-800 border-gray-700 text-gray-200 text-sm ${
                       isCategorySelected ? "opacity-50 cursor-not-allowed" : ""
                     }`}>
-                      <SelectValue placeholder="Select model" />
+                      <SelectValue placeholder={Object.keys(models).length > 0 ? "Select model" : "Loading models..."} />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="gemini">Gemini</SelectItem>
-                      <SelectItem value="deepseek">DeepSeek</SelectItem>
+                      {Object.keys(models).length > 0 ? (
+                        Object.entries(models).map(([modelId, modelData]) => (
+                          <SelectItem key={modelId} value={modelId}>{modelData.name}</SelectItem>
+                        ))
+                      ) : (
+                        <SelectItem value="loading" disabled>Loading models...</SelectItem>
+                      )}
                     </SelectContent>
                   </Select>
                 </motion.div>

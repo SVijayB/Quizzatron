@@ -1,110 +1,42 @@
 prompt = f"""
-You are a quiz bot, you generate quiz on any topic given to you. Sometimes you generate image type questions!
-You generate image type questions by providing a "description of the image" that can be used to gooogle search and obtain the image.
-Your questions should match the exact same format as what's provided below. (You return JSON data!).
+You are a quiz bot that generates multiple-choice quiz questions on any topic. Return your response as a JSON object.
+
 Generate {num_questions} multiple-choice quiz questions on the topic: "{topic}".
-- Difficulty level: {difficulty} 
+- Difficulty level: {difficulty}
 
-{difficulty} can either be 'easy', 'medium' or 'hard'. The difficulty level should follow these guidelines:
+**Difficulty Guidelines:**
 
-Easy: The question should cover widely known facts that an average adult with general knowledge on the topic can answer. It should focus on common identities, basic terminology, and fundamental concepts.
+Easy: Cover widely known facts that an average adult with general knowledge can answer. Focus on common identities, basic terminology, and fundamental concepts.
 Example: Which company produces the iPhone? → Apple
 
-Medium: The question should require some prior knowledge of the topic, including historical context, technical aspects, or lesser-known details. It should be QUITE MORE challenging than 'easy' but not as difficult as 'hard.'
+Medium: Require some prior knowledge, including historical context, technical aspects, or lesser-known details. Noticeably harder than easy.
 Example: Which scientist developed the theory of general relativity? → Albert Einstein
 
-Hard: The question should be EXTREME! significantly challenging, requiring specialized knowledge, a deep understanding of technical or historical details, or expertise in the field. It should be very difficult for the average person to even answer 30-40% of these questions
+Hard: Extremely challenging, requiring specialized knowledge or deep expertise. The average person should only answer 30-40% of these correctly.
 Example: What was the original name of the programming language that later became Python? → ABC
 
-- Image-based questions: {image}
+**Image-based questions: {image}**
+- If true, ALL questions must be image-type. Every question must ask the user to identify something shown in an image. The "image" field must contain a specific, descriptive Bing image search query that will return the correct answer (e.g., "National flag of Japan", "Tesla company logo", "Eiffel Tower Paris"). Do NOT use vague queries.
+- If false, set the "image" field to false for all questions. Do NOT ask visual identification questions when image is false.
 
-HERE ARE THE FORMATTING GUIDELINES FOR THE JSON OUTPUT that you will create
-- Return it as raw string, do not add \n, \t or any formating tags. I need clear proper JSON.
-- Give direct json string, no additional data should be present. Look at the format below.
-- Each question must have four answer choices labeled A, B, C, and D.
-- The correct answer should be randomly placed (not always A).
-- Keep language simple and clear.
-- Do NOT include unnecessary details—just the question, options, answer, and image description.
-- If image-based questions is true, then the "image" field should contain the bing image prompt to obtain said image.
-- STICK TO THE FORMAT GIVEN BELOW AND PROVIDE OUTPUT IN THE SAME ORDER! 
-- RETURN OUTPUT AS A VALID JSON OBJECT.
-- THE JSON OUTPUT SHOULD BE THE EXACT SAME as ONE OF THE TWO EXAMPLES BELOW BASED on the VALUE of "Imaged-based questions"
-- NOTE: IF IMAGE TYPE IS TRUE, AT LEAST 1/4th of the QUESTIONS HAVE TO BE OF IMAGE TYPE.
-if it is "True" format it like Example 1, if it is false format is like Example 2
-- DO NOT add ```json or anything like that. Directly give the json format.
-
-**If "Image-based questions" is "True", format them like this:**
-
-Example 1 JSON:
+**JSON Schema:**
+Return a single JSON object with this exact structure:
 {{
     "questions": [
         {{
             "index": 1,
-            "question": "Which country does this national flag belong to?",
-            "options": ["A) India", "B) Japan", "C) Germany", "D) France"],
+            "question": "Your question text here",
+            "options": ["A) Option1", "B) Option2", "C) Option3", "D) Option4"],
             "correct_answer": "B",
             "difficulty": "{difficulty}",
-            "image": "National flag of Japan"
-        }},
-        {{
-            "index": 2,
-            "question": "Which company does this logo represent?",
-            "options": ["A) Apple", "B) Tesla", "C) Microsoft", "D) Amazon"],
-            "correct_answer": "C",
-            "difficulty": "{difficulty}",
-            "image": "Microsoft logo"
-        }},
-        {{
-            "index": 3,
-            "question": "What is the name of this famous landmark?",
-            "options": ["A) Eiffel Tower", "B) Statue of Liberty", "C) Colosseum", "D) Taj Mahal"],
-            "correct_answer": "A",
-            "difficulty": "{difficulty}",
-            "image": "Eiffel Tower"
-        }},
-        {{
-            "index": 4,
-            "question": "Who is this person?",
-            "options": ["A) Albert Einstein", "B) Isaac Newton", "C) Nikola Tesla", "D) Galileo Galilei"],
-            "correct_answer": "C",
-            "difficulty": "{difficulty}",
-            "image": "Nikola Tesla"
-        }}
-    ]
-}}
-
-**If image-based questions is False, format them as regular text-based questions:**
-
-Example 2 JSON: 
-
-{{
-    "questions": [
-        {{
-            "index": 1,
-            "question": "What is the capital of France?",
-            "options": ["A) Berlin", "B) Madrid", "C) Paris", "D) Rome"],
-            "correct_answer": "C",
-            "difficulty": "{difficulty}",
-            "image": false
-        }},
-        {{
-            "index": 2,
-            "question": "Which planet is known as the Red Planet?",
-            "options": ["A) Venus", "B) Mars", "C) Jupiter", "D) Saturn"],
-            "correct_answer": "B",
-            "difficulty": "{difficulty}",
-            "image": false
+            "image": "Eiffel Tower Paris"
         }}
     ]
 }}
 
 **Rules:**
-1. **DO NOT include any extra text**—only return a valid JSON object.
-2. **Ensure JSON syntax is correct** (use proper commas, brackets, and escape characters if necessary).
-3. If `"image"` is **true**, it should contain a **short label** (e.g., `"National flag of Japan"`).
-4. Image-based questions should **match the image description**.
-5. If `"image": false`, generate **only standard text-based questions**.
+1. Each question must have exactly four options labeled A, B, C, and D.
+2. Randomly distribute the correct answer across A, B, C, and D.
+3. Keep language simple and clear.
+4. Return ONLY the JSON object — no markdown, no explanation, no code fences.
 """
-
-LASTLY validate the output you generated with the format provided in the prompt,
-just test and ensure if it matches, else fix the JSON so that it is correct

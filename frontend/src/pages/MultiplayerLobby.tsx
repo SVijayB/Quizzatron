@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { 
   Users, Check, Copy, ArrowLeft, Share2, Play, 
   Timer, RefreshCw, Settings, AlertCircle, 
-  Dices, Hash, Heart, User, BookOpen,
+  Dices, Hash, Heart, User, BookOpen, Brain,
   ChevronDown, Search, X
 } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
@@ -15,6 +15,7 @@ import EmojiAvatar from "@/components/EmojiAvatar";
 import { useMultiplayer } from "@/contexts/MultiplayerContext";
 import { apiService } from "@/services/apiService";
 import { socketService } from "@/services/socketService";
+import { API_BASE_URL } from "@/services/config";
 import CategorySuggestions from "@/components/CategorySuggestions";
 import "./MultiplayerLobby.css";
 
@@ -49,6 +50,7 @@ const MultiplayerLobby = () => {
   const [categoryData, setCategoryData] = useState<{[key: string]: number | string}>({});
   const [topicInput, setTopicInput] = useState(gameSettings.topic || "");
   const [showCategorySuggestions, setShowCategorySuggestions] = useState(false);
+  const [models, setModels] = useState<{[key: string]: {name: string, key_env: string}}>({});
   
   const topicUpdateTimer = useRef<NodeJS.Timeout | null>(null);
   const lastSliderValue = useRef<number>(gameSettings.numQuestions);
@@ -225,7 +227,7 @@ const MultiplayerLobby = () => {
   
   const fetchCategories = async () => {
     try {
-      const response = await fetch('https://quizzatron.onrender.com/api/categories/get');
+      const response = await fetch(`${API_BASE_URL}/categories/get`);
       if (!response.ok) {
         throw new Error('Failed to fetch categories');
       }
@@ -248,9 +250,21 @@ const MultiplayerLobby = () => {
     }
   };
   
-  // Load categories when component mounts
   useEffect(() => {
     fetchCategories();
+    // Fetch available models
+    const fetchModels = async () => {
+      try {
+        const response = await fetch(`${API_BASE_URL}/quiz/models`);
+        if (response.ok) {
+          const data = await response.json();
+          setModels(data);
+        }
+      } catch (error) {
+        console.error("Error fetching models:", error);
+      }
+    };
+    fetchModels();
   }, []);
   
   const toggleReady = async () => {
@@ -602,7 +616,7 @@ const MultiplayerLobby = () => {
                         animate={{ height: "auto", opacity: 1 }}
                         exit={{ height: 0, opacity: 0 }}
                         transition={{ duration: 0.3 }}
-                        className="overflow-hidden"
+                        className="relative"
                       >
                         <div className="card-content">
                           <div className="settings-container">
@@ -735,6 +749,30 @@ const MultiplayerLobby = () => {
                             </div>
 
                             <div className="settings-item">
+                              <div className="settings-label">
+                                <Brain className="settings-label-icon text-cyan-400" />
+                                <label>AI Model</label>
+                              </div>
+                              <select
+                                value={gameSettings.model}
+                                onChange={(e) => {
+                                  const value = e.target.value;
+                                  if (isHost) handleUpdateSettings({ model: value });
+                                }}
+                                disabled={!isHost}
+                                className={`settings-select ${!isHost ? 'disabled' : ''}`}
+                              >
+                                {Object.keys(models).length > 0 ? (
+                                  Object.entries(models).map(([modelId, modelData]) => (
+                                    <option key={modelId} value={modelId}>{modelData.name}</option>
+                                  ))
+                                ) : (
+                                  <option value={gameSettings.model}>{gameSettings.model}</option>
+                                )}
+                              </select>
+                            </div>
+
+                            <div className="settings-item">
                               <div className="settings-label-container">
                                 <div className="settings-label">
                                   <AlertCircle className="settings-label-icon text-violet-400" />
@@ -752,12 +790,12 @@ const MultiplayerLobby = () => {
                                         handleUpdateSettings({ includeImages: newValue });
                                       }
                                     }}
-                                    disabled={!isHost}
+                                    disabled={!isHost || allCategories.includes(gameSettings.topic || "")}
                                     className="settings-toggle-checkbox"
                                   />
                                   <label 
                                     htmlFor="include-images" 
-                                    className={`settings-toggle ${gameSettings.includeImages ? 'active' : ''} ${!isHost ? 'disabled' : ''}`}
+                                    className={`settings-toggle ${gameSettings.includeImages ? 'active' : ''} ${(!isHost || allCategories.includes(gameSettings.topic || "")) ? 'disabled' : ''}`}
                                   >
                                     <span className="settings-toggle-slider"></span>
                                   </label>

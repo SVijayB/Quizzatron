@@ -10,4 +10,7 @@ api/static/temp/
 frontend/node_modules/
 .coverage
 app.log
-uploads/
+uploads/.DS_Store
+.pylintrc
+.venv
+.DS_Store

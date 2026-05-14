@@ -39,7 +39,7 @@ const defaultSettings: MultiplayerGameSettings = {
   timePerQuestion: 15,
   allowSkipping: false,
   topic: null,
-  model: "gemini",
+  model: "gemini/gemini-2.5-flash",
   includeImages: false
 };
 

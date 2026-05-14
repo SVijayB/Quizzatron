@@ -1,3 +1,4 @@
+import { API_BASE_URL } from "./config";
 
 interface CategoryResponse {
   [key: string]: number | string;
@@ -5,7 +6,7 @@ interface CategoryResponse {
 
 export const fetchCategories = async (): Promise<string[]> => {
   try {
-    const response = await fetch('https://quizzatron.onrender.com/api/categories/get');
+    const response = await fetch(`${API_BASE_URL}/categories/get`);
     if (!response.ok) {
       throw new Error(`Failed to fetch categories: ${response.status} ${response.statusText}`);
     }
@@ -52,7 +53,7 @@ export const fetchQuizByCategory = async (
     
     // Use the local API endpoint until the deployed one is fixed
     const response = await fetch(
-      `https://quizzatron.onrender.com/api/questions/get?${queryParams}`
+      `${API_BASE_URL}/questions/get?${queryParams}`
     );
 
     if (!response.ok) {

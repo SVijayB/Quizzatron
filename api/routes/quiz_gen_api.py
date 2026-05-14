@@ -4,6 +4,7 @@ import os
 from flask import jsonify, request, Blueprint
 from werkzeug.utils import secure_filename
 from api.services.quiz_gen_service import generate_quiz
+from api.utils.quiz_gen import AVAILABLE_MODELS
 
 # Blueprint for quiz generation API
 core_quiz_gen_bp = Blueprint("core_quiz_gen_api", __name__, url_prefix="/quiz")
@@ -35,13 +36,22 @@ def quiz():
     )
 
 
+@core_quiz_gen_bp.route("/models", methods=["GET"])
+def get_models():
+    """Return the list of available AI models."""
+    return jsonify({
+        k: {"name": v["name"], "key_env": v.get("key_env")} 
+        for k, v in AVAILABLE_MODELS.items()
+    })
+
+
 @core_quiz_gen_bp.route("/generate", methods=["GET", "POST"])
 def generate():
     """
     Generate a quiz based on provided parameters or a PDF file.
 
     GET:
-        - model: str, AI model to use (e.g., 'deepseek' or 'gemini').
+        - model: str, AI model to use (e.g., 'deepseek', 'gemini', 'gemma', or 'mistral').
         - topic: str, topic for quiz questions.
         - difficulty: str, difficulty level ('easy', 'medium', 'hard').
         - num_questions: int, number of questions (default is 5).
@@ -71,7 +81,7 @@ def generate():
         topic = request.args.get("topic")
         difficulty = request.args.get("difficulty")
         num_questions = request.args.get("num_questions", default=5, type=int)
-        image = request.args.get("image", default="false").lower() == "true"
+        image = request.args.get("image", default="false")
         pdf = request.args.get("pdf")
 
         if not model or not difficulty or (not topic and not pdf):
@@ -82,14 +92,14 @@ def generate():
                             "Missing required parameters. Provide model, difficulty, "
                             "and either topic or pdf."
                         ),
-                        "model": "deepseek or gemini",
+                        "model": f"Choose from: {', '.join(AVAILABLE_MODELS.keys())}",
                         "difficulty": "easy, medium, or hard",
                         "topic": "Topic for quiz questions",
                         "num_questions": "Number of questions (default is 5)",
                         "image": "Include images in questions (true or false)",
                         "pdf": "Path to PDF file for topic extraction",
                         "example1": (
-                            "/quiz/generate?model=deepseek&difficulty=medium&topic=Coding&num_ques"
+                            "/quiz/generate?model=gemma&difficulty=medium&topic=Coding&num_ques"
                             "tions=5&image=true"
                         ),
                         "example2": (
@@ -111,7 +121,7 @@ def generate():
         topic = request.form.get("topic")
         difficulty = request.form.get("difficulty")
         num_questions = int(request.form.get("num_questions", 5))
-        image = request.form.get("image", "false").lower() == "true"
+        image = request.form.get("image", "false")
         pdf_file = request.files.get("pdf")
 
         if not model or not difficulty or (not topic and not pdf_file):
@@ -122,12 +132,19 @@ def generate():
             pdf = os.path.join(UPLOAD_FOLDER, filename)
             pdf_file.save(pdf)
 
-    result = generate_quiz(
-        model=model,
-        topic=topic,
-        difficulty=difficulty,
-        num_questions=num_questions,
-        image=image,
-        pdf=pdf,
-    )
-    return result
+    try:
+        result = generate_quiz(
+            model=model,
+            topic=topic,
+            difficulty=difficulty,
+            num_questions=num_questions,
+            image=image,
+            pdf=pdf,
+        )
+        return result
+    finally:
+        if pdf and os.path.exists(pdf):
+            try:
+                os.remove(pdf)
+            except Exception as e:
+                pass
