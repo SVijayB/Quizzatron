@@ -23,10 +23,9 @@ AVAILABLE_MODELS = {
         "key_env": "GOOGLE_API_KEY",
         "name": "Gemma 4 31B IT"
     },
-    "openai/deepseek-ai/deepseek-v3.2": {
-        "key_env": "NVIDIA_KEY",
-        "api_base": "https://integrate.api.nvidia.com/v1",
-        "name": "DeepSeek v3.2"
+    "nvidia_nim/deepseek-ai/deepseek-v4-flash": {
+        "key_env": "NVIDIA_NIM_API_KEY",
+        "name": "DeepSeek v4 Flash"
     },
     "mistral/mistral-large-2411": {
         "key_env": "MISTRAL_KEY",
