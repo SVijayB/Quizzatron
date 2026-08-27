@@ -1,69 +1,51 @@
-# Welcome to your Lovable project
+# Quizzatron — frontend
 
-## Project info
+Vite + React 18 + TypeScript + Tailwind, with Radix primitives restyled into the
+Quizzatron design system.
 
-**URL**: https://lovable.dev/projects/ceb3b611-7d4f-4798-86d9-8b37a614789d
+## Running locally
 
-## How can I edit this code?
-
-There are several ways of editing your application.
-
-**Use Lovable**
-
-Simply visit the [Lovable Project](https://lovable.dev/projects/ceb3b611-7d4f-4798-86d9-8b37a614789d) and start prompting.
-
-Changes made via Lovable will be committed automatically to this repo.
-
-**Use your preferred IDE**
-
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
-
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-Follow these steps:
+Requires Node 20 and npm 10.
 
 ```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
+npm install
+npm run dev      # http://localhost:8080
 ```
 
-**Edit a file directly in GitHub**
+The dev server proxies `/api` and `/socket.io` (with websocket upgrade) to
+`http://localhost:5000`, so a locally running backend works with no extra
+config.
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+## Scripts
 
-**Use GitHub Codespaces**
+| Script              | What it does                                |
+| ------------------- | ------------------------------------------- |
+| `npm run dev`       | Dev server with HMR                         |
+| `npm run build`     | Production build into `dist/`               |
+| `npm run preview`   | Serve the production build                  |
+| `npm run typecheck` | `tsc --noEmit` over the app and node configs |
+| `npm run lint`      | ESLint                                      |
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+## Configuration
 
-## What technologies are used for this project?
+Copy `.env.example` to `.env.local`. The only variable is `VITE_API_BASE_URL`,
+the base URL of the backend for both REST and Socket.IO. When unset it defaults
+to `http://localhost:5000` in dev and the hosted deployment in a production
+build.
 
-This project is built with .
+## Design system
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+- `src/styles/tokens.css` — the single source of truth for colour, shadow,
+  radius, and duration. **The only file allowed to contain colour literals.**
+- `tailwind.config.ts` — maps the tokens onto Tailwind's theme. Tailwind's stock
+  `borderRadius` and `boxShadow` scales are replaced rather than extended, so
+  soft blurred shadows and over-rounded corners are not expressible.
+- `src/index.css` — base layer plus the `.press` utility that implements the
+  hard-shadow depress interaction.
+- `src/lib/motion.ts` — every animation goes through `useReducedMotionSafe()`.
+- `src/components/ui/` — the primitives, re-exported from `index.ts`.
 
-## How can I deploy this project?
-
-Simply open [Lovable](https://lovable.dev/projects/ceb3b611-7d4f-4798-86d9-8b37a614789d) and click on Share -> Publish.
-
-## I want to use a custom domain - is that possible?
-
-We don't support custom domains (yet). If you want to deploy your project under your own domain then we recommend using Netlify. Visit our docs for more details: [Custom domains](https://docs.lovable.dev/tips-tricks/custom-domain/)
+House rules: flat solid fills, hard offset shadows with zero blur, 2px ink
+borders (3px on large CTAs), `Anton` for display, `Archivo` for UI, `Space Mono`
+for codes and numeric readouts. No gradients, no backdrop blur, no glow, no
+colour-only state signalling.

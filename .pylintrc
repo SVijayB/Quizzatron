@@ -1,0 +1,44 @@
+[MAIN]
+# Keep CI reproducible: this file is committed, never gitignored.
+py-version = 3.11
+jobs = 0
+
+[FORMAT]
+max-line-length = 100
+
+[MESSAGES CONTROL]
+disable =
+    # Handled by black.
+    format,
+    # Long, cohesive game/route modules are intentional here.
+    too-many-arguments,
+    too-many-positional-arguments,
+    too-many-locals,
+    too-many-branches,
+    too-many-statements,
+    too-many-instance-attributes,
+    too-many-return-statements,
+    too-few-public-methods,
+    # Flask factories and blueprints legitimately nest imports/functions.
+    import-outside-toplevel,
+    cyclic-import,
+    # We log with lazy % formatting where it matters; f-strings elsewhere are fine.
+    logging-fstring-interpolation,
+    duplicate-code,
+    # Module-level singletons (socket server, lobby store, caches) are a
+    # deliberate pattern here and are always guarded by a lock.
+    global-statement
+
+[BASIC]
+good-names = i, j, k, n, e, f, db, ok, id, _
+# Pylint treats every module-level assignment as a constant. Several here are
+# intentionally mutable singletons (the socket server, the Mongo client, caches),
+# so allow lower_snake_case alongside UPPER_CASE at module level.
+const-rgx = (([A-Z_][A-Z0-9_]*)|(__.*__)|(_{0,2}[a-z][a-z0-9_]*))$
+
+[DESIGN]
+max-args = 10
+max-attributes = 15
+
+[EXCEPTIONS]
+overgeneral-exceptions = builtins.BaseException

@@ -1,99 +1,112 @@
-
 import type { Config } from "tailwindcss";
 
+/**
+ * Quizzatron theme. Every value here resolves to a custom property declared in
+ * src/styles/tokens.css — no raw colour literals live in this file.
+ *
+ * No `darkMode`: the app is dark by default and there is no theme switcher.
+ */
 export default {
-  darkMode: ["class"],
-  content: [
-    "./pages/**/*.{ts,tsx}",
-    "./components/**/*.{ts,tsx}",
-    "./app/**/*.{ts,tsx}",
-    "./src/**/*.{ts,tsx}",
-  ],
-  prefix: "",
+  content: ["./index.html", "./src/**/*.{ts,tsx}"],
   theme: {
-    container: {
-      center: true,
-      padding: "2rem",
-      screens: {
-        "2xl": "1400px",
-      },
+    /*
+     * Declared at theme level, not inside `extend`, so Tailwind's stock scales
+     * are *removed*. That makes the prohibitions mechanical: `shadow-lg`,
+     * `shadow-2xl`, `rounded-2xl` etc. simply do not exist any more.
+     */
+    borderRadius: {
+      none: "0",
+      sm: "var(--radius-sm)",
+      DEFAULT: "var(--radius)",
+      md: "var(--radius)",
+      lg: "var(--radius-lg)",
+      full: "var(--radius-full)",
+    },
+    boxShadow: {
+      none: "none",
+      "hard-sm": "var(--shadow-hard-sm)",
+      hard: "var(--shadow-hard)",
+      "hard-lg": "var(--shadow-hard-lg)",
+      "hard-none": "var(--shadow-hard-none)",
+      inset: "var(--shadow-inset)",
     },
     extend: {
       colors: {
-        border: "hsl(var(--border))",
-        input: "hsl(var(--input))",
-        ring: "hsl(var(--ring))",
-        background: "hsl(var(--background))",
-        foreground: "hsl(var(--foreground))",
-        primary: {
-          DEFAULT: "hsl(var(--primary))",
-          foreground: "hsl(var(--primary-foreground))",
+        ink: {
+          DEFAULT: "var(--color-ink)",
+          raised: "var(--color-ink-raised)",
+          sunken: "var(--color-ink-sunken)",
+          line: "var(--color-ink-line)",
         },
-        secondary: {
-          DEFAULT: "hsl(var(--secondary))",
-          foreground: "hsl(var(--secondary-foreground))",
+        scrim: "var(--color-scrim)",
+        bone: {
+          DEFAULT: "var(--color-bone)",
+          dim: "var(--color-bone-dim)",
         },
-        destructive: {
-          DEFAULT: "hsl(var(--destructive))",
-          foreground: "hsl(var(--destructive-foreground))",
+        acid: {
+          DEFAULT: "var(--color-acid)",
+          deep: "var(--color-acid-deep)",
         },
-        muted: {
-          DEFAULT: "hsl(var(--muted))",
-          foreground: "hsl(var(--muted-foreground))",
-        },
-        accent: {
-          DEFAULT: "hsl(var(--accent))",
-          foreground: "hsl(var(--accent-foreground))",
-        },
-        popover: {
-          DEFAULT: "hsl(var(--popover))",
-          foreground: "hsl(var(--popover-foreground))",
-        },
-        card: {
-          DEFAULT: "hsl(var(--card))",
-          foreground: "hsl(var(--card-foreground))",
-        },
+        hot: "var(--color-hot)",
+        go: "var(--color-go)",
+        sky: "var(--color-sky)",
+      },
+      fontFamily: {
+        sans: ["Archivo", "system-ui", "-apple-system", "sans-serif"],
+        display: ["Anton", "Impact", "system-ui", "sans-serif"],
+        mono: ["'Space Mono'", "ui-monospace", "monospace"],
+      },
+      borderWidth: {
+        2: "var(--border-width)",
+        3: "var(--border-width-thick)",
+      },
+      transitionDuration: {
+        press: "var(--dur-press)",
+        fast: "var(--dur-fast)",
+        base: "var(--dur-base)",
+        slow: "var(--dur-slow)",
+      },
+      transitionTimingFunction: {
+        out: "var(--ease-out)",
+        "in-out": "var(--ease-in-out)",
+      },
+      letterSpacing: {
+        tightest: "-0.03em",
+        display: "-0.01em",
+        wide: "0.04em",
+        widest: "0.18em",
+      },
+      minHeight: {
+        touch: "44px",
+        answer: "56px",
+      },
+      minWidth: {
+        touch: "44px",
+      },
+      zIndex: {
+        sticky: "var(--z-sticky)",
+        overlay: "var(--z-overlay)",
+        toast: "var(--z-toast)",
       },
       keyframes: {
-        "fade-up": {
-          "0%": {
-            opacity: "0",
-            transform: "translateY(10px)",
-          },
-          "100%": {
-            opacity: "1",
-            transform: "translateY(0)",
-          },
+        // Only keyframes that are actually referenced by a component.
+        "pop-in": {
+          "0%": { opacity: "0", transform: "scale(0.94)" },
+          "100%": { opacity: "1", transform: "scale(1)" },
         },
-        "fade-down": {
-          "0%": {
-            opacity: "0",
-            transform: "translateY(-10px)",
-          },
-          "100%": {
-            opacity: "1",
-            transform: "translateY(0)",
-          },
+        "slide-up": {
+          "0%": { opacity: "0", transform: "translateY(8px)" },
+          "100%": { opacity: "1", transform: "translateY(0)" },
         },
-        blob: {
-          "0%": {
-            transform: "translate(0px, 0px) scale(1)",
-          },
-          "33%": {
-            transform: "translate(30px, -50px) scale(1.1)",
-          },
-          "66%": {
-            transform: "translate(-20px, 20px) scale(0.9)",
-          },
-          "100%": {
-            transform: "translate(0px, 0px) scale(1)",
-          },
+        "shadow-pulse": {
+          "0%, 100%": { boxShadow: "var(--shadow-hard)" },
+          "50%": { boxShadow: "var(--shadow-hard-lg)" },
         },
       },
       animation: {
-        "fade-up": "fade-up 0.5s ease-out",
-        "fade-down": "fade-down 0.5s ease-out",
-        blob: "blob 7s infinite",
+        "pop-in": "pop-in var(--dur-base) var(--ease-out) both",
+        "slide-up": "slide-up var(--dur-base) var(--ease-out) both",
+        "shadow-pulse": "shadow-pulse 1.2s var(--ease-in-out) infinite",
       },
     },
   },

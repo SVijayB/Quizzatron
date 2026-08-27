@@ -23,7 +23,39 @@ export default tseslint.config(
         "warn",
         { allowConstantExport: true },
       ],
-      "@typescript-eslint/no-unused-vars": "off",
+      "@typescript-eslint/no-unused-vars": [
+        "error",
+        { argsIgnorePattern: "^_", varsIgnorePattern: "^_" },
+      ],
+      "@typescript-eslint/no-explicit-any": "error",
+      "no-console": ["error", { allow: ["warn", "error"] }],
+    },
+  },
+  {
+    // Colour lives in src/styles/tokens.css and is consumed through the
+    // Tailwind theme. A raw hex literal in a component means the design system
+    // was bypassed.
+    files: ["src/**/*.{ts,tsx}"],
+    rules: {
+      "no-restricted-syntax": [
+        "error",
+        {
+          selector:
+            "Literal[value=/#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})\\b/]",
+          message:
+            "No raw hex colours. Add the value to src/styles/tokens.css and use the Tailwind token (e.g. `text-acid`) or `var(--color-…)`.",
+        },
+        {
+          selector:
+            "TemplateElement[value.raw=/#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})\\b/]",
+          message:
+            "No raw hex colours. Add the value to src/styles/tokens.css and use the Tailwind token (e.g. `text-acid`) or `var(--color-…)`.",
+        },
+        {
+          selector: "JSXAttribute[name.name='dangerouslySetInnerHTML']",
+          message: "dangerouslySetInnerHTML is not allowed.",
+        },
+      ],
     },
   }
 );

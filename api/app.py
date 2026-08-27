@@ -1,119 +1,108 @@
-"""Flask application factory for creating and configuring the API."""
+"""Flask application factory.
 
-import os
-import sys
+Changes from v1:
+
+* The duplicate root-level ``app.py`` -- a second ``create_app`` that registered
+  no blueprints at all -- is gone. There is one factory.
+* CORS is an explicit origin allowlist. v1 combined ``origins: "*"`` with
+  ``supports_credentials: True`` and ``allow_headers: "*"``, which is both
+  invalid per the CORS spec and unsafe.
+* ``SECRET_KEY`` is required outside local environments instead of silently
+  defaulting to ``None``.
+* ``MAX_CONTENT_LENGTH`` is set, so uploads are bounded.
+* Runtime directories are created here rather than as an import side effect.
+* A lobby reaper actually runs.
+"""
+
+from __future__ import annotations
+
 import logging
-import logging.config
 
-from flask import Flask, request, render_template, send_from_directory
+from flask import Flask, jsonify, send_from_directory
 from flask_cors import CORS
 
+from api.core.config import ASSETS_DIR, ensure_runtime_dirs, get_settings
+from api.core.errors import register_error_handlers
+from api.core.logging_setup import setup_logging
 from api.routes import api_blueprint
 from api.socket_server import init_socketio
 
-
-def setup_logging():
-    """Configure logging handlers and formatters."""
-    # Create both file and console handlers
-    file_handler = logging.FileHandler("app.log", mode="a", encoding="utf-8")
-    console_handler = logging.StreamHandler(sys.stdout)
-
-    # Create a formatter that includes timestamp for both handlers
-    formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
-    file_handler.setFormatter(formatter)
-    console_handler.setFormatter(formatter)
-
-    # Filter to exclude socketio ping/pong messages
-    class SocketIOFilter(logging.Filter):
-        def filter(self, record):
-            if record.getMessage().startswith(
-                "Sending packet PING"
-            ) or record.getMessage().startswith("Received packet PONG"):
-                return False
-            return True
-
-    # Add the filter to both handlers
-    socket_filter = SocketIOFilter()
-    file_handler.addFilter(socket_filter)
-    console_handler.addFilter(socket_filter)
-
-    # For hosting on Render, ensure important logs go to stdout (console)
-    # This makes logs visible in Render's log viewer
-    file_handler.setLevel(logging.INFO)
-    console_handler.setLevel(
-        logging.INFO
-    )  # Changed from WARNING to INFO for Render visibility
-
-    # Configure root logger
-    root_logger = logging.getLogger()
-    root_logger.setLevel(logging.INFO)
-
-    # Remove any existing handlers to avoid duplicate logs
-    for handler in root_logger.handlers[:]:
-        root_logger.removeHandler(handler)
-
-    # Add our configured handlers
-    root_logger.addHandler(file_handler)
-    root_logger.addHandler(console_handler)
-
-    # Set specific engine loggers to higher levels to reduce noise
-    logging.getLogger("engineio").setLevel(logging.WARNING)
-    logging.getLogger("socketio").setLevel(logging.WARNING)
-    logging.getLogger("werkzeug").setLevel(logging.WARNING)
+logger = logging.getLogger(__name__)
 
 
-def create_app(env):
-    """Factory function to create and configure the Flask application.
+def create_app(env: str | None = None) -> tuple[Flask, object]:
+    """Build the application and its Socket.IO server.
 
-    Args:
-        env (str): Application environment (e.g., DEVELOPMENT, PRODUCTION)
-
-    Returns:
-        Flask: Configured Flask application instance
+    Returns ``(app, socketio)``.
     """
     setup_logging()
-    app = Flask(__name__, instance_relative_config=True)
-    app.config["SECRET_KEY"] = os.getenv("SECRET_KEY")
-    app.config["ENV"] = env
+    settings = get_settings()
+    ensure_runtime_dirs()
+
+    app = Flask(__name__, static_folder="static", static_url_path="/static")
+    app.config.update(
+        SECRET_KEY=settings.secret_key,
+        ENV=env or settings.environment,
+        MAX_CONTENT_LENGTH=settings.max_upload_bytes,
+        JSON_SORT_KEYS=False,
+    )
+    app.json.sort_keys = False
     app.url_map.strict_slashes = False
 
-    # Configure CORS
-    api_cors_config = {
-        "origins": "*",
-        "supports_credentials": True,
-        "allow_headers": "*",
-    }
-    CORS(app, resources={"/*": api_cors_config})
+    CORS(
+        app,
+        resources={r"/api/*": {"origins": settings.cors_origins}},
+        supports_credentials=False,
+        allow_headers=["Content-Type"],
+        methods=["GET", "POST", "OPTIONS"],
+    )
 
-    @app.route("/", methods=["GET"])
+    app.register_blueprint(api_blueprint)
+    register_error_handlers(app)
+
+    @app.get("/")
     def index():
-        """Serve the main index page."""
-        return render_template("index.html")
-
-    @app.route("/favicon.ico")
-    def favicon():
-        """Serve the favicon."""
-        return send_from_directory(
-            os.path.join(app.root_path, "../assets"),
-            "favicon.ico",
-            mimetype="image/vnd.microsoft.icon",
+        """Point callers at the API."""
+        return jsonify(
+            {
+                "name": "Quizzatron API",
+                "version": 2,
+                "docs": "/api/health",
+            }
         )
 
-    @app.errorhandler(404)
-    def page_not_found(_error):
-        """Handle 404 errors by logging and returning an error response.
+    @app.get("/favicon.ico")
+    def favicon():
+        """Serve the favicon."""
+        return send_from_directory(ASSETS_DIR, "favicon.ico", mimetype="image/vnd.microsoft.icon")
 
-        Args:
-            _error: Unused error object (required by Flask errorhandler)
-        """
-        app.logger.error("Page not found: %s", request.path)
-        return f"ERROR 404: CANNOT GET {request.path}", 404
-
-    # Register blueprints
-    app.register_blueprint(api_blueprint)
-    app.json.sort_keys = False
-
-    # Initialize SocketIO
     socketio = init_socketio(app)
+    _start_reaper(socketio)
 
+    logger.info(
+        "Quizzatron API ready (env=%s, origins=%s)",
+        settings.environment,
+        ", ".join(settings.cors_origins),
+    )
     return app, socketio
+
+
+def _start_reaper(socketio) -> None:
+    """Run the lobby reaper in the background.
+
+    v1 shipped two cleanup functions and called neither, so lobbies -- with every
+    question payload and answer -- accumulated for the process lifetime.
+    """
+    from api.multiplayer.store import store
+
+    settings = get_settings()
+
+    def loop() -> None:
+        while True:
+            socketio.sleep(settings.reaper_interval_s)
+            try:
+                store.reap()
+            except Exception:  # noqa: BLE001 - the reaper must never die
+                logger.exception("Lobby reaper iteration failed")
+
+    socketio.start_background_task(loop)

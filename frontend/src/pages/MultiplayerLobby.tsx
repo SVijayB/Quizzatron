@@ -1,872 +1,539 @@
-import { useState, useEffect, useRef, useCallback } from "react";
-import { useNavigate, useParams } from "react-router-dom";
-import { motion, AnimatePresence } from "framer-motion";
-import { 
-  Users, Check, Copy, ArrowLeft, Share2, Play, 
-  Timer, RefreshCw, Settings, AlertCircle, 
-  Dices, Hash, Heart, User, BookOpen,
-  ChevronDown, Search, X
+import { useCallback, useEffect, useRef, useState } from "react";
+import { Link, useNavigate, useParams } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
+import {
+  AlertTriangle,
+  ArrowLeft,
+  Check,
+  Link2,
+  Loader2,
+  LogOut,
+  Play,
+  WifiOff,
 } from "lucide-react";
-import { useToast } from "@/components/ui/use-toast";
-import { Slider } from "@/components/ui/slider";
-import CursorEffect from "@/components/CursorEffect";
-import QuizLogo from "@/components/QuizLogo";
-import EmojiAvatar from "@/components/EmojiAvatar";
+
+import { ConfirmDialog } from "@/components/ConfirmDialog";
+import {
+  AvatarPicker,
+  Button,
+  CodeDisplay,
+  Input,
+  Label,
+  Panel,
+  PanelHeader,
+  PanelTitle,
+  useToast,
+} from "@/components/ui";
 import { useMultiplayer } from "@/contexts/MultiplayerContext";
-import { apiService } from "@/services/apiService";
-import { socketService } from "@/services/socketService";
-import CategorySuggestions from "@/components/CategorySuggestions";
-import "./MultiplayerLobby.css";
+import { useSocketEvent } from "@/hooks/useSocketEvent";
+import { LobbySettingsForm } from "@/features/lobby/LobbySettingsForm";
+import { PlayerList } from "@/features/lobby/PlayerList";
+import { DEFAULT_AVATAR_EMOJI, getRandomEmoji } from "@/lib/avatars";
+import { ApiError, errorMessage, isAbortError } from "@/services/http";
+import {
+  getLobbyState,
+  joinLobby,
+  leaveLobby,
+  setReady,
+  startGame,
+  updateAvatar,
+  updateSettings,
+} from "@/services/multiplayerApi";
+import { getCategories, getModels } from "@/services/quizApi";
+import { socketClient } from "@/services/socket";
+import type { LobbySettings } from "@/types/api";
 
-const debounce = (func: Function, wait: number) => {
-  let timeout: NodeJS.Timeout | null = null;
-  return function(...args: any[]) {
-    if (timeout) clearTimeout(timeout);
-    timeout = setTimeout(() => func(...args), wait);
-  };
-};
+const NAME_MAX = 20;
 
-const MultiplayerLobby = () => {
+/**
+ * The lobby.
+ *
+ * The bug this rewrite exists to kill: v1 required `contextLobbyCode === urlCode`
+ * before it would render anything, so a pasted invite link — where the context is
+ * empty by definition — was permanently un-joinable. Here the URL is the source
+ * of truth and a visitor who is not yet a member gets a join form.
+ */
+export default function MultiplayerLobby() {
+  const { lobbyCode: rawCode } = useParams<{ lobbyCode: string }>();
+  const lobbyCode = (rawCode ?? "").trim().toUpperCase();
   const navigate = useNavigate();
-  const { lobbyCode: urlLobbyCode } = useParams<{ lobbyCode: string }>();
   const { toast } = useToast();
-  
-  const { 
-    playerName, playerId, isHost, playerAvatar, 
-    lobbyCode: contextLobbyCode, 
-    players, setPlayers,
-    gameSettings, setGameSettings,
-    isSocketConnected,
-    setupSocketListeners
+
+  const {
+    identity,
+    snapshot,
+    self,
+    isHost,
+    status,
+    closed,
+    signIn,
+    signOut,
+    rememberAvatar,
+    applySnapshot,
+    acknowledgeClosed,
   } = useMultiplayer();
-  
-  const [isReady, setIsReady] = useState(false);
-  const [isStartingGame, setIsStartingGame] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
-  const [showSettings, setShowSettings] = useState(true);
-  const [copySuccess, setCopySuccess] = useState(false);
-  const [allCategories, setAllCategories] = useState<string[]>([]);
-  const [categoryData, setCategoryData] = useState<{[key: string]: number | string}>({});
-  const [topicInput, setTopicInput] = useState(gameSettings.topic || "");
-  const [showCategorySuggestions, setShowCategorySuggestions] = useState(false);
-  
-  const topicUpdateTimer = useRef<NodeJS.Timeout | null>(null);
-  const lastSliderValue = useRef<number>(gameSettings.numQuestions);
 
-  // Add a local state for the slider value to prevent animation issues
-  const [localQuestionCount, setLocalQuestionCount] = useState<number>(gameSettings.numQuestions);
-  const isSliderDragging = useRef(false);
-  
-  // Add a reference for the slider timeout
-  const sliderUpdateTimeout = useRef<NodeJS.Timeout | null>(null);
-  
-  // Update local slider value when gameSettings changes from server
+  const joined = Boolean(identity && identity.lobbyCode === lobbyCode);
+
+  const [joinName, setJoinName] = useState(() => identity?.playerName ?? "");
+  const [joinAvatar, setJoinAvatar] = useState(
+    () => identity?.avatar ?? getRandomEmoji(),
+  );
+  const [joining, setJoining] = useState(false);
+  const [joinError, setJoinError] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [starting, setStarting] = useState(false);
+  const [confirmLeave, setConfirmLeave] = useState(false);
+
+  const abort = useRef<AbortController | null>(null);
+  useEffect(() => () => abort.current?.abort(), []);
+
+  const modelsQuery = useQuery({
+    queryKey: ["models"],
+    queryFn: ({ signal }) => getModels(signal),
+    staleTime: 5 * 60_000,
+  });
+  const categoriesQuery = useQuery({
+    queryKey: ["categories"],
+    queryFn: ({ signal }) => getCategories(signal),
+    staleTime: 10 * 60_000,
+  });
+
+  /* ------------------------------------------------------------- recovery */
+
   useEffect(() => {
-    if (!isSliderDragging.current) {
-      setLocalQuestionCount(gameSettings.numQuestions);
-    }
-  }, [gameSettings.numQuestions]);
+    if (!joined || !lobbyCode) return;
+    const controller = new AbortController();
 
-  // Handle game started event from socket
-  const handleGameStarted = useCallback((data: any) => {
-    console.log("Game started event received:", data);
-    toast({
-      title: "Game Starting",
-      description: "Redirecting to quiz...",
-    });
-    navigate(`/multiplayer/quiz/${urlLobbyCode}`);
-  }, [navigate, toast, urlLobbyCode]);
-
-  // Handle new question event from socket
-  const handleNewQuestion = useCallback((data: any) => {
-    console.log("New question received in lobby:", data);
-    if (urlLobbyCode) {
-      navigate(`/multiplayer/quiz/${urlLobbyCode}`);
-    }
-  }, [navigate, urlLobbyCode]);
-  
-  // Handle player leave event from socket
-  const handlePlayerLeft = useCallback((data: any) => {
-    console.log("Player left event received:", data);
-    if (data.lobbyCode === urlLobbyCode) {
-      // Refresh the lobby state to get the updated player list
-      fetchLobbyState();
-    }
-  }, [urlLobbyCode]);
-  
-  useEffect(() => {
-    if (!playerName || !playerId || !urlLobbyCode) {
-      navigate("/multiplayer");
-      return;
-    }
-    
-    if (contextLobbyCode !== urlLobbyCode) {
-      navigate("/multiplayer");
-      return;
-    }
-    
-    // Setup socket handlers with improved cleanup
-    console.log("Setting up socket listeners in MultiplayerLobby");
-    
-    const handleGameStarted = (data: any) => {
-      console.log("Game started event received:", data);
-      navigate(`/multiplayer/quiz/${urlLobbyCode}`);
-    };
-
-    const handleNewQuestion = (data: any) => {
-      console.log("New question received in lobby:", data);
-      if (urlLobbyCode) {
-        navigate(`/multiplayer/quiz/${urlLobbyCode}`);
-      }
-    };
-    
-    const handlePlayerLeft = (data: any) => {
-      console.log("Player left event received:", data);
-      if (data.lobby_code === urlLobbyCode || data.lobbyCode === urlLobbyCode) {
-        // Refresh the lobby state to get the updated player list
-        fetchLobbyState();
-      }
-    };
-
-    // Connect to socket if not already connected
-    if (!socketService.isConnected()) {
-      socketService.connect();
-    }
-    
-    // Register event handlers
-    const cleanupGameStarted = socketService.on("game_started", handleGameStarted);
-    const cleanupNewQuestion = socketService.on("new_question", handleNewQuestion);
-    const cleanupPlayerLeft = socketService.on("player_left", handlePlayerLeft);
-    
-    // Join the room
-    socketService.joinRoom(urlLobbyCode, playerName, playerId);
-    
-    // Fetch lobby state to confirm connection
-    fetchLobbyState();
-    
-    // Debug logging for socket events
-    const cleanupConnect = socketService.on("connect", () => {
-      console.log("Socket connected in MultiplayerLobby");
-      if (isSocketConnected === false) {
-        fetchLobbyState(); // Refresh state when reconnected
-      }
-    });
-    
-    const cleanupDisconnect = socketService.on("disconnect", () => {
-      console.log("Socket disconnected in MultiplayerLobby");
-    });
-    
-    const cleanupError = socketService.on("error", (data: any) => {
-      console.error("Socket error in MultiplayerLobby:", data);
-      toast({
-        title: "Connection Error",
-        description: data.message || "There was an error connecting to the game server",
-        variant: "destructive",
+    getLobbyState(lobbyCode, controller.signal)
+      .then((state) => {
+        setLoadError(null);
+        applySnapshot(state);
+      })
+      .catch((caught: unknown) => {
+        if (isAbortError(caught)) return;
+        setLoadError(errorMessage(caught, "Could not load that lobby."));
       });
-    });
 
-    // Clean up handlers when component unmounts
-    return () => {
-      console.log("Cleaning up socket event listeners in MultiplayerLobby");
-      cleanupGameStarted();
-      cleanupNewQuestion();
-      cleanupPlayerLeft();
-      cleanupConnect();
-      cleanupDisconnect();
-      cleanupError();
-    };
-  }, [playerName, playerId, urlLobbyCode, contextLobbyCode, navigate, isSocketConnected]);
-  
-  const fetchLobbyState = async () => {
-    try {
-      if (!urlLobbyCode) return;
-      
-      console.log("Fetching lobby state for:", urlLobbyCode);
-      const data = await apiService.getLobbyInfo(urlLobbyCode);
-      console.log("Lobby state received:", data);
-      
-      setPlayers(data.players || []);
-      setGameSettings(data.settings || gameSettings);
-      
-      if (data.settings?.topic !== undefined) {
-        setTopicInput(data.settings.topic || "");
-      }
-      
-      const myPlayer = data.players?.find(p => p.name === playerName);
-      if (myPlayer) {
-        setIsReady(!!myPlayer.ready);
-      }
-      
-      if (data.game_started) {
-        console.log("Game already started, redirecting to quiz page");
-        navigate(`/multiplayer/quiz/${urlLobbyCode}`);
+    return () => controller.abort();
+  }, [applySnapshot, joined, lobbyCode]);
+
+  /* --------------------------------------------------------------- events */
+
+  useSocketEvent("error", (payload) => {
+    toast({
+      variant: "destructive",
+      title: "Lobby error",
+      description: payload.message,
+    });
+  });
+
+  useSocketEvent("game:started", () => {
+    // `replace` so the browser Back button cannot drop a player back into a
+    // lobby screen for a game that is already in progress.
+    navigate(`/multiplayer/quiz/${lobbyCode}`, { replace: true });
+  });
+
+  useEffect(() => {
+    if (!closed) return;
+    toast({
+      variant: "destructive",
+      title: "Lobby closed",
+      description: closed.reason,
+    });
+    acknowledgeClosed();
+    signOut();
+    navigate("/multiplayer", { replace: true });
+  }, [acknowledgeClosed, closed, navigate, signOut, toast]);
+
+  // A reload mid-game, or a game that is already over, lands on the right screen.
+  useEffect(() => {
+    const state = snapshot?.state;
+    // The lobbyCode guard matters: the snapshot can still describe the *previous*
+    // lobby for the instant between joining a new one and its first update.
+    if (!joined || !state || snapshot?.lobbyCode !== lobbyCode) return;
+    if (state === "question" || state === "reveal") {
+      navigate(`/multiplayer/quiz/${lobbyCode}`, { replace: true });
+    } else if (state === "game_over") {
+      navigate(`/multiplayer/results/${lobbyCode}`, { replace: true });
+    }
+  }, [joined, lobbyCode, navigate, snapshot?.lobbyCode, snapshot?.state]);
+
+  /* -------------------------------------------------------------- actions */
+
+  /** Prefer the socket; fall back to REST so a dropped socket is not a dead end. */
+  const send = useCallback(
+    (viaSocket: () => void, viaRest: () => Promise<unknown>) => {
+      if (socketClient.status === "connected") {
+        viaSocket();
         return;
       }
-      
-      setIsLoading(false);
-    } catch (error) {
-      console.error("Error fetching lobby state:", error);
-      if (error instanceof Error && error.message === "Lobby not found") {
+      viaRest().catch((caught: unknown) => {
+        if (isAbortError(caught)) return;
         toast({
-          title: "Lobby Not Found",
-          description: "The lobby you tried to join doesn't exist.",
           variant: "destructive",
+          title: "That did not go through",
+          description: errorMessage(caught),
         });
-        navigate("/multiplayer");
-      } else {
-        toast({
-          title: "Error",
-          description: "Failed to load lobby information.",
-          variant: "destructive",
-        });
-      }
-    }
-  };
-  
-  const fetchCategories = async () => {
-    try {
-      const response = await fetch('https://quizzatron.onrender.com/api/categories/get');
-      if (!response.ok) {
-        throw new Error('Failed to fetch categories');
-      }
-      
-      const data: {[key: string]: number | string} = await response.json();
-      setCategoryData(data);
-      
-      // Include all categories
-      const categoryList = Object.keys(data);
-      setAllCategories(categoryList);
-      
-      console.log("Loaded categories data:", data);
-    } catch (error) {
-      console.error("Error fetching categories:", error);
-      toast({
-        title: "Error",
-        description: "Failed to fetch categories. Please try again.",
-        variant: "destructive",
       });
-    }
-  };
-  
-  // Load categories when component mounts
-  useEffect(() => {
-    fetchCategories();
-  }, []);
-  
-  const toggleReady = async () => {
-    try {
-      if (!urlLobbyCode) return;
-      
-      await apiService.toggleReadyStatus(urlLobbyCode, playerName, !isReady);
-      setIsReady(!isReady);
-    } catch (error) {
-      console.error("Error toggling ready state:", error);
-      toast({
-        title: "Error",
-        description: "Failed to update ready status",
-        variant: "destructive",
-      });
-    }
-  };
-  
-  const handleUpdateSettings = async (updatedSettings: Partial<typeof gameSettings>) => {
-    if (!isHost || !urlLobbyCode) return;
-    
-    const newSettings = { ...gameSettings, ...updatedSettings };
-    
-    setGameSettings(newSettings);
-    
-    try {
-      await apiService.updateGameSettings(urlLobbyCode, newSettings);
-    } catch (error) {
-      console.error("Error updating game settings:", error);
-      toast({
-        title: "Error",
-        description: "Failed to update game settings",
-        variant: "destructive",
-      });
-    }
-  };
-  
-  const debouncedHandleUpdateSettings = useCallback(
-    debounce((settings: Partial<typeof gameSettings>) => {
-      handleUpdateSettings(settings);
-    }, 1000), // Increase to 1000ms (1 second) for better animation handling
-    [gameSettings, urlLobbyCode]
+    },
+    [toast],
   );
-  
-  const handleStartGame = async () => {
-    if (!isHost || !urlLobbyCode) return;
-    
-    const readyPlayers = players.filter(player => player.ready || player.isHost);
-    if (readyPlayers.length < 2) {
-      toast({
-        title: "Cannot start game",
-        description: "At least one player besides the host must be ready",
-        variant: "destructive",
-      });
+
+  const onJoin = async () => {
+    const name = joinName.trim();
+    if (!name) {
+      setJoinError("Enter a name first.");
       return;
     }
-    
-    setIsStartingGame(true);
-    
+
+    abort.current?.abort();
+    const controller = new AbortController();
+    abort.current = controller;
+    setJoining(true);
+    setJoinError(null);
+
     try {
-      console.log("Starting game for lobby:", urlLobbyCode);
-      
-      // First emit the socket event for immediate notification to other players
-      socketService.startGame(urlLobbyCode);
-      
-      // Then make the API call to generate questions
+      const response = await joinLobby(
+        { lobbyCode, playerName: name, avatar: joinAvatar },
+        controller.signal,
+      );
+      signIn({
+        playerId: response.playerId,
+        playerName: name,
+        avatar: joinAvatar,
+        lobbyCode: response.lobbyCode,
+      });
+      applySnapshot(response.lobby);
+    } catch (caught) {
+      if (controller.signal.aborted) return;
+      setJoinError(errorMessage(caught, "Could not join that lobby."));
+    } finally {
+      if (!controller.signal.aborted) setJoining(false);
+    }
+  };
+
+  const onToggleReady = () => {
+    if (!identity || !self) return;
+    const next = !self.ready;
+    send(
+      () =>
+        socketClient.emit("lobby:ready", {
+          lobbyCode,
+          playerId: identity.playerId,
+          ready: next,
+        }),
+      () => setReady({ lobbyCode, playerId: identity.playerId, ready: next }),
+    );
+  };
+
+  const onChangeAvatar = (avatar: string) => {
+    if (!identity) return;
+    rememberAvatar(avatar);
+    send(
+      () =>
+        socketClient.emit("lobby:avatar", {
+          lobbyCode,
+          playerId: identity.playerId,
+          avatar,
+        }),
+      () => updateAvatar({ lobbyCode, playerId: identity.playerId, avatar }),
+    );
+  };
+
+  const onChangeSettings = (patch: Partial<LobbySettings>) => {
+    if (!identity) return;
+    send(
+      () =>
+        socketClient.emit("lobby:settings", {
+          lobbyCode,
+          playerId: identity.playerId,
+          settings: patch,
+        }),
+      () => updateSettings({ lobbyCode, playerId: identity.playerId, settings: patch }),
+    );
+  };
+
+  const onStart = async () => {
+    if (!identity) return;
+    setStarting(true);
+    try {
+      // Deliberately REST: the response tells us whether generation was accepted,
+      // and the server then broadcasts `game:started` to everyone including us.
+      await startGame({ lobbyCode, playerId: identity.playerId });
+    } catch (caught) {
+      toast({
+        variant: "destructive",
+        title: "Could not start",
+        description: errorMessage(caught),
+      });
+    } finally {
+      setStarting(false);
+    }
+  };
+
+  const onLeave = async () => {
+    if (identity) {
       try {
-        const result = await apiService.startGame(urlLobbyCode);
-        console.log("Game start API response:", result);
-      } catch (startError) {
-        // Completely suppress game start errors - the socket event will handle navigation
-        console.warn("Suppressed game start error:", startError);
+        await leaveLobby({ lobbyCode, playerId: identity.playerId });
+      } catch (caught) {
+        // Leaving locally must succeed even if the call does not.
+        if (caught instanceof ApiError && caught.status === 0) {
+          toast({ description: "You left, but the server was unreachable." });
+        }
       }
-      
-      // Wait a moment for the backend to prepare, then navigate
-      setTimeout(() => {
-        console.log("Navigating to quiz page after game start");
-        navigate(`/multiplayer/quiz/${urlLobbyCode}`);
-      }, 500);
-      
-    } catch (error) {
-      console.error("Error starting game:", error);
-      // Don't show any error toasts or reset the starting state
-      // Just navigate to the quiz page anyway since the game is likely already started
-      setTimeout(() => {
-        navigate(`/multiplayer/quiz/${urlLobbyCode}`);
-      }, 500);
     }
+    signOut();
+    navigate("/multiplayer", { replace: true });
   };
-  
-  const handleLeaveLobby = async () => {
+
+  const copyInvite = async () => {
+    const url = `${window.location.origin}/multiplayer/lobby/${lobbyCode}`;
     try {
-      if (playerId && urlLobbyCode) {
-        socketService.leaveRoom(urlLobbyCode, playerName, playerId);
-      }
-      
-      if (!isHost && urlLobbyCode) {
-        await apiService.leaveLobby(urlLobbyCode, playerName);
-      }
-      
-      localStorage.removeItem("lobbyCode");
-      localStorage.removeItem("isHost");
-      localStorage.removeItem("playerId");
-      navigate("/multiplayer");
-    } catch (error) {
-      console.error("Error leaving lobby:", error);
-      navigate("/multiplayer");
+      await navigator.clipboard.writeText(url);
+      toast({ variant: "success", title: "Invite link copied" });
+    } catch {
+      toast({
+        title: "Copy the link from the address bar",
+        description: url,
+      });
     }
   };
-  
-  const copyLobbyCode = () => {
-    navigator.clipboard.writeText(urlLobbyCode || "");
-    setCopySuccess(true);
-    
-    setTimeout(() => {
-      setCopySuccess(false);
-    }, 2000);
-  };
-  
-  const updatePlayerEmoji = async (emoji: string) => {
-    // Disable avatar updates in the lobby
-    console.log("Avatar updates are disabled in the lobby");
-    toast({
-      title: "Avatar Locked",
-      description: "Avatars can only be changed before joining the lobby.",
-    });
-    return;
-  };
-  
-  const handleTopicChange = (value: string) => {
-    setTopicInput(value);
-    
-    if (isHost) {
-      clearTimeout(topicUpdateTimer.current as NodeJS.Timeout);
-      topicUpdateTimer.current = setTimeout(() => {
-        handleUpdateSettings({ topic: value || null });
-      }, 500);
-    }
-  };
-  
-  const areAllPlayersReady = () => {
-    const nonHostPlayers = players.filter(player => !player.isHost);
-    return nonHostPlayers.length > 0 && nonHostPlayers.every(player => player.ready);
-  };
-  
-  useEffect(() => {
-    if (gameSettings.topic !== topicInput && gameSettings.topic !== undefined) {
-      setTopicInput(gameSettings.topic || "");
-    }
-  }, [gameSettings.topic]);
-  
-  if (isLoading) {
+
+  /* --------------------------------------------------------------- render */
+
+  if (!lobbyCode) {
+    return <LobbyProblem message="That link has no lobby code in it." />;
+  }
+
+  if (joined && loadError) {
     return (
-      <div className="lobby-background">
-        <div className="absolute inset-0 flex items-center justify-center z-10">
-          <div className="bg-white/10 backdrop-blur-md p-8 rounded-xl shadow-lg text-white text-center">
-            <RefreshCw className="animate-spin h-8 w-8 mx-auto mb-4" />
-            <h2 className="text-2xl font-bold mb-2">Loading Lobby...</h2>
-            <p>Please wait while we connect to the game server.</p>
-            {!isSocketConnected && (
-              <p className="mt-4 text-amber-300">Establishing connection...</p>
-            )}
-          </div>
-        </div>
-      </div>
+      <LobbyProblem
+        message={loadError}
+        onReset={() => {
+          signOut();
+          navigate("/multiplayer", { replace: true });
+        }}
+      />
     );
   }
 
+  const disconnected = status !== "connected" && status !== "idle";
+
   return (
-    <div className="lobby-background">
-      <CursorEffect />
-      
-      <div className="lobby-gradient-overlay" />
-      <div className="lobby-radial-overlay-1" />
-      <div className="lobby-radial-overlay-2" />
-      <div className="lobby-radial-overlay-3" />
-      <div className="lobby-grid-overlay" />
-
-      <AnimatePresence>
-        {copySuccess && (
-          <motion.div 
-            className="copy-notification"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 20 }}
-            transition={{ duration: 0.2 }}
-          >
-            <Check className="copy-notification-icon" />
-            Lobby code copied to clipboard!
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      <div className="lobby-content">
-        <button
-          onClick={handleLeaveLobby}
-          className="exit-button"
-        >
-          <ArrowLeft className="mr-2 h-4 w-4" />
-          {isHost ? "Close Lobby" : "Leave Lobby"}
-        </button>
-
-        <motion.div 
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
-          className="w-full max-w-3xl"
-        >
-          <div className="lobby-header">
-            <div className="text-center">
-              <div className="flex items-center justify-center">
-                <QuizLogo size={60} color="white" className="mr-3" />
-                <h1 className="lobby-title">Waiting Lobby</h1>
-              </div>
-              
-              <div className="flex items-center justify-center mt-2">
-                <div className="lobby-code">
-                  <Hash className="lobby-code-icon" />
-                  {urlLobbyCode}
-                  <button 
-                    onClick={copyLobbyCode}
-                    className="lobby-copy-button"
-                    aria-label="Copy lobby code"
-                  >
-                    <Copy className="h-3.5 w-3.5" />
-                  </button>
-                </div>
-                <div className="lobby-player-count ml-4">
-                  {players.length} {players.length === 1 ? "Player" : "Players"}
-                </div>
-              </div>
-              
-              {!isSocketConnected && (
-                <div className="mt-2 text-amber-300 flex items-center justify-center">
-                  <RefreshCw className="h-3.5 w-3.5 mr-2 animate-spin" />
-                  Reconnecting to server...
-                </div>
-              )}
-            </div>
-          </div>
-
-          <div className="lobby-layout">
-            <div className="how-to-play-card">
-              <div className="card-content how-to-play-content">
-                <div className="how-to-play-icon">
-                  <Heart className="h-6 w-6" />
-                </div>
-                <h3 className="how-to-play-title">How to Play</h3>
-                <p className="how-to-play-description">
-                  Answer questions quickly to earn more points. The faster you answer correctly, the higher your score!
-                </p>
-                <ul className="how-to-play-list">
-                  <li className="how-to-play-list-item">
-                    <div className="how-to-play-list-bullet">•</div>
-                    <div>Everyone gets the same questions in the same order</div>
-                  </li>
-                  <li className="how-to-play-list-item">
-                    <div className="how-to-play-list-bullet">•</div>
-                    <div>Answer quickly for more points</div>
-                  </li>
-                  <li className="how-to-play-list-item">
-                    <div className="how-to-play-list-bullet">•</div>
-                    <div>See everyone's progress in real-time</div>
-                  </li>
-                  <li className="how-to-play-list-item">
-                    <div className="how-to-play-list-bullet">•</div>
-                    <div>Final results will be displayed at the end</div>
-                  </li>
-                </ul>
-              </div>
-            </div>
-          
-            <div className="players-card">
-              <div className="space-y-6">
-                <div>
-                  <div className="card-header">
-                    <div className="card-title">
-                      <Users className="card-title-icon text-pink-400" />
-                      Players
-                    </div>
-                  </div>
-                  <div className="card-content">
-                    <div className="player-list">
-                      <AnimatePresence>
-                        {players.map((player) => (
-                          <motion.div
-                            key={player.id}
-                            initial={{ opacity: 0, y: 10 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            exit={{ opacity: 0, y: -10 }}
-                            transition={{ duration: 0.3 }}
-                            className="player-item"
-                          >
-                            <div className="player-info">
-                              <EmojiAvatar 
-                                initialEmoji={player.avatar}
-                                size={40}
-                                isInteractive={false}
-                                className="player-avatar"
-                              />
-                              <div>
-                                <div className="player-name-container">
-                                  <p className="player-name">{player.name}</p>
-                                  {player.isHost && <span className="player-host-tag">(Host)</span>}
-                                  {player.name === playerName && <span className="player-you-tag">(You)</span>}
-                                </div>
-                                <div className={`player-ready-badge ${player.ready ? 'ready' : 'not-ready'}`}>
-                                  {player.ready ? (
-                                    <>
-                                      <Check className="badge-icon" />
-                                      Ready
-                                    </>
-                                  ) : (
-                                    <>
-                                      <RefreshCw className="badge-icon spinning" />
-                                      Not Ready
-                                    </>
-                                  )}
-                                </div>
-                              </div>
-                            </div>
-                          </motion.div>
-                        ))}
-                      </AnimatePresence>
-                    </div>
-                  </div>
-                </div>
-
-                <div>
-                  <div className="card-header">
-                    <div className="settings-header">
-                      <div className="card-title">
-                        <Settings className="card-title-icon text-amber-400" />
-                        Game Settings
-                        {!isHost && <span className="settings-view-only">(View Only)</span>}
-                      </div>
-                      <button
-                        className="settings-toggle-button"
-                        onClick={() => setShowSettings(!showSettings)}
-                      >
-                        {showSettings ? "Hide" : "Show"}
-                      </button>
-                    </div>
-                  </div>
-                  <AnimatePresence>
-                    {showSettings && (
-                      <motion.div
-                        initial={{ height: 0, opacity: 0 }}
-                        animate={{ height: "auto", opacity: 1 }}
-                        exit={{ height: 0, opacity: 0 }}
-                        transition={{ duration: 0.3 }}
-                        className="overflow-hidden"
-                      >
-                        <div className="card-content">
-                          <div className="settings-container">
-                            <div className="settings-item">
-                              <div className="settings-label">
-                                <BookOpen className="settings-label-icon text-purple-400" />
-                                <label>Topic</label>
-                              </div>
-                              <div className="relative">
-                                <input
-                                  type="text"
-                                  value={topicInput}
-                                  onChange={(e) => {
-                                    handleTopicChange(e.target.value);
-                                    setShowCategorySuggestions(true);
-                                  }}
-                                  placeholder="Enter a topic"
-                                  className={`settings-input ${!isHost ? 'disabled' : ''}`}
-                                  disabled={!isHost}
-                                  onFocus={() => setShowCategorySuggestions(true)}
-                                  onBlur={() => setTimeout(() => setShowCategorySuggestions(false), 200)}
-                                />
-                                
-                                {isHost && showCategorySuggestions && (
-                                  <CategorySuggestions
-                                    categories={allCategories}
-                                    searchQuery={topicInput}
-                                    visible={showCategorySuggestions}
-                                    onSelectCategory={(category) => {
-                                      handleTopicChange(category);
-                                      setShowCategorySuggestions(false);
-                                    }}
-                                    categoryData={categoryData}
-                                  />
-                                )}
-                              </div>
-                            </div>
-                            
-                            <div className="settings-item">
-                              <div className="settings-label-container">
-                                <div className="settings-label">
-                                  <AlertCircle className="settings-label-icon text-blue-400" />
-                                  <label>Number of Questions</label>
-                                </div>
-                                <span className="settings-value">{localQuestionCount}</span>
-                              </div>
-                              <div className="py-4">
-                                <Slider
-                                  value={[localQuestionCount]}
-                                  onValueChange={(values) => {
-                                    if (isHost) {
-                                      const newValue = values[0];
-                                      
-                                      // Update local state for immediate UI feedback
-                                      setLocalQuestionCount(newValue);
-                                      isSliderDragging.current = true;
-                                      
-                                      // Clear any previous timeout
-                                      if (sliderUpdateTimeout.current) {
-                                        clearTimeout(sliderUpdateTimeout.current);
-                                      }
-                                      
-                                      // Set a timeout to update the server after user stops dragging
-                                      sliderUpdateTimeout.current = setTimeout(() => {
-                                        isSliderDragging.current = false;
-                                        
-                                        // Send to server if value has changed
-                                        if (newValue !== gameSettings.numQuestions) {
-                                          console.log("Updating server with new question count:", newValue);
-                                          handleUpdateSettings({ numQuestions: newValue });
-                                        }
-                                      }, 500);
-                                    }
-                                  }}
-                                  max={20}
-                                  min={1}
-                                  step={1}
-                                  disabled={!isHost}
-                                  className="w-full"
-                                />
-                              </div>
-                              <div className="settings-slider-marks">
-                                <span>1</span>
-                                <span>5</span>
-                                <span>10</span>
-                                <span>15</span>
-                                <span>20</span>
-                              </div>
-                            </div>
-                            
-                            <div className="settings-item">
-                              <div className="settings-label">
-                                <Timer className="settings-label-icon text-green-400" />
-                                <label>Time per Question</label>
-                              </div>
-                              <select
-                                value={gameSettings.timePerQuestion.toString()}
-                                onChange={(e) => {
-                                  const value = parseInt(e.target.value);
-                                  if (isHost) debouncedHandleUpdateSettings({ timePerQuestion: value });
-                                }}
-                                disabled={!isHost}
-                                className={`settings-select ${!isHost ? 'disabled' : ''}`}
-                              >
-                                <option value="10">10 seconds</option>
-                                <option value="15">15 seconds</option>
-                                <option value="20">20 seconds</option>
-                                <option value="30">30 seconds</option>
-                              </select>
-                            </div>
-                            
-                            <div className="settings-item">
-                              <div className="settings-label">
-                                <AlertCircle className="settings-label-icon text-red-400" />
-                                <label>Difficulty</label>
-                              </div>
-                              <select
-                                value={gameSettings.difficulty}
-                                onChange={(e) => {
-                                  const value = e.target.value;
-                                  if (isHost) debouncedHandleUpdateSettings({ difficulty: value });
-                                }}
-                                disabled={!isHost}
-                                className={`settings-select ${!isHost ? 'disabled' : ''}`}
-                              >
-                                <option value="easy">Easy</option>
-                                <option value="medium">Medium</option>
-                                <option value="hard">Hard</option>
-                              </select>
-                            </div>
-
-                            <div className="settings-item">
-                              <div className="settings-label-container">
-                                <div className="settings-label">
-                                  <AlertCircle className="settings-label-icon text-violet-400" />
-                                  <label>Include Images</label>
-                                </div>
-                                <div className="settings-toggle-container">
-                                  <input
-                                    type="checkbox"
-                                    id="include-images"
-                                    checked={gameSettings.includeImages}
-                                    onChange={(e) => {
-                                      if (isHost) {
-                                        const newValue = e.target.checked;
-                                        // Update both local state and server settings
-                                        handleUpdateSettings({ includeImages: newValue });
-                                      }
-                                    }}
-                                    disabled={!isHost}
-                                    className="settings-toggle-checkbox"
-                                  />
-                                  <label 
-                                    htmlFor="include-images" 
-                                    className={`settings-toggle ${gameSettings.includeImages ? 'active' : ''} ${!isHost ? 'disabled' : ''}`}
-                                  >
-                                    <span className="settings-toggle-slider"></span>
-                                  </label>
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-                </div>
-              </div>
-            </div>
-
-            <div className="status-card">
-              <div className="card-header">
-                <div className="card-title">
-                  <User className="card-title-icon text-teal-400" />
-                  Your Status
-                </div>
-              </div>
-              <div className="card-content space-y-4">
-                <div className="player-avatar-container">
-                  <EmojiAvatar
-                    initialEmoji={players.find(p => p.name === playerName)?.avatar || playerAvatar}
-                    size={56}
-                    isInteractive={false}
-                    onChange={updatePlayerEmoji}
-                  />
-                  <div>
-                    <p className="player-status-name">{playerName}</p>
-                    <div className={`player-status-badge ${isHost ? 'host' : 'player'}`}>
-                      {isHost ? "Host" : "Player"}
-                    </div>
-                  </div>
-                </div>
-                
-                <hr className="status-separator" />
-                
-                {isHost ? (
-                  <div className="space-y-4">
-                    <button
-                      onClick={handleStartGame}
-                      disabled={isStartingGame || players.length < 2 || !areAllPlayersReady()}
-                      className="start-button"
-                    >
-                      {isStartingGame ? (
-                        <>
-                          <RefreshCw className="button-icon spinning" />
-                          <span>Starting Game...</span>
-                        </>
-                      ) : (
-                        <>
-                          <Play className="button-icon" />
-                          <span>Start Game</span>
-                        </>
-                      )}
-                    </button>
-                    
-                    <div className="status-info-box">
-                      <p className="status-info-item">
-                        <AlertCircle className="status-info-icon text-blue-400" />
-                        As the host, you can start the game when all players are ready.
-                      </p>
-                      <p className="status-info-item">
-                        <Share2 className="status-info-icon text-pink-400" />
-                        Share the lobby code with friends to invite them.
-                      </p>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                    <button
-                      onClick={toggleReady}
-                      className={isReady ? "cancel-ready-button" : "ready-button"}
-                    >
-                      {isReady ? (
-                        <>
-                          <Dices className="button-icon" />
-                          <span>Cancel Ready</span>
-                        </>
-                      ) : (
-                        <>
-                          <Check className="button-icon" />
-                          <span>I'm Ready</span>
-                        </>
-                      )}
-                    </button>
-                    
-                    <div className="status-info-box">
-                      <p className="status-info-item">
-                        <AlertCircle className="status-info-icon text-blue-400" />
-                        The host will start the game when everyone is ready.
-                      </p>
-                      <p className="status-info-item">
-                        <Share2 className="status-info-icon text-pink-400" />
-                        Share the lobby code with friends to invite them.
-                      </p>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        </motion.div>
+    <div className="mx-auto flex w-full max-w-3xl flex-col gap-5 px-3 pb-[max(2rem,env(safe-area-inset-bottom))] pt-6 sm:px-5">
+      <div>
+        <Button asChild variant="ghost" size="sm">
+          <Link to="/multiplayer">
+            <ArrowLeft aria-hidden="true" />
+            Multiplayer
+          </Link>
+        </Button>
       </div>
+
+      <header className="flex flex-col gap-3">
+        <h1 className="font-display text-3xl uppercase leading-none tracking-tightest sm:text-4xl">
+          Lobby
+        </h1>
+        <CodeDisplay code={lobbyCode} label="Share this code" />
+        <div>
+          <Button variant="secondary" size="md" onClick={() => void copyInvite()}>
+            <Link2 aria-hidden="true" />
+            Copy invite link
+          </Button>
+        </div>
+        {disconnected ? (
+          <p
+            role="status"
+            aria-live="polite"
+            className="flex items-center gap-2 rounded border-2 border-ink-line bg-ink-raised px-3 py-2 text-sm font-semibold text-bone-dim"
+          >
+            <WifiOff className="h-4 w-4 shrink-0" aria-hidden="true" />
+            {status === "reconnecting" ? "Reconnecting…" : "Connecting…"}
+          </p>
+        ) : null}
+      </header>
+
+      {!joined ? (
+        <Panel as="section" padded="md" className="flex flex-col gap-4">
+          <PanelHeader>
+            <PanelTitle as="h2">Join this lobby</PanelTitle>
+          </PanelHeader>
+
+          <form
+            className="flex flex-col gap-4"
+            onSubmit={(event) => {
+              event.preventDefault();
+              void onJoin();
+            }}
+          >
+            <div className="flex items-end gap-4">
+              <div className="flex min-w-0 flex-1 flex-col gap-2">
+                <Label htmlFor="join-name">Display name</Label>
+                <Input
+                  id="join-name"
+                  value={joinName}
+                  maxLength={NAME_MAX}
+                  onChange={(event) => setJoinName(event.target.value)}
+                  placeholder="Your name"
+                  autoComplete="nickname"
+                />
+              </div>
+              <div className="flex flex-col items-center gap-2">
+                <span className="text-[11px] font-bold uppercase tracking-widest text-bone-dim">
+                  Avatar
+                </span>
+                <AvatarPicker
+                  value={joinAvatar || DEFAULT_AVATAR_EMOJI}
+                  onChange={setJoinAvatar}
+                  size={56}
+                />
+              </div>
+            </div>
+
+            {joinError ? (
+              <p
+                role="alert"
+                className="flex items-start gap-2 rounded border-2 border-ink-line bg-hot p-3 text-sm font-semibold text-ink"
+              >
+                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+                <span className="break-words">{joinError}</span>
+              </p>
+            ) : null}
+
+            <Button type="submit" size="lg" block disabled={joining}>
+              {joining ? (
+                <Loader2 className="motion-safe:animate-spin" aria-hidden="true" />
+              ) : (
+                <Check aria-hidden="true" />
+              )}
+              {joining ? "Joining…" : "Join lobby"}
+            </Button>
+          </form>
+        </Panel>
+      ) : (
+        <>
+          {snapshot?.generating ? (
+            <Panel as="section" tone="accent" padded="md">
+              <p role="status" aria-live="polite" className="flex items-center gap-2 font-bold uppercase">
+                <Loader2 className="h-5 w-5 motion-safe:animate-spin" aria-hidden="true" />
+                Building the quiz…
+              </p>
+            </Panel>
+          ) : null}
+
+          <PlayerList
+            players={snapshot?.players ?? []}
+            selfId={identity?.playerId ?? null}
+          />
+
+          <Panel as="section" padded="md" className="flex flex-col gap-4">
+            <PanelHeader>
+              <PanelTitle as="h2" className="text-lg sm:text-xl">
+                You
+              </PanelTitle>
+            </PanelHeader>
+
+            <div className="flex flex-wrap items-center gap-4">
+              <AvatarPicker
+                value={self?.avatar ?? identity?.avatar ?? DEFAULT_AVATAR_EMOJI}
+                onChange={onChangeAvatar}
+                size={56}
+                label="Change your avatar"
+              />
+              <div className="min-w-0 flex-1">
+                <p className="break-words font-display text-lg uppercase tracking-display">
+                  {self?.name ?? identity?.playerName}
+                </p>
+                <p className="text-xs text-bone-dim">
+                  {isHost ? "You are the host." : "Waiting for the host to start."}
+                </p>
+              </div>
+            </div>
+
+            <Button
+              variant={self?.ready ? "success" : "primary"}
+              size="lg"
+              block
+              onClick={onToggleReady}
+              aria-pressed={Boolean(self?.ready)}
+            >
+              <Check aria-hidden="true" />
+              {self?.ready ? "Ready — tap to unready" : "I'm ready"}
+            </Button>
+          </Panel>
+
+          {snapshot ? (
+            <LobbySettingsForm
+              settings={snapshot.settings}
+              readOnly={!isHost}
+              onChange={onChangeSettings}
+              models={modelsQuery.data?.models ?? []}
+              categories={categoriesQuery.data?.categories ?? []}
+            />
+          ) : null}
+
+          {isHost ? (
+            <Button
+              size="lg"
+              block
+              onClick={() => void onStart()}
+              disabled={starting || snapshot?.generating || (snapshot?.players.length ?? 0) === 0}
+            >
+              {starting || snapshot?.generating ? (
+                <Loader2 className="motion-safe:animate-spin" aria-hidden="true" />
+              ) : (
+                <Play aria-hidden="true" />
+              )}
+              {starting || snapshot?.generating ? "Starting…" : "Start game"}
+            </Button>
+          ) : null}
+
+          <Button variant="ghost" onClick={() => setConfirmLeave(true)}>
+            <LogOut aria-hidden="true" />
+            Leave lobby
+          </Button>
+
+          <ConfirmDialog
+            open={confirmLeave}
+            onOpenChange={setConfirmLeave}
+            title="Leave this lobby?"
+            description="You will drop out of the game. The host can invite you back with the same code."
+            confirmLabel="Leave"
+            destructive
+            onConfirm={() => void onLeave()}
+          />
+        </>
+      )}
     </div>
   );
-};
+}
 
-export default MultiplayerLobby;
+function LobbyProblem({
+  message,
+  onReset,
+}: {
+  message: string;
+  onReset?: () => void;
+}) {
+  return (
+    <div className="mx-auto flex w-full max-w-lg flex-col gap-4 px-3 pt-8 sm:px-5">
+      <Panel as="section" padded="lg" className="flex flex-col gap-4">
+        <h1 className="flex items-center gap-2 font-display text-2xl uppercase tracking-display">
+          <AlertTriangle className="h-6 w-6 shrink-0 text-hot" aria-hidden="true" />
+          Lobby unavailable
+        </h1>
+        <p role="alert" className="break-words text-sm text-bone">
+          {message}
+        </p>
+        {onReset ? (
+          <Button onClick={onReset}>Back to multiplayer</Button>
+        ) : (
+          <Button asChild>
+            <Link to="/multiplayer">Back to multiplayer</Link>
+          </Button>
+        )}
+      </Panel>
+    </div>
+  );
+}

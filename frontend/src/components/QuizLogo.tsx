@@ -2,21 +2,22 @@ import React from "react";
 
 interface QuizLogoProps {
   className?: string;
-  color?: string;
   size?: number;
 }
 
-const QuizLogo: React.FC<QuizLogoProps> = ({ 
-  className = "", 
-  color = "currentColor", 
-  size = 48 
-}) => {
+/**
+ * Quizzatron mark. Colour comes from the surrounding text colour — set it with
+ * a Tailwind text utility (e.g. `className="text-acid"`).
+ */
+const QuizLogo: React.FC<QuizLogoProps> = ({ className = "", size = 48 }) => {
   return (
     <svg
       width={size}
       height={size}
       viewBox="0 0 300 312"
-      fill={color}
+      fill="currentColor"
+      role="img"
+      aria-label="Quizzatron"
       xmlns="http://www.w3.org/2000/svg"
       className={className}
       preserveAspectRatio="xMidYMid meet"

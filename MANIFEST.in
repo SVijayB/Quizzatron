@@ -1,7 +1,6 @@
-include requirements.txt
 include README.md
 include LICENSE
-include run.py
+include requirements.txt
+include pyproject.toml
 
-recursive-include api/templates *
 recursive-include api/static *

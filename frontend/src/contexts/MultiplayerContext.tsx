@@ -1,262 +1,267 @@
-import { createContext, useContext, useEffect, useState, ReactNode } from "react";
-import { socketService } from "@/services/socketService";
-import { MultiplayerPlayer, MultiplayerGameSettings } from "@/services/apiService";
-import { useToast } from "@/components/ui/use-toast";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from "react";
 
-interface MultiplayerContextProps {
-  // Player information
-  playerName: string;
-  setPlayerName: (name: string) => void;
+import { isSnapshot, socketClient, type SocketStatus } from "@/services/socket";
+import { useSocketEvent, useSocketStatus } from "@/hooks/useSocketEvent";
+import type {
+  AnySnapshot,
+  GameState,
+  LobbyClosedPayload,
+  LobbyPhase,
+  LobbySettings,
+  LobbyState,
+  MpPlayer,
+  MpResults,
+} from "@/types/api";
+
+/**
+ * Multiplayer identity plus the latest server snapshot.
+ *
+ * What this deliberately does *not* do:
+ * - expose `setupSocketListeners`/`cleanupSocketListeners`. v1 did, the lobby
+ *   destructured `cleanupSocketListeners` and never called it, and every page
+ *   wired its own duplicate listeners on top.
+ * - keep its own copy of the game settings. Settings live on the server; we read
+ *   them from the snapshot and never persist them.
+ * - use localStorage as an event bus. There is exactly one namespaced key, it
+ *   holds only identity, and it exists so a reload can rejoin.
+ */
+
+const STORAGE_KEY = "quizzatron:multiplayer";
+
+export interface MultiplayerIdentity {
   playerId: string;
-  setPlayerId: (id: string) => void;
-  isHost: boolean;
-  setIsHost: (isHost: boolean) => void;
-  playerAvatar: string;
-  setPlayerAvatar: (avatar: string) => void;
-  
-  // Lobby information
-  lobbyCode: string | null;
-  setLobbyCode: (code: string | null) => void;
-  players: MultiplayerPlayer[];
-  setPlayers: (players: MultiplayerPlayer[]) => void;
-  gameSettings: MultiplayerGameSettings;
-  setGameSettings: (settings: MultiplayerGameSettings) => void;
-  
-  // Socket status
-  isSocketConnected: boolean;
-  
-  // Helper methods
-  storePlayerInfo: (name: string, id: string, lobbyCode: string, isHost: boolean, avatar: string) => void;
-  clearPlayerInfo: () => void;
-  setupSocketListeners: () => (() => void);
-  cleanupSocketListeners: () => void;
+  playerName: string;
+  avatar: string;
+  lobbyCode: string;
 }
 
-const defaultSettings: MultiplayerGameSettings = {
-  numQuestions: 10,
-  categories: [],
-  difficulty: "medium",
-  timePerQuestion: 15,
-  allowSkipping: false,
-  topic: null,
-  model: "gemini",
-  includeImages: false
-};
+/** The lobby fields every snapshot shape shares, normalised. */
+export interface LobbySnapshot {
+  lobbyCode: string;
+  hostId: string;
+  state: LobbyPhase;
+  started: boolean;
+  generating: boolean;
+  settings: LobbySettings;
+  players: MpPlayer[];
+  questionCount: number;
+}
 
-const MultiplayerContext = createContext<MultiplayerContextProps | undefined>(undefined);
+interface MultiplayerContextValue {
+  identity: MultiplayerIdentity | null;
+  /** The local player as the server sees them, when they are in the snapshot. */
+  self: MpPlayer | null;
+  isHost: boolean;
+  snapshot: LobbySnapshot | null;
+  results: MpResults | null;
+  status: SocketStatus;
+  /** Set when the server closed the lobby out from under us. */
+  closed: LobbyClosedPayload | null;
 
-export const MultiplayerProvider = ({ children }: { children: ReactNode }) => {
-  const { toast } = useToast();
-  
-  // Player state
-  const [playerName, setPlayerName] = useState<string>("");
-  const [playerId, setPlayerId] = useState<string>("");
-  const [isHost, setIsHost] = useState<boolean>(false);
-  const [playerAvatar, setPlayerAvatar] = useState<string>("😀");
-  
-  // Lobby state
-  const [lobbyCode, setLobbyCode] = useState<string | null>(null);
-  const [players, setPlayers] = useState<MultiplayerPlayer[]>([]);
-  const [gameSettings, setGameSettings] = useState<MultiplayerGameSettings>(defaultSettings);
-  
-  // Socket state
-  const [isSocketConnected, setIsSocketConnected] = useState<boolean>(false);
-  
-  // Store player information in localStorage
-  const storePlayerInfo = (
-    name: string, 
-    id: string, 
-    code: string, 
-    host: boolean, 
-    avatar: string
-  ) => {
-    console.log("Storing player info:", { name, id, code, host, avatar });
-    localStorage.setItem("playerName", name);
-    localStorage.setItem("playerId", id);
-    localStorage.setItem("lobbyCode", code);
-    localStorage.setItem("isHost", host.toString());
-    localStorage.setItem("playerEmoji", avatar);
-    
-    setPlayerName(name);
-    setPlayerId(id);
-    setLobbyCode(code);
-    setIsHost(host);
-    setPlayerAvatar(avatar);
-  };
-  
-  // Clear player information
-  const clearPlayerInfo = () => {
-    localStorage.removeItem("playerName");
-    localStorage.removeItem("playerId");
-    localStorage.removeItem("lobbyCode");
-    localStorage.removeItem("isHost");
-    
-    setPlayerName("");
-    setPlayerId("");
-    setLobbyCode(null);
-    setIsHost(false);
-  };
-  
-  // Setup socket listeners
-  const setupSocketListeners = () => {
-    // Connect to socket if not already connected
-    socketService.connect();
-    
-    // Handle connection status
-    const connectHandler = () => {
-      console.log("Socket connected event received in context");
-      setIsSocketConnected(true);
-    };
-    
-    const disconnectHandler = () => {
-      console.log("Socket disconnected event received in context");
-      setIsSocketConnected(false);
-    };
-    
-    // Handle lobby updates
-    const lobbyUpdateHandler = (data: any) => {
-      console.log("Lobby update received:", data);
-      if (data.players) {
-        setPlayers(data.players);
-      }
-      
-      if (data.settings) {
-        setGameSettings(data.settings);
-      }
-    };
-    
-    // Handle player join/leave events
-    const playerJoinedHandler = (data: any) => {
-      console.log("Player joined event received:", data);
-      toast({
-        title: "Player Joined",
-        description: `${data.name} has joined the lobby`,
-      });
-    };
-    
-    const playerLeftHandler = (data: any) => {
-      console.log("Player left event received:", data);
-      toast({
-        title: "Player Left",
-        description: `${data.name} has left the lobby`,
-      });
-    };
-    
-    // Handle errors
-    const errorHandler = (data: any) => {
-      console.log("Socket error received:", data);
-      toast({
-        title: "Error",
-        description: data.message || "An error occurred",
-        variant: "destructive",
-      });
-    };
-    
-    // Register event handlers
-    const cleanupConnect = socketService.on("connect", connectHandler);
-    const cleanupDisconnect = socketService.on("disconnect", disconnectHandler);
-    const cleanupLobbyUpdate = socketService.on("lobby_update", lobbyUpdateHandler);
-    const cleanupPlayerJoined = socketService.on("player_joined", playerJoinedHandler);
-    const cleanupPlayerLeft = socketService.on("player_left", playerLeftHandler);
-    const cleanupError = socketService.on("error", errorHandler);
-    
-    // Update initial connection status
-    setIsSocketConnected(socketService.isConnected());
-    
-    // Return cleanup function
-    return () => {
-      console.log("Cleaning up socket listeners from context");
-      cleanupConnect();
-      cleanupDisconnect();
-      cleanupLobbyUpdate();
-      cleanupPlayerJoined();
-      cleanupPlayerLeft();
-      cleanupError();
-    };
-  };
-  
-  // Cleanup socket listeners
-  const cleanupSocketListeners = () => {
-    console.log("Running additional socket listener cleanup");
-    
-    // Remove all event listeners for common events
-    socketService.removeAllListeners("connect");
-    socketService.removeAllListeners("disconnect");
-    socketService.removeAllListeners("lobby_update");
-    socketService.removeAllListeners("player_joined");
-    socketService.removeAllListeners("player_left");
-    socketService.removeAllListeners("error");
-  };
-  
-  // Load saved player info on mount
-  useEffect(() => {
-    const savedName = localStorage.getItem("playerName");
-    const savedId = localStorage.getItem("playerId");
-    const savedLobbyCode = localStorage.getItem("lobbyCode");
-    const savedIsHost = localStorage.getItem("isHost") === "true";
-    const savedAvatar = localStorage.getItem("playerEmoji");
-    
-    console.log("Loading saved player info:", {
-      savedName,
-      savedId,
-      savedLobbyCode,
-      savedIsHost,
-      savedAvatar
-    });
-    
-    if (savedName) setPlayerName(savedName);
-    if (savedId) setPlayerId(savedId);
-    if (savedLobbyCode) setLobbyCode(savedLobbyCode);
-    if (savedIsHost) setIsHost(savedIsHost);
-    if (savedAvatar) setPlayerAvatar(savedAvatar);
-    
-    // Connect to socket
-    socketService.connect();
-    
-    // Setup socket connection event handlers
-    const cleanupListeners = setupSocketListeners();
-    
-    // Cleanup on unmount
-    return () => {
-      if (cleanupListeners) cleanupListeners();
-    };
-  }, []);
-  
-  const value = {
-    playerName,
-    setPlayerName,
-    playerId,
-    setPlayerId,
-    isHost,
-    setIsHost,
-    playerAvatar,
-    setPlayerAvatar,
-    lobbyCode,
-    setLobbyCode,
-    players,
-    setPlayers,
-    gameSettings,
-    setGameSettings,
-    isSocketConnected,
-    storePlayerInfo,
-    clearPlayerInfo,
-    setupSocketListeners,
-    cleanupSocketListeners,
-  };
-  
-  return (
-    <MultiplayerContext.Provider value={value}>
-      {children}
-    </MultiplayerContext.Provider>
-  );
-};
+  /** Remember who we are, persist it, and join the socket room. */
+  signIn: (identity: MultiplayerIdentity) => void;
+  /** Forget identity, snapshot and results, and leave the room. */
+  signOut: () => void;
+  /** Record a locally chosen avatar so a rejoin keeps it. */
+  rememberAvatar: (avatar: string) => void;
+  /** Feed in a snapshot fetched over REST (initial load, recovery). */
+  applySnapshot: (snapshot: LobbyState | GameState | AnySnapshot) => void;
+  setResults: (results: MpResults) => void;
+  acknowledgeClosed: () => void;
+}
 
-export const useMultiplayer = () => {
-  const context = useContext(MultiplayerContext);
-  
-  if (context === undefined) {
-    throw new Error("useMultiplayer must be used within a MultiplayerProvider");
+const MultiplayerContext = createContext<MultiplayerContextValue | undefined>(undefined);
+
+function readStoredIdentity(): MultiplayerIdentity | null {
+  try {
+    const raw = window.localStorage.getItem(STORAGE_KEY);
+    if (!raw) return null;
+    const parsed: unknown = JSON.parse(raw);
+    if (typeof parsed !== "object" || parsed === null) return null;
+    const record = parsed as Record<string, unknown>;
+    const { playerId, playerName, avatar, lobbyCode } = record;
+    if (typeof playerId !== "string" || typeof lobbyCode !== "string") return null;
+    if (!playerId || !lobbyCode) return null;
+    return {
+      playerId,
+      lobbyCode,
+      playerName: typeof playerName === "string" ? playerName : "Player",
+      avatar: typeof avatar === "string" && avatar ? avatar : "🐶",
+    };
+  } catch {
+    return null;
   }
-  
+}
+
+function writeStoredIdentity(identity: MultiplayerIdentity | null): void {
+  try {
+    if (identity) {
+      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(identity));
+    } else {
+      window.localStorage.removeItem(STORAGE_KEY);
+    }
+  } catch {
+    // Private browsing can refuse writes. A reload just cannot auto-rejoin.
+  }
+}
+
+function normalise(payload: AnySnapshot): LobbySnapshot | null {
+  if (!isSnapshot(payload)) return null;
+  const state = payload.state;
+  return {
+    lobbyCode: payload.lobbyCode,
+    hostId: typeof payload.hostId === "string" ? payload.hostId : "",
+    state,
+    started: payload.started ?? state !== "lobby",
+    generating: payload.generating ?? false,
+    settings: payload.settings,
+    players: payload.players,
+    questionCount: payload.questionCount ?? 0,
+  };
+}
+
+export function MultiplayerProvider({ children }: { children: ReactNode }) {
+  const [identity, setIdentity] = useState<MultiplayerIdentity | null>(readStoredIdentity);
+  const [snapshot, setSnapshot] = useState<LobbySnapshot | null>(null);
+  const [results, setResults] = useState<MpResults | null>(null);
+  const [closed, setClosed] = useState<LobbyClosedPayload | null>(null);
+  const status = useSocketStatus();
+
+  // One place decides what the socket's identity is, and it re-joins on every
+  // reconnect from inside the client.
+  useEffect(() => {
+    if (!identity) {
+      socketClient.setIdentity(null);
+      return;
+    }
+    socketClient.connect();
+    socketClient.setIdentity({
+      lobbyCode: identity.lobbyCode,
+      playerId: identity.playerId,
+    });
+  }, [identity]);
+
+  const ingest = useCallback((payload: AnySnapshot) => {
+    const next = normalise(payload);
+    if (next) setSnapshot(next);
+  }, []);
+
+  useSocketEvent("lobby:joined", ingest);
+  useSocketEvent("lobby:update", ingest);
+  useSocketEvent("game:question", ingest);
+
+  useSocketEvent("game:started", (payload) => {
+    // A restart reuses the lobby, so last round's results have to go or the
+    // quiz screen would bounce straight back to the results screen.
+    setResults(null);
+    // The server builds this payload before it advances to the first question,
+    // so it still reads `state: "lobby"`. Stamping `started` here is what stops
+    // the quiz screen from bouncing everyone back to the lobby on kick-off.
+    ingest({ ...payload, started: true });
+  });
+
+  useSocketEvent("game:reveal", (payload) => {
+    // Keep the shared player list in step so the scoreboard does not need its
+    // own copy of everyone's score (v1 had five separate implementations).
+    setSnapshot((current) =>
+      current ? { ...current, players: payload.players } : current,
+    );
+  });
+
+  useSocketEvent("game:over", (payload) => {
+    setResults(payload);
+    setSnapshot((current) =>
+      current
+        ? { ...current, state: "game_over", players: payload.players, started: true }
+        : current,
+    );
+  });
+
+  useSocketEvent("lobby:closed", (payload) => {
+    setClosed(payload);
+    setSnapshot(null);
+  });
+
+  const signIn = useCallback((next: MultiplayerIdentity) => {
+    writeStoredIdentity(next);
+    setIdentity(next);
+    setClosed(null);
+    setResults(null);
+  }, []);
+
+  const signOut = useCallback(() => {
+    writeStoredIdentity(null);
+    setIdentity(null);
+    setSnapshot(null);
+    setResults(null);
+    setClosed(null);
+    socketClient.setIdentity(null);
+  }, []);
+
+  const rememberAvatar = useCallback((avatar: string) => {
+    setIdentity((current) => {
+      if (!current) return current;
+      const next = { ...current, avatar };
+      writeStoredIdentity(next);
+      return next;
+    });
+  }, []);
+
+  const acknowledgeClosed = useCallback(() => setClosed(null), []);
+
+  const self = useMemo(() => {
+    if (!identity || !snapshot) return null;
+    return snapshot.players.find((player) => player.id === identity.playerId) ?? null;
+  }, [identity, snapshot]);
+
+  const value = useMemo<MultiplayerContextValue>(
+    () => ({
+      identity,
+      self,
+      isHost: Boolean(identity && snapshot && snapshot.hostId === identity.playerId),
+      snapshot,
+      results,
+      status,
+      closed,
+      signIn,
+      signOut,
+      rememberAvatar,
+      applySnapshot: ingest,
+      setResults,
+      acknowledgeClosed,
+    }),
+    [
+      identity,
+      self,
+      snapshot,
+      results,
+      status,
+      closed,
+      signIn,
+      signOut,
+      rememberAvatar,
+      ingest,
+      acknowledgeClosed,
+    ],
+  );
+
+  return (
+    <MultiplayerContext.Provider value={value}>{children}</MultiplayerContext.Provider>
+  );
+}
+
+export function useMultiplayer(): MultiplayerContextValue {
+  const context = useContext(MultiplayerContext);
+  if (!context) {
+    throw new Error("useMultiplayer must be used inside <MultiplayerProvider>");
+  }
   return context;
-};
+}

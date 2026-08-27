@@ -1,0 +1,77 @@
+[project]
+name = "quizzatron"
+version = "2.0.0"
+description = "AI-powered quiz generation and real-time multiplayer trivia"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+
+dependencies = [
+    # Web layer
+    "flask>=3.1",
+    "flask-cors>=5.0",
+    "flask-socketio>=5.4",
+    "python-socketio>=5.11",
+    "python-engineio>=4.9",
+    "werkzeug>=3.1",
+    "waitress>=3.0",
+    "python-dotenv>=1.0",
+    # LLM layer.
+    # NOTE: the `litellm` SDK is deliberately NOT a dependency. Latest litellm
+    # pins `openai<3` while pydantic-ai-slim[openai] needs `openai>=3`, so
+    # installing both silently drags litellm back to 1.83. pydantic-ai's
+    # LiteLLMProvider only needs `openai` (it is an OpenAI-compatible HTTP
+    # client), so a LiteLLM *proxy* is supported without the SDK. See
+    # migration_plan.md decision 7.
+    "pydantic-ai-slim[google,mistral,openai,retries]>=2.35",
+    "pydantic>=2.12",
+    # Content sources
+    "pymongo>=4.11",
+    "pypdf>=5.3",
+    "requests>=2.32",
+    "icrawler>=0.6.10",
+    "pillow>=11.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.3",
+    "pytest-cov>=6.0",
+    "pytest-mock>=3.14",
+    "pylint>=3.3",
+    "black>=25.1",
+    "isort>=6.0",
+]
+
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["api*"]
+
+[tool.black]
+line-length = 100
+target-version = ["py311"]
+
+[tool.isort]
+profile = "black"
+line_length = 100
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+filterwarnings = ["ignore::DeprecationWarning"]
+
+[tool.coverage.run]
+source = ["api"]
+branch = true
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise NotImplementedError",
+    "if TYPE_CHECKING:",
+    "if __name__ == .__main__.:",
+]

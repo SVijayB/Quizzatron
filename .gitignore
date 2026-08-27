@@ -1,13 +1,41 @@
-.vscode
-venv/
-.env
-notebooks/
-assets/pdfs
+# Python
 __pycache__/
-test_scripts/
-api/static/temp/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+build/
+dist/
+
+# Environment
+.env
+.env.local
+
+# Tooling caches
 .pytest_cache/
-frontend/node_modules/
+.ruff_cache/
 .coverage
+coverage.xml
+htmlcov/
+
+# Runtime output
+logs/
 app.log
 uploads/
+api/static/temp/
+
+# Frontend
+frontend/node_modules/
+frontend/dist/
+frontend/.env
+frontend/.env.local
+
+# Editors / OS
+.vscode/
+.idea/
+.DS_Store
+
+# Scratch
+notebooks/
+test_scripts/
+assets/pdfs/

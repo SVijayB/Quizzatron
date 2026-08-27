@@ -40,13 +40,12 @@
 ## Table of Contents
 
 -   [Motivation](#motivation)
--   [Installation](#installation)
-    -   [Using the setup.py script](#method-1-using-the-setuppy-script)
-    -   [Manual setup](#method-2-manual-setup)
-    -   [Environment variables](#environment-variables)
--   [Usage](#usage)
--   [Project Structure](#project-structure)
-    -   [Project demo](#project-demo)
+-   [Architecture](#architecture)
+-   [Quick start](#quick-start)
+-   [Environment variables](#environment-variables)
+-   [Running it](#running-it)
+-   [Testing and linting](#testing-and-linting)
+-   [Project structure](#project-structure)
 -   [Contributing](#contributing)
 -   [License](#license)
 
@@ -56,141 +55,183 @@
 
 ![alt text](assets/ss-1.png)
 
-We’re building an AI-powered quizzing system that can generate questions on any topic - SATs, movies, national flags, or whatever you choose! The application supports custom inputs like PDFs or images and can also generate quizzes autonomously using DeepSeek. It provides an engaging learning experience with minimal human input.
+Quizzatron generates a quiz on any topic you like — SATs, movies, national flags,
+whatever — and lets you play it solo or against friends in real time. Give it a
+topic, upload a PDF, or pick a category from a pre-written question bank.
 
-To maximize accessibility, our model integrates with APIs, allowing it to function as a Discord bot, a web interface, or a CLI tool. But we didn’t stop there, we wanted to make quizzing fun. Inspired by **QuizUp**, we focused on gamification, incorporating features that users love based on insights from [community discussions](https://www.reddit.com/r/QuizUp/comments/1ahl958/what_the_hell_happened_to_quizup/).
+Inspired by **QuizUp**, with a focus on gamification based on what people
+actually missed about it ([community discussion](https://www.reddit.com/r/QuizUp/comments/1ahl958/what_the_hell_happened_to_quizup/)).
+Pre-written questions come from [OpenTriviaQA](https://github.com/uberspot/OpenTriviaQA)
+and the [opentdb API](https://opentdb.com/).
 
-We also used some standard open source trivia data, such as the [OpenTriviaQA](https://github.com/uberspot/OpenTriviaQA) and the [opentdb API](https://opentdb.com/).
+## Architecture
 
-## Installation
+| Layer | Stack |
+|---|---|
+| Frontend | Vite · React 18 · TypeScript · Tailwind · Radix · framer-motion |
+| API | Flask · Flask-SocketIO (threading mode) |
+| Question generation | [pydantic-ai](https://pydantic.dev/docs/ai/) with schema-validated structured output |
+| Providers | Google Gemini, Mistral, OpenAI, DeepSeek — or any model behind a [LiteLLM](https://docs.litellm.ai/) proxy |
+| Question banks | OpenTDB (HTTP) and MongoDB (optional) |
+| Images | Wikimedia — freely licensed, linked rather than re-hosted |
 
-<!--- Provide instructions on installing the application --->
+A few decisions worth knowing about:
 
-For the latest stable version, head to [Releases](https://github.com/SVijayB/Quizzatron/releases).
+-   **Question shape is uniform across every source.** Options are plain text
+    with no `"A) "` prefixes, and the answer is an integer `correct_index`.
+-   **Multiplayer is server-authoritative.** The server owns the countdown,
+    grades every answer, and advances rounds on its own. The browser's timer is
+    display-only. Dropped players and a departing host can't stall a game.
+-   **The `litellm` SDK is deliberately not a dependency** — it pins `openai<3`
+    while `pydantic-ai-slim[openai]` needs `openai>=3`. LiteLLM is supported as a
+    *proxy* instead, which needs no app dependency. See `migration_plan.md`.
+-   **It runs with no credentials at all.** With no API key, a built-in offline
+    model serves placeholder quizzes so the UI and the test suite work. That's
+    also why CI needs no secrets.
+-   Lobbies are in-process, so the API is single-process by design.
 
-Download and extract the source code.
+## Quick start
 
-As an alternative, you could also clone the repository using,
+Requires **Python 3.11+** and **Node 20+**.
 
-```
+```bash
 git clone https://github.com/SVijayB/Quizzatron.git
+cd Quizzatron
 ```
 
-Once the repository is cloned, run `cd Quizzatron`
+Backend — with [uv](https://docs.astral.sh/uv/) (recommended):
 
-### Method 1: Using the setup.py script
-
-The easiest way to get started is to use our setup script, which handles everything automatically:
-
-You can run the setup script in the root directory using
-
-```
-python setup.py
+```bash
+uv venv && source .venv/bin/activate    # Windows: .venv\Scripts\activate
+uv pip install -e ".[dev]"
 ```
 
-The script will:
+Or with plain pip:
 
-1. Check for Python, Node.js and NPM (providing installation instructions if needed).
-2. Create a virtual environment for the backend (Python).
-3. Install all required backend and frontend dependencies.
-4. Start the Flask API server.
-5. Start the frontend development server (if Node.js is available).
-6. Automatically open the frontend application in your browser.
-
-### Method 2: Manual setup
-
-Alternatively, you can set up manually:
-
-1. Create a virtual environment:
-
-```
- python -m venv venv
+```bash
+python -m venv .venv && source .venv/bin/activate
+pip install -e ".[dev]"
 ```
 
-2. Activate the virtual environment:
+Frontend:
 
-    On Windows: `venv\Scripts\activate`
-
-    On macOS/Linux: `source venv/bin/activate`
-
-3. Install dependencies:
-
-```
- pip install -r requirements.txt
+```bash
+cd frontend && npm install
 ```
 
-4. Install frontend dependencies:
+## Environment variables
 
+Copy `.env.example` to `.env`. **Nothing in it is required to run locally** — with
+no keys the offline model serves placeholder quizzes.
+
+To generate real quizzes, set at least one provider key:
+
+| Variable | Purpose |
+|---|---|
+| `GOOGLE_API_KEY` | Gemini models |
+| `MISTRAL_API_KEY` | Mistral models |
+| `OPENAI_API_KEY` | GPT models |
+| `DEEPSEEK_API_KEY` | DeepSeek models |
+| `SECRET_KEY` | **Required** when `FLASK_ENV` is not local |
+| `MONGO_CONNECTION_STRING` | Optional local question banks |
+| `LITELLM_BASE_URL` | Optional LiteLLM proxy (run it separately) |
+| `CORS_ORIGINS` | Comma-separated allowlist |
+| `FLASK_ENV`, `PORT`, `HOST` | Runtime |
+
+`GET /api/quiz/models` only advertises models whose key is actually present, so
+the UI never offers one that will fail. Provider model IDs move around — override
+any of them with `QUIZZATRON_MODEL_<KEY>` instead of editing code.
+
+## Running it
+
+Two terminals:
+
+```bash
+# Terminal 1 — API on http://127.0.0.1:5000
+python wsgi.py
+
+# Terminal 2 — frontend on http://localhost:8080
+cd frontend && npm run dev
 ```
+
+The Vite dev server proxies `/api` and `/socket.io` to port 5000, so no
+frontend configuration is needed for local work. To point the frontend at a
+different backend, set `VITE_API_BASE_URL` (see `frontend/.env.example`).
+
+There's also a terminal client:
+
+```bash
+python -m scripts.cli --topic "Ancient Rome" -n 5 -d hard
+python -m scripts.cli --pdf notes.pdf
+python -m scripts.cli --list-models
+```
+
+### Key endpoints
+
+| Method | Path | Purpose |
+|---|---|---|
+| `GET` | `/api/health` | Status, available models, Mongo reachability |
+| `GET` | `/api/quiz/models` | Selectable models |
+| `POST` | `/api/quiz/generate` | Generate from a topic, or a PDF via multipart `file` |
+| `POST` | `/api/quiz/category` | Build from a pre-written category |
+| `GET` | `/api/categories` | Available categories |
+| `POST` | `/api/multiplayer/create` · `/join` · `/start` · `/answer` | Lobby lifecycle |
+| `GET` | `/api/multiplayer/{lobby,game,results}/<code>` | State and results |
+
+Errors are always `{"error": {"message", "code", "retryable"}}` with a matching
+HTTP status.
+
+## Testing and linting
+
+The suite runs with **no API keys and no MongoDB**:
+
+```bash
+pytest                                   # 247 tests
+pytest --cov=api --cov-report=term       # ~81% coverage
+
+pylint --fail-under=10 api/              # must score 10.00
+black --check api tests wsgi.py
+isort --check-only api tests wsgi.py
+```
+
+Frontend:
+
+```bash
 cd frontend
-npm install
+npm run typecheck && npm run lint && npm run build
 ```
 
-### Environment variables
+`requirements.txt` is **generated** from `pyproject.toml` for pip-only hosts —
+regenerate it with `uv pip compile pyproject.toml -o requirements.txt` rather
+than editing it, so the two manifests can't drift.
 
-Once the dependencies are installed, you need to set up the environment variables.
-Create a `.env` file in the root directory and add the following variables:
-
-```
-GOOGLE_API_KEY=ENTER_GEMINI_API_KEY_HERE
-MONGO_CONNECTION_STRING=ENTER_MONGO_CONNECTION_STRING_HERE
-FLASK_ENV=PRODUCTION/DEVELOPMENT
-PORT=PORT_NUMBER_HERE
-```
-
-## Usage
-
-<!--- Provide instructions and examples for use. Include screenshots as needed. --->
-
-1. To start the backend server, run the following command in the root directory:
+## Project structure
 
 ```
-flask run
-```
-
-2. To start the frontend development server, run the following command in the `frontend` directory:
-
-```
-npm run dev
-```
-
-## Project Structure
-
-```
-├── .github
 ├── api
-│   ├── routes
-│   ├── services
+│   ├── content        # images (Wikimedia), PDFs, OpenTDB + Mongo question banks
+│   ├── core           # settings, paths, logging, errors, async bridge
+│   ├── llm            # model registry, prompts, pydantic-ai generator, offline model
+│   ├── models         # pydantic domain models (the question contract)
+│   ├── multiplayer    # lobby state, store + reaper, server-authoritative engine
+│   ├── routes         # Flask blueprints
+│   ├── services       # quiz assembly
 │   ├── static
-│   ├── templates
-│   ├── utils
-├── assets
-├── docs
-│   ├── specs
-│   ├── technology_review
-│   ├── demo_output
-│   └── demo_scripts
+│   ├── app.py         # application factory
+│   └── socket_server.py
 ├── frontend
-│   ├── node_modules
-│   ├── public
-│   ├── src
-│   │   ├── components
-│   │   ├── hooks
-│   │   ├── lib
-│   │   ├── pages
-├── scripts
-└── tests
-│   ├── routes
-│   ├── services
-│   └── utils
-
+│   └── src
+│       ├── components/ui   # design-system primitives
+│       ├── features/quiz   # shared quiz engine (single + multiplayer)
+│       ├── pages
+│       ├── services        # typed API + socket clients
+│       └── styles          # design tokens
+├── scripts            # CLI and data-prep utilities
+├── tests
+├── migration_plan.md  # the v1 to v2 rewrite log
+├── pyproject.toml
+└── wsgi.py
 ```
-
-### Project demo
-
-![Project demo](https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExMTJlODMxMDg0ZWJjOGFmNTdjYzczZTMwZTIyNzM3YTExZWMxMzM2OCZjdD1n/wwg1suUiTbCY8H8vIA/giphy-downsized-large.gif)
-
-You can also test out the project yourself [here](https://quizzatron.netlify.app/).
 
 ## Contributing
 

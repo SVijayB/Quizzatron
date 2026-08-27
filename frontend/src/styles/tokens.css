@@ -1,0 +1,97 @@
+/*
+ * Quizzatron design tokens — single source of truth.
+ *
+ * This is the ONLY file in the codebase that may contain raw colour literals.
+ * Everything else (Tailwind config, components) must reference these vars,
+ * either directly via `var(--…)` or through the Tailwind theme that maps onto
+ * them.
+ *
+ * Visual direction: retro arcade / TV game-show buzzer. Flat solid fills, hard
+ * offset shadows with zero blur, thick ink borders, chunky controls that
+ * physically depress. No gradients, no blur, no glow.
+ */
+
+:root {
+  /* ---------------------------------------------------------------- colour */
+
+  /* Surfaces */
+  --color-ink: #101014; /* page background */
+  --color-ink-raised: #1a1a22; /* raised panel surface */
+  --color-ink-sunken: #08080b; /* inset / well surface */
+  --color-ink-line: #000000; /* borders and hard shadows */
+  /* Modal scrim. Declared with alpha baked in: the Tailwind colours map to
+     custom properties, which the `/opacity` modifier cannot see through. */
+  --color-scrim: rgb(8 8 11 / 88%);
+
+  /* Type / light surfaces */
+  --color-bone: #f4f1e6; /* primary text, light surfaces — 16.8:1 on ink */
+  --color-bone-dim: #a8a498; /* secondary text — 7.6:1 on ink */
+
+  /* Accent — primary. CTAs, timer, focus rings, active states. */
+  --color-acid: #dfff1f; /* 16.7:1 with ink text */
+  --color-acid-deep: #a8c400; /* acid pressed / hover */
+
+  /* Semantic status. All of these take ink text, never white. */
+  --color-hot: #ff2e4d; /* wrong answer, destructive, danger — 5.2:1 w/ ink */
+  --color-go: #17c964; /* correct answer, ready, success — 8.7:1 w/ ink */
+  --color-sky: #2e7bff; /* informational, secondary action — 4.9:1 w/ ink */
+
+  /* ------------------------------------------------------- hard shadows */
+  /* Offset, zero blur. This is the signature of the system. */
+  --shadow-hard-sm: 2px 2px 0 0 var(--color-ink-line);
+  --shadow-hard: 4px 4px 0 0 var(--color-ink-line);
+  --shadow-hard-lg: 6px 6px 0 0 var(--color-ink-line);
+  --shadow-hard-none: 0 0 0 0 var(--color-ink-line);
+
+  /* Inset well, used for sunken tracks (timer, slider, progress). */
+  --shadow-inset: inset 2px 2px 0 0 var(--color-ink-line);
+
+  /* ------------------------------------------------------------- borders */
+  --border-width: 2px;
+  --border-width-thick: 3px; /* large CTAs */
+
+  /* -------------------------------------------------------------- radius */
+  --radius-sm: 4px;
+  --radius: 6px;
+  --radius-lg: 10px;
+  --radius-full: 9999px;
+
+  /* ------------------------------------------------------------- motion */
+  --dur-press: 110ms; /* the depress interaction */
+  --dur-fast: 150ms;
+  --dur-base: 220ms;
+  --dur-slow: 340ms;
+
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+
+  /* Press geometry, shared by the `.press` utility and JS variants. */
+  --press-lift: -2px; /* hover translateY */
+  --press-drop: 4px; /* active translate x/y */
+
+  /* ---------------------------------------------------------------- focus */
+  --focus-ring-width: 3px;
+  --focus-ring-offset: 2px;
+  --focus-ring-color: var(--color-acid);
+
+  /* ----------------------------------------------------------- z-index */
+  --z-sticky: 20;
+  --z-overlay: 50;
+  --z-toast: 100;
+}
+
+/*
+ * Reduced motion: zero every duration rather than sprinkling media queries
+ * through components. Anything that reads a --dur-* token becomes instant.
+ * JS-driven animation goes through useReducedMotionSafe() in src/lib/motion.ts.
+ */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --dur-press: 0ms;
+    --dur-fast: 0ms;
+    --dur-base: 0ms;
+    --dur-slow: 0ms;
+    --press-lift: 0px;
+    --press-drop: 0px;
+  }
+}

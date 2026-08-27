@@ -1,386 +1,224 @@
-# pylint: skip-file
-"""WebSocket server implementation for real-time multiplayer quiz game."""
+"""Socket.IO transport.
+
+This file is now a thin adapter: it validates payloads, joins rooms, and
+forwards to :mod:`api.multiplayer.engine`. All game logic lives in the engine.
+
+v1's version contained the game rules inline (trusting client scores, scanning
+for "has everyone answered", broadcasting ``game_over``) *and* carried a second,
+never-registered copy of the broadcast helpers whose ``new_question`` payload
+used a different field name -- a latent contract fork. There was also a third
+dead implementation in ``multiplayer_api.py`` referencing state fields that did
+not exist.
+
+``request_next_question`` is deliberately absent. The server advances rounds.
+"""
+
+from __future__ import annotations
 
 import logging
+
 from flask import request
-from flask_socketio import SocketIO, join_room, leave_room, emit
+from flask_socketio import SocketIO, join_room, leave_room
 
-# SocketIO instance
-socketio = None
+from api.multiplayer import engine
+from api.multiplayer.store import LobbyError, store
+
+logger = logging.getLogger(__name__)
+
+socketio: SocketIO | None = None
 
 
-def init_socketio(app):
-    """Initialize SocketIO with the Flask app."""
-    global socketio
+class SocketBroadcaster:
+    """Adapts Flask-SocketIO to the engine's :class:`~api.multiplayer.engine.Broadcaster`."""
+
+    def __init__(self, sio: SocketIO) -> None:
+        """Wrap a SocketIO server."""
+        self._sio = sio
+
+    def emit(self, event: str, payload: dict, *, room: str | None = None) -> None:
+        """Broadcast to a room, or to everyone."""
+        self._sio.emit(event, payload, to=room)
+
+    def sleep(self, seconds: float) -> None:
+        """Sleep using the server's own concurrency primitive."""
+        self._sio.sleep(seconds)
+
+    def spawn(self, target, *args: object) -> None:
+        """Run a background task on the SocketIO server."""
+        self._sio.start_background_task(target, *args)
+
+
+def init_socketio(app) -> SocketIO:
+    """Create the Socket.IO server and wire up handlers."""
+    global socketio  # noqa: PLW0603 - one server per process
+
+    from api.core.config import get_settings
+
+    settings = get_settings()
     socketio = SocketIO(
-        app, cors_allowed_origins="*", logger=False, engineio_logger=False
+        app,
+        cors_allowed_origins=settings.cors_origins,
+        logger=False,
+        engineio_logger=False,
+        # Explicit rather than inferred. Threading mode means no monkey-patching,
+        # which is what lets the async LLM layer run safely (see api/core/aio.py).
+        async_mode="threading",
+        ping_interval=25,
+        ping_timeout=60,
     )
-
-    setup_socket_handlers(socketio)
-
+    engine.set_broadcaster(SocketBroadcaster(socketio))
+    _register_handlers(socketio)
     return socketio
 
 
-def setup_socket_handlers(sio):
-    """Set up socket event handlers."""
+def _register_handlers(sio: SocketIO) -> None:
+    """Attach every event handler."""
 
     @sio.on("connect")
-    def handle_connect():
-        """Handle client connection."""
-        logging.info(f"Client connected: {request.sid}")
-        emit("connection_response", {"status": "connected"})
+    def _connect():
+        """Acknowledge a new connection."""
+        sio.emit("connection:ready", {"sessionId": request.sid}, to=request.sid)
 
     @sio.on("disconnect")
-    def handle_disconnect():
-        """Handle client disconnection."""
-        logging.info(f"Client disconnected: {request.sid}")
+    def _disconnect():
+        """Mark the player disconnected without removing them.
 
-        from api.services.multiplayer_service import (
-            active_lobbies,
-            lobbies_lock,
-            leave_lobby,
+        Keeping them in the lobby preserves their score for a rejoin, while
+        :func:`engine.detach_session` excludes them from the round barrier so a
+        dropped tab cannot stall the game.
+        """
+        engine.detach_session(request.sid)
+
+    @sio.on("lobby:join")
+    def _join(data):
+        """Join a lobby's room and bind this socket to a player.
+
+        Clients call this on every ``connect``, including after a reconnect. v1
+        only logged "Automatically rejoining room" and never re-emitted, so a
+        transport blip silently cut the client off from all broadcasts for the
+        rest of the game.
+        """
+        payload = data if isinstance(data, dict) else {}
+        code = str(payload.get("lobbyCode") or "").strip().upper()
+        player_id = str(payload.get("playerId") or "").strip()
+        if not code or not player_id:
+            sio.emit("error", {"message": "lobbyCode and playerId are required."}, to=request.sid)
+            return
+
+        lobby = store.get(code)
+        if lobby is None:
+            sio.emit("error", {"message": "That lobby no longer exists."}, to=request.sid)
+            return
+
+        join_room(code)
+        attached = engine.attach_session(code=code, player_id=player_id, session_id=request.sid)
+        if attached is None:
+            sio.emit("error", {"message": "You are not a member of that lobby."}, to=request.sid)
+            return
+
+        # Send the joiner a full snapshot so a mid-game reload can resync
+        # immediately rather than waiting for the next broadcast.
+        sio.emit("lobby:joined", _snapshot(code), to=request.sid)
+
+    @sio.on("lobby:leave")
+    def _leave(data):
+        """Leave a lobby."""
+        payload = data if isinstance(data, dict) else {}
+        code = str(payload.get("lobbyCode") or "").strip().upper()
+        player_id = str(payload.get("playerId") or "").strip()
+        if code and player_id:
+            engine.leave_lobby(code=code, player_id=player_id)
+            leave_room(code)
+
+    @sio.on("lobby:ready")
+    def _ready(data):
+        """Toggle ready state."""
+        _guarded(
+            data,
+            lambda code, pid, payload: engine.set_ready(
+                code=code, player_id=pid, ready=bool(payload.get("ready", True))
+            ),
         )
 
-        disconnected_player_found = False
-        with lobbies_lock:
-            for lobby_code, lobby in active_lobbies.items():
-                for player in lobby["players"]:
-                    if player.get("session_id") == request.sid:
-                        player_name = player["name"]
-                        disconnected_player_found = True
-
-                        logging.info(
-                            f"Player {player_name} disconnected from lobby {lobby_code}"
-                        )
-                        break
-
-                if disconnected_player_found:
-                    break
-
-        if not disconnected_player_found:
-            logging.warning(
-                f"Disconnected client {request.sid} not found in any lobby."
-            )
-
-    @sio.on("join_room")
-    def handle_join_lobby(data):
-        """Handle client joining a lobby room."""
-        logging.info(f"Join room request: {data}")
-        if not data or "lobby_code" not in data or "player_name" not in data:
-            emit("error", {"message": "Invalid data for joining room"})
-            return
-
-        lobby_code = data["lobby_code"]
-        player_name = data["player_name"]
-        player_id = data.get("player_id", "")
-
-        # Join the room
-        join_room(lobby_code)
-        logging.info(f"Player {player_name} ({request.sid}) joined lobby {lobby_code}")
-
-        # Import here to avoid circular imports
-        from api.services.multiplayer_service import active_lobbies, lobbies_lock
-
-        # Store the session ID in the player's record for disconnect handling
-        with lobbies_lock:
-            if lobby_code in active_lobbies:
-                for player in active_lobbies[lobby_code]["players"]:
-                    if player["name"] == player_name:
-                        player["session_id"] = request.sid
-                        break
-
-        # Notify other clients in the room
-        emit(
-            "player_joined",
-            {"name": player_name, "id": player_id},
-            room=lobby_code,
-            skip_sid=request.sid,
+    @sio.on("lobby:settings")
+    def _settings(data):
+        """Update settings. Host only."""
+        _guarded(
+            data,
+            lambda code, pid, payload: engine.update_settings(
+                code=code, player_id=pid, payload=payload.get("settings") or {}
+            ),
         )
 
-        # Acknowledge join to the client who joined
-        emit("room_joined", {"lobby_code": lobby_code, "status": "success"})
-
-    @sio.on("leave_room")
-    def handle_leave_lobby(data):
-        """Handle client leaving a lobby room."""
-        if not data or "lobby_code" not in data or "player_name" not in data:
-            return
-
-        lobby_code = data["lobby_code"]
-        player_name = data["player_name"]
-        player_id = data.get("player_id", "")
-
-        # Leave the room
-        leave_room(lobby_code)
-        logging.info(f"Player {player_name} ({request.sid}) left lobby {lobby_code}")
-
-        # Import here to avoid circular imports
-        from api.services.multiplayer_service import leave_lobby
-
-        # Call the multiplayer service to update lobby state
-        result, status_code = leave_lobby(lobby_code, player_name)
-
-        if status_code == 200:
-            logging.info(
-                f"Player {player_name} successfully removed from lobby {lobby_code}"
-            )
-        else:
-            logging.error(
-                f"Failed to remove player {player_name} from lobby {lobby_code}: {result}"
-            )
-
-        # Note: The leave_lobby function will broadcast player_left and lobby_update events
-
-    @sio.on("start_game")
-    def handle_start_game(data):
-        """Handle game start request."""
-        from api.services.multiplayer_service import start_game
-
-        logging.info(f"Start game request: {data}")
-        if not data or "lobby_code" not in data:
-            emit("error", {"message": "Invalid data for starting game"})
-            return
-
-        lobby_code = data["lobby_code"]
-
-        # Call the multiplayer service to start the game
-        result, status_code = start_game(lobby_code)
-
-        if status_code != 200:
-            emit("error", {"message": result.get("error", "Failed to start game")})
-            return
-
-        # Game start is handled by the multiplayer service, which broadcasts to all clients
-        emit("game_started", {"status": "success"})
-
-    @sio.on("submit_answer")
-    def handle_submit_answer(data):
-        """Handle answer submission with simplified approach."""
-        from api.services.multiplayer_service import active_lobbies, lobbies_lock
-
-        logging.info(f"Answer submission: {data}")
-        if (
-            not data
-            or "lobby_code" not in data
-            or "player_name" not in data
-            or "question_index" not in data
-        ):
-            emit("error", {"message": "Invalid answer submission data"})
-            return
-
-        # Get data from submission
-        lobby_code = data["lobby_code"]
-        player_name = data["player_name"]
-        question_index = data["question_index"]
-        answer = data["answer"]
-        time_taken = data["time_taken"]
-        is_correct = data["is_correct"]
-        score = data["score"]
-
-        # Get the player ID and update player data
-        player_id = None
-        with lobbies_lock:
-            if lobby_code in active_lobbies:
-                for player in active_lobbies[lobby_code]["players"]:
-                    if player["name"] == player_name:
-                        player_id = player["id"]
-
-                        # Update player score directly
-                        player["score"] += score
-                        if is_correct:
-                            player["correctAnswers"] += 1
-                        player["currentQuestion"] = question_index + 1
-
-                        # Add answer to player's answer list
-                        if "answers" not in player:
-                            player["answers"] = []
-
-                        player["answers"].append(
-                            {
-                                "question_index": question_index,
-                                "answer": answer,
-                                "is_correct": is_correct,
-                                "score": score,
-                                "time_taken": time_taken,
-                            }
-                        )
-                        break
-
-        # Broadcast to all players that this player has answered
-        emit(
-            "player_answered",
-            {
-                "player_name": player_name,
-                "player_id": player_id,
-                "question_index": question_index,
-                "is_correct": is_correct,
-                "score": score,
-            },
-            room=lobby_code,
+    @sio.on("lobby:avatar")
+    def _avatar(data):
+        """Update an avatar."""
+        _guarded(
+            data,
+            lambda code, pid, payload: engine.update_avatar(
+                code=code, player_id=pid, avatar=str(payload.get("avatar") or "")
+            ),
         )
 
-        # Check if all players have answered this question
-        with lobbies_lock:
-            if lobby_code in active_lobbies:
-                lobby = active_lobbies[lobby_code]
-                all_answered = True
+    @sio.on("game:start")
+    def _start(data):
+        """Start the game. Host only."""
+        _guarded(data, lambda code, pid, payload: engine.start_game(code=code, player_id=pid))
 
-                for player in lobby["players"]:
-                    # Check if player has answered current question
-                    has_answered = False
-                    if "answers" in player:
-                        for answer_data in player["answers"]:
-                            if answer_data.get("question_index") == question_index:
-                                has_answered = True
-                                break
+    @sio.on("game:answer")
+    def _answer(data):
+        """Submit an answer, graded on the server."""
 
-                    if not has_answered:
-                        all_answered = False
-                        break
-
-                if all_answered:
-                    logging.info(
-                        f"All players have answered question {question_index} in lobby {lobby_code}"
-                    )
-                    # Emit an event to tell all clients they can advance
-                    emit("all_answers_in", {}, room=lobby_code)
-
-                    # Check if this was the last question
-                    questions_count = 0
-                    if (
-                        "questions" in lobby
-                        and isinstance(lobby["questions"], list)
-                        and len(lobby["questions"]) > 0
-                    ):
-                        if isinstance(lobby["questions"][0], list):
-                            questions_count = len(lobby["questions"][0])
-                        else:
-                            questions_count = len(lobby["questions"])
-
-                    if question_index >= questions_count - 1:
-                        # This was the last question, game is over
-                        emit(
-                            "game_over", {"players": lobby["players"]}, room=lobby_code
-                        )
-
-    @sio.on("request_next_question")
-    def handle_next_question(data):
-        """Handle request for next question."""
-        from api.services.multiplayer_service import advance_to_next_question
-
-        logging.info(f"Next question request: {data}")
-        if not data or "lobby_code" not in data:
-            emit("error", {"message": "Invalid next question request"})
-            return
-
-        lobby_code = data["lobby_code"]
-
-        # Advance to next question
-        result, status_code = advance_to_next_question(lobby_code)
-
-        if status_code != 200:
-            emit(
-                "error",
-                {"message": result.get("error", "Failed to advance to next question")},
+        def run(code: str, pid: str, payload: dict):
+            return engine.submit_answer(
+                code=code,
+                player_id=pid,
+                question_index=int(payload.get("questionIndex", -1)),
+                selected_index=payload.get("selectedIndex"),
             )
-            return
 
-        # If game is over, notify client
-        if result.get("game_over", False):
-            emit("game_over_acknowledged", {"status": "success"})
+        _guarded(data, run)
 
-    @sio.on("validate_lobby")
-    def handle_validate_lobby(data):
-        """Validate if a lobby is still active."""
-        if not data or "lobby_code" not in data:
-            emit("error", {"message": "Invalid data for lobby validation"})
-            return
-
-        lobby_code = data["lobby_code"]
-
-        from api.services.multiplayer_service import active_lobbies, lobbies_lock
-
-        with lobbies_lock:
-            if lobby_code in active_lobbies:
-                emit("validate_lobby_response", {"valid": True})
-            else:
-                emit("validate_lobby_response", {"valid": False})
+    @sio.on("game:restart")
+    def _restart(data):
+        """Reset a finished lobby. Host only."""
+        _guarded(data, lambda code, pid, payload: engine.restart_game(code=code, player_id=pid))
 
 
-# Broadcast functions used by the multiplayer service
+def _guarded(data, action) -> None:
+    """Run an engine call, reporting failures to just the caller."""
+    payload = data if isinstance(data, dict) else {}
+    code = str(payload.get("lobbyCode") or "").strip().upper()
+    player_id = str(payload.get("playerId") or "").strip()
 
-
-def broadcast_lobby_update(lobby_code, data):
-    """Broadcast a lobby update to all clients in the room."""
-    if not socketio:
-        logging.warning("SocketIO not initialized, cannot broadcast")
+    if not code or not player_id:
+        _emit_error("lobbyCode and playerId are required.")
         return
 
     try:
-        logging.info(f"Broadcasting lobby update to {lobby_code}: {data}")
-        socketio.emit("lobby_update", data, room=lobby_code)
-        logging.info(f"Broadcast completed to {lobby_code}")
-    except Exception as e:
-        logging.error(f"Error broadcasting lobby update: {str(e)}")
+        action(code, player_id, payload)
+    except LobbyError as exc:
+        _emit_error(str(exc))
+    except (TypeError, ValueError) as exc:
+        _emit_error(f"Invalid request: {exc}")
+    except Exception:  # noqa: BLE001 - never let a handler kill the connection
+        logger.exception("Socket handler failed for lobby %s", code)
+        _emit_error("Something went wrong handling that action.")
 
 
-def broadcast_question(lobby_code, question, question_index):
-    """Broadcast a new question to all clients in the room."""
-    if not socketio:
-        logging.warning("SocketIO not initialized")
+def _emit_error(message: str) -> None:
+    """Send an error to the current client only."""
+    if socketio is None:
         return
-
-    socketio.emit(
-        "new_question", {"question": question, "index": question_index}, room=lobby_code
-    )
-    logging.info(f"Broadcasted question {question_index} to {lobby_code}")
+    socketio.emit("error", {"message": message}, to=request.sid)
 
 
-def broadcast_player_answered(lobby_code, player_id, player_name, question_index):
-    """Broadcast that a player has answered to all clients in the room."""
-    if not socketio:
-        logging.warning("SocketIO not initialized")
-        return
-
-    socketio.emit(
-        "player_answered",
-        {
-            "player_id": player_id,
-            "player_name": player_name,
-            "question_index": question_index,
-        },
-        room=lobby_code,
-    )
-    logging.debug(
-        f"Broadcasted that {player_name} answered question {question_index} to {lobby_code}"
-    )
-
-
-def broadcast_all_answers_in(lobby_code):
-    """Broadcast that all players have answered to all clients in the room."""
-    if not socketio:
-        logging.warning("SocketIO not initialized")
-        return
-
-    socketio.emit("all_answers_in", {}, room=lobby_code)
-    logging.debug(f"Broadcasted all answers in to {lobby_code}")
-
-
-def broadcast_scoreboard(lobby_code, scoreboard_data):
-    """Broadcast scoreboard data to all clients in the room."""
-    if not socketio:
-        logging.warning("SocketIO not initialized")
-        return
-
-    socketio.emit("scoreboard", {"players": scoreboard_data}, room=lobby_code)
-    logging.info(f"Broadcasted scoreboard to {lobby_code}")
-
-
-def broadcast_game_over(lobby_code, final_results):
-    """Broadcast game over and final results to all clients in the room."""
-    if not socketio:
-        logging.warning("SocketIO not initialized")
-        return
-
-    socketio.emit("game_over", {"results": final_results}, room=lobby_code)
-    logging.info(f"Broadcasted game over to {lobby_code}")
+def _snapshot(code: str) -> dict:
+    """Best-available state snapshot for a rejoining client."""
+    try:
+        return engine.get_game_state(code)
+    except LobbyError:
+        try:
+            return engine.get_lobby_state(code)
+        except LobbyError:
+            return {}
